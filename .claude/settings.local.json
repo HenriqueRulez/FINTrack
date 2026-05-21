@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Bash(Get-ChildItem -Path \"E:\\\\Projetos\\\\FINTrack\" -Force -Recurse)",
+      "Bash(Select-Object -Property FullName, PSIsContainer)",
+      "Bash(Sort-Object FullName)",
+      "Bash(Format-Table -AutoSize)",
+      "Bash(git -C \"E:\\\\Projetos\\\\FINTrack\" status)",
+      "Bash(npm install *)",
+      "Bash(npm audit *)",
+      "Bash(node -e \"console.log\\(require\\('./node_modules/next/package.json'\\).version\\)\")",
+      "Bash(npm run *)",
+      "Bash(dir \"E:\\\\Projetos\\\\FINTrack\\\\node_modules\" /b)",
+      "Bash(findstr -i radix)",
+      "PowerShell(cd E:\\\\Projetos\\\\FINTrack; Start-Process powershell -ArgumentList \"-NoExit\", \"-Command\", \"npm run dev\" -WindowStyle Normal)",
+      "Bash(Start-Sleep -Seconds 5)",
+      "Bash(Get-Content \"C:\\\\Users\\\\Henrique\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\E--Projetos-FINTrack\\\\9680c83a-22eb-474f-8955-7afbe95ca596\\\\tasks\\\\b3qbrpve2.output\")",
+      "PowerShell(Remove-Item *)",
+      "PowerShell(docker exec *)",
+      "Bash(Test-Path \"E:\\\\Projetos\\\\FINTrack\\\\.claude\\\\tasks\\\\nome-automatico-preco-cache.md\")",
+      "Bash(Test-Path \"E:\\\\Projetos\\\\FINTrack\\\\.claude\\\\working-items\\\\nome-automatico-preco-cache.md\")",
+      "Bash(Test-Path *)",
+      "Bash(mkdir -p E:/Projetos/FINTrack/verify-screenshots)",
+      "Bash(node verify-aapl.mjs)",
+      "Bash(node -e ' *)",
+      "Bash(node -e \"console.log\\(require\\('./node_modules/yahoo-finance2/package.json'\\).version\\)\")"
+    ]
+  }
+}
