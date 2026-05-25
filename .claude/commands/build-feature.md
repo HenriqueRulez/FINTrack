@@ -1,15 +1,21 @@
 ---
-description: "Pipeline completo de desenvolvimento: PO → SM → Engineer → QA, com retry automático até aprovação ou 3 tentativas."
+description: "Pipeline completo de desenvolvimento: PO → Designer → Frontend → SM → Engineer → QA → Security Review, com retry automático Engineer↔QA até aprovação ou 3 tentativas."
 ---
+
+> **Atalho que corre as 3 fases em sequência na mesma sessão.**
+> Para conservar contexto em features grandes, corra as fases separadamente:
+> `/design-feature` → (nova sessão) `/implement-feature [slug]` → (nova sessão) `/verify-feature [slug]`
 
 Execute o ciclo completo de desenvolvimento para a feature pedida pelo utilizador. Informe o progresso em cada passo.
 
 ## Variáveis de estado a manter entre passos
 
-Ao longo do ciclo, mantém estas variáveis que serão passadas a cada agente:
+Ao longo do ciclo, mantém estas variáveis:
 - `working_item_path` — definido pelo PO no Passo 1
-- `task_path` — definido pelo SM no Passo 2
-- `engineer_report_path` — definido pelo Engineer no Passo 3
+- `design_report_path` — definido pelo Designer no Passo 2
+- `frontend_report_path` — definido pelo Frontend no Passo 3
+- `task_path` — definido pelo SM no Passo 4
+- `engineer_report_path` — definido pelo Engineer no Passo 5
 
 ## Protocolo de Execução
 
@@ -18,7 +24,6 @@ Informe: "**PO — a definir requisitos...**"
 
 Use o agente `po` (subagent_type: "po"). O prompt enviado ao agente deve **incluir a linha literal `PIPELINE_MODE=true` no início**, seguida da descrição da feature.
 
-Exemplo de prompt ao PO:
 ```
 PIPELINE_MODE=true
 
@@ -28,42 +33,80 @@ PIPELINE_MODE=true
 - Output esperado: caminho no formato `.claude/working-items/*.md`
 
 **Validação obrigatória — guardar como `working_item_path`:**
-- Se a resposta começar com `BLOCKED:` → emita "❌ **PO BLOQUEADO** — [motivo exacto do BLOCKED]. O briefing pode estar incompleto. Ciclo interrompido." e pare.
-- Se a resposta não contiver `.claude/working-items/` → emita "❌ **PO FALHOU** — resposta inesperada: [resposta recebida completa]. Ciclo interrompido." e pare.
-- Tenta ler o ficheiro retornado. Se não existir → emita "❌ **PO FALHOU** — path retornado mas ficheiro não encontrado em disco: [path]. Ciclo interrompido." e pare.
+- Se a resposta começar com `BLOCKED:` → emita "❌ **PO BLOQUEADO** — [motivo exacto]. Ciclo interrompido." e pare.
+- Se a resposta não contiver `.claude/working-items/` → emita "❌ **PO FALHOU** — resposta inesperada: [resposta completa]. Ciclo interrompido." e pare.
+- Lê o ficheiro retornado. Se não existir → emita "❌ **PO FALHOU** — ficheiro não encontrado: [path]. Ciclo interrompido." e pare.
 - Se passou: guarda o path como `working_item_path`.
 
-### Passo 2 — Scrum Master
+---
+
+### Passo 2 — Designer
+Informe: "**Designer — a especificar visualmente...**"
+
+Use o agente `designer` (subagent_type: "designer") passando `working_item_path` no prompt.
+
+- Output esperado: caminho no formato `.claude/reports/design-*.md`
+
+**Validação obrigatória — guardar como `design_report_path`:**
+- Se a resposta começar com `BLOCKED:` → emita "❌ **Designer BLOQUEADO** — [motivo exacto]. Ciclo interrompido." e pare.
+- Se a resposta não contiver `.claude/reports/design-` → emita "❌ **Designer FALHOU** — resposta inesperada: [resposta completa]. Ciclo interrompido." e pare.
+- Lê o ficheiro retornado. Se não existir → emita "❌ **Designer FALHOU** — ficheiro não encontrado: [path]. Ciclo interrompido." e pare.
+- Se passou: guarda o path como `design_report_path`.
+
+---
+
+### Passo 3 — Frontend
+Informe: "**Frontend — a implementar a interface visual...**"
+
+Use o agente `frontend` (subagent_type: "frontend") passando `design_report_path` e `working_item_path` no prompt.
+
+- Output esperado: caminho no formato `.claude/reports/frontend-*.md`
+
+**Validação obrigatória — guardar como `frontend_report_path`:**
+- Se a resposta começar com `BLOCKED:` → emita "❌ **Frontend BLOQUEADO** — [motivo exacto]. Ciclo interrompido." e pare.
+- Lê o ficheiro retornado. Se não existir → emita "❌ **Frontend FALHOU** — ficheiro não encontrado: [path]. Ciclo interrompido." e pare.
+- Se o relatório contiver `TYPECHECK_FAILED:` → emita "❌ **Frontend FALHOU — Typecheck com erros:**\n[output completo]. Ciclo interrompido." e pare.
+- Se o relatório contiver `LINT_FAILED:` → emita "❌ **Frontend FALHOU — Lint com erros:**\n[output completo]. Ciclo interrompido." e pare.
+- Se a resposta não contiver `.claude/reports/frontend-` → emita "❌ **Frontend FALHOU** — resposta inesperada: [resposta completa]. Ciclo interrompido." e pare.
+- Se passou: guarda o path como `frontend_report_path`.
+
+---
+
+### Passo 4 — Scrum Master
 Informe: "**SM — a planear implementação...**"
 
-Use o agente `sm` (subagent_type: "sm") passando `working_item_path` no prompt.
+Use o agente `sm` (subagent_type: "sm") passando `working_item_path`, `design_report_path` e `frontend_report_path` no prompt.
 
 - Output esperado: caminho no formato `.claude/tasks/*.md`
 
 **Validação obrigatória — guardar como `task_path`:**
 - Se a resposta começar com `BLOCKED:` → emita "❌ **SM BLOQUEADO** — [motivo exacto]. Ciclo interrompido." e pare.
-- Se a resposta não contiver `.claude/tasks/` → emita "❌ **SM FALHOU** — resposta inesperada: [resposta recebida completa]. Ciclo interrompido." e pare.
-- Tenta ler o ficheiro retornado. Se não existir → emita "❌ **SM FALHOU** — ficheiro de tarefas não encontrado em disco: [path]. Ciclo interrompido." e pare.
+- Se a resposta não contiver `.claude/tasks/` → emita "❌ **SM FALHOU** — resposta inesperada: [resposta completa]. Ciclo interrompido." e pare.
+- Lê o ficheiro retornado. Se não existir → emita "❌ **SM FALHOU** — ficheiro não encontrado: [path]. Ciclo interrompido." e pare.
 - Se passou: guarda o path como `task_path`.
 
-### Passo 3 — Engineer
-Informe: "**Engineer — a implementar...**"
+---
 
-Use o agente `engineer` (subagent_type: "engineer") passando `task_path` e `working_item_path` no prompt.
+### Passo 5 — Engineer
+Informe: "**Engineer — a implementar lógica e API...**"
 
-- Output esperado: caminho no formato `.claude/reports/*.md` (nunca com prefixo `qa-`)
+Use o agente `engineer` (subagent_type: "engineer") passando `task_path`, `working_item_path`, `design_report_path` e `frontend_report_path` no prompt.
+
+- Output esperado: caminho no formato `.claude/reports/*.md` (nunca com prefixo `qa-`, `design-`, `frontend-`, ou `security-`)
 
 **Validação obrigatória — guardar como `engineer_report_path`:**
 - Se a resposta começar com `BLOCKED:` → emita "❌ **Engineer BLOQUEADO** — [motivo exacto]. Ciclo interrompido." e pare.
-- Lê o ficheiro de relatório retornado. Se não existir → emita "❌ **Engineer FALHOU** — relatório não encontrado em disco: [path]. Ciclo interrompido." e pare.
-- Se o relatório contiver `TYPECHECK_FAILED:` → emita "❌ **Engineer FALHOU — Typecheck com erros:**\n[output completo do TYPECHECK_FAILED do relatório]\nCiclo interrompido." e pare.
-- Se o relatório contiver `LINT_FAILED:` → emita "❌ **Engineer FALHOU — Lint com erros:**\n[output completo do LINT_FAILED do relatório]\nCiclo interrompido." e pare.
-- Se o relatório contiver `MIGRATION_FAILED:` → emita "❌ **Engineer FALHOU — Migration falhou:**\n[output completo do MIGRATION_FAILED do relatório]\nCiclo interrompido." e pare.
-- Se a resposta não contiver `.claude/reports/` → emita "❌ **Engineer FALHOU** — resposta inesperada: [resposta recebida completa]. Ciclo interrompido." e pare.
+- Lê o ficheiro retornado. Se não existir → emita "❌ **Engineer FALHOU** — ficheiro não encontrado: [path]. Ciclo interrompido." e pare.
+- Se o relatório contiver `TYPECHECK_FAILED:` → emita "❌ **Engineer FALHOU — Typecheck com erros:**\n[output completo]. Ciclo interrompido." e pare.
+- Se o relatório contiver `LINT_FAILED:` → emita "❌ **Engineer FALHOU — Lint com erros:**\n[output completo]. Ciclo interrompido." e pare.
+- Se o relatório contiver `MIGRATION_FAILED:` → emita "❌ **Engineer FALHOU — Migration falhou:**\n[output completo]. Ciclo interrompido." e pare.
+- Se a resposta não contiver `.claude/reports/` → emita "❌ **Engineer FALHOU** — resposta inesperada: [resposta completa]. Ciclo interrompido." e pare.
 - Se passou: guarda o path como `engineer_report_path`.
 
-### Passo 4 — QA
-Informe: "**QA — a verificar...**"
+---
+
+### Passo 6 — QA
+Informe: "**QA — a escrever testes e verificar...**"
 
 Use o agente `qa` (subagent_type: "qa") passando **ambos** `engineer_report_path` e `working_item_path` no prompt.
 
@@ -71,24 +114,84 @@ Use o agente `qa` (subagent_type: "qa") passando **ambos** `engineer_report_path
 
 **Validação obrigatória:**
 - Se a resposta começar com `BLOCKED:` → emita "❌ **QA BLOQUEADO** — [motivo exacto]. Ciclo interrompido." e pare.
-- Se a resposta não contiver `.claude/reports/qa-` → emita "❌ **QA FALHOU** — resposta inesperada: [resposta recebida completa]. Ciclo interrompido." e pare.
-- Extrai o status da resposta. Se nenhuma das três palavras estiver presente → emita "❌ **QA FALHOU** — status não identificado na resposta: [resposta recebida]. Ciclo interrompido." e pare.
+- Se a resposta não contiver `.claude/reports/qa-` → emita "❌ **QA FALHOU** — resposta inesperada: [resposta completa]. Ciclo interrompido." e pare.
+- Extrai o status. Se nenhuma das três palavras estiver presente → emita "❌ **QA FALHOU** — status não identificado: [resposta recebida]. Ciclo interrompido." e pare.
 
-### Passo 5 — Decisão
+---
+
+### Passo 7 — Decisão (loop Engineer ↔ QA)
 
 **Contagem de ciclos:** O ciclo Engineer→QA pode correr no máximo **3 vezes no total** (a primeira tentativa conta como ciclo 1).
 
-**Se APROVADO:** avançar para o resumo final.
+**Se APROVADO:** avançar para o Passo 8 (Security Review).
 
 **Se PARCIAL ou REPROVADO e ciclos < 3:**
 - Informe: "⚠️ **QA encontrou problemas — Engineer a corrigir (ciclo N de 3)...**"
-- Use o agente `engineer` (subagent_type: "engineer") passando no prompt: `task_path` + `working_item_path` + caminho do relatório QA + instrução explícita de que se trata de uma correcção com base nos problemas listados no relatório QA
-- Aplicar exactamente as mesmas validações do Passo 3 antes de avançar
-- Voltar ao Passo 4
+- Use o agente `engineer` (subagent_type: "engineer") com: `task_path` + `working_item_path` + `design_report_path` + `frontend_report_path` + caminho do relatório QA + instrução explícita de correcção com base nos problemas do QA
+- Aplicar exactamente as mesmas validações do Passo 5
+- Voltar ao Passo 6
 
 **Se PARCIAL ou REPROVADO e ciclos = 3:**
-- Informe: "⚠️ **Máximo de 3 ciclos atingido — a avançar para o resumo com problemas por resolver.**"
-- Avançar para o resumo final com status PARCIAL/REPROVADO
+- Informe: "⚠️ **Máximo de 3 ciclos atingido — a avançar para Security Review com problemas por resolver.**"
+- Avançar para o Passo 8
+
+---
+
+### Passo 8 — Security Review
+Informe: "**Security Review — a auditar...**"
+
+Use o agente `security-reviewer` (subagent_type: "security-reviewer") passando `engineer_report_path` e `working_item_path` no prompt.
+
+- Output esperado: caminho no formato `.claude/reports/security-*.md`
+
+**Validação obrigatória:**
+- Se a resposta começar com `BLOCKED:` → emita "⚠️ **Security Review BLOQUEADA** — [motivo]. A avançar para o resumo sem auditoria de segurança."
+- Se a resposta não contiver `.claude/reports/security-` → emita "⚠️ **Security Review FALHOU** — resposta inesperada. A avançar para o resumo."
+- Se passou: guarda o path como `security_report_path`.
+
+---
+
+## Passo 9 — Registo de Utilização
+
+Após apresentar o resumo, registar a execução em `TOKEN_USAGE.md`.
+
+Recolher os dados necessários:
+- **Nome da feature:** extrair do `working_item_path` (parte após o último `/`, sem extensão)
+- **Data/hora:** executar `Get-Date -Format "yyyy-MM-dd HH:mm"` via Bash
+- **Status final:** APROVADO / PARCIAL / REPROVADO
+- **Ciclos QA:** número total de vezes que o loop Engineer↔QA correu
+- **Ficheiros tocados:** contar os itens nas secções "Ficheiros Criados" e "Ficheiros Modificados" dos relatórios Frontend e Engineer combinados
+- **Relatórios gerados:** contar os artefactos `.md` criados em `.claude/`
+
+Construir a entrada e **substituir** a linha `_Nenhuma execução registada ainda._` na primeira execução, ou **acrescentar antes da linha `---` do Resumo Acumulado** nas seguintes. Usar este formato exacto:
+
+```markdown
+### Run #[N] — [Nome da Feature] ([YYYY-MM-DD HH:MM])
+
+| Agente | Status |
+|--------|--------|
+| PO | ✅ / ❌ |
+| Designer | ✅ / ❌ |
+| Frontend | ✅ / ❌ |
+| SM | ✅ / ❌ |
+| Engineer | ✅ / ❌ (ciclo 1) / ✅ (ciclo 2) / ... |
+| QA | ✅ APROVADO / ⚠️ PARCIAL / ❌ REPROVADO |
+| Security Review | ✅ / ⚠️ Sem auditoria |
+
+**Ciclos QA:** [N] de 3  
+**Ficheiros tocados:** [N] ([N] criados + [N] modificados)  
+**Relatórios gerados:** [N] ficheiros em `.claude/`  
+**Testes E2E:** `tests/e2e/[nome].spec.ts`  
+**Tokens exactos:** verificar Claude Code → Stats
+
+---
+```
+
+Depois actualizar o **Resumo Acumulado** no fim do `TOKEN_USAGE.md`:
+- Incrementar "Execuções `/build-feature`"
+- Incrementar "Features entregues", "com retrabalho" ou "reprovadas" conforme o status
+- Somar ciclos QA extra (ciclos − 1, pois o primeiro não é retrabalho)
+- Somar ficheiros tocados
 
 ## Resumo Final
 
@@ -101,16 +204,22 @@ Apresente ao utilizador:
 
 **Artefactos gerados:**
 - Working item: `[working_item_path]`
+- Especificação visual: `[design_report_path]`
+- Relatório Frontend: `[frontend_report_path]`
 - Plano de tarefas: `[task_path]`
 - Relatório Engineer: `[engineer_report_path]`
 - Relatório QA: `[caminho do último relatório QA]`
+- Relatório Security: `[security_report_path]`
 
 **Ficheiros criados/modificados no projecto:**
-[lista do relatório do Engineer]
+[lista combinada dos relatórios Frontend e Engineer]
 
-**Para testar no browser:**
-[lista dos itens MANUAL do último relatório QA]
+**Testes E2E adicionados:**
+`tests/e2e/[nome-da-feature].spec.ts`
 
 **Problemas não resolvidos** (apenas se PARCIAL ou REPROVADO):
-[lista completa dos problemas do relatório QA final — nunca omitir]
+[lista completa dos problemas do último relatório QA — nunca omitir]
+
+**Achados de segurança** (apenas se houver novos):
+[lista dos novos achados adicionados ao SECURITY_FINDINGS.md]
 ---

@@ -14,9 +14,11 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="w-56 bg-white border-r border-gray-200 flex flex-col">
-      <div className="p-5 border-b border-gray-100">
-        <span className="text-lg font-bold text-blue-600">FINTrack</span>
+    <aside className="w-56 bg-sidebar border-r border-sidebar-border flex flex-col">
+      <div className="p-5 border-b border-sidebar-border">
+        <span className="text-lg font-bold text-primary neon-primary-text tracking-tight">
+          FINTrack
+        </span>
       </div>
       <nav className="flex-1 p-3 space-y-1">
         {navItems.map((item) => {
@@ -26,10 +28,10 @@ export function Sidebar() {
               key={item.href}
               href={item.href as never}
               className={cn(
-                "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors",
+                "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors relative",
                 isActive
-                  ? "bg-blue-50 text-blue-700 font-medium"
-                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                  ? "bg-sidebar-accent text-primary font-medium border-l-2 border-primary pl-[10px]"
+                  : "text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-foreground"
               )}
             >
               <span className="text-base">{item.icon}</span>

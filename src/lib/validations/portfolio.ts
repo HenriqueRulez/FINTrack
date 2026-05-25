@@ -7,7 +7,7 @@ export const PositionSchema = z.object({
     .max(10, "Máximo 10 caracteres")
     .toUpperCase()
     .trim(),
-  asset_type: z.enum(["stock", "etf"]),
+  asset_type: z.enum(["stock", "etf", "fii", "crypto"]),
   quantity: z
     .number({ invalid_type_error: "Quantidade deve ser um número" })
     .positive("Quantidade deve ser positiva"),

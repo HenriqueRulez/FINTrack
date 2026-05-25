@@ -24,7 +24,19 @@
       "Bash(mkdir -p E:/Projetos/FINTrack/verify-screenshots)",
       "Bash(node verify-aapl.mjs)",
       "Bash(node -e ' *)",
-      "Bash(node -e \"console.log\\(require\\('./node_modules/yahoo-finance2/package.json'\\).version\\)\")"
+      "Bash(node -e \"console.log\\(require\\('./node_modules/yahoo-finance2/package.json'\\).version\\)\")",
+      "Bash(not exist *)",
+      "Bash(npm list *)",
+      "Bash(npm view *)",
+      "Bash(New-Item -ItemType Directory -Force \"E:\\\\Projetos\\\\FINTrack\\\\src\\\\app\\\\api\\\\portfolio\\\\verify-ticker\")",
+      "Bash(Out-Null)",
+      "Bash(Write-Output \"Directory created\")",
+      "Bash(npx playwright *)",
+      "Bash(New-Item -ItemType Directory -Force \"E:\\\\Projetos\\\\FINTrack\\\\tests\\\\e2e\\\\.auth\")",
+      "Bash(Write-Output \"done\")",
+      "Bash(powershell -Command \"Get-Date *)"
     ]
-  }
+  },
+  "outputStyle": "default",
+  "prefersReducedMotion": false
 }

@@ -14,10 +14,10 @@ export function Navbar() {
   }
 
   return (
-    <header className="h-14 bg-white border-b border-gray-200 flex items-center justify-end px-6">
+    <header className="h-14 bg-sidebar border-b border-sidebar-border flex items-center justify-end px-6">
       <button
         onClick={handleLogout}
-        className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+        className="text-sm text-muted-foreground hover:text-foreground transition-colors"
       >
         Sair
       </button>

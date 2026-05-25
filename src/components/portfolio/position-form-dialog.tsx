@@ -18,10 +18,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import type { Position } from "@/components/portfolio/position-table";
 
 export interface PositionFormData {
   ticker: string;
-  asset_type: "stock" | "etf";
+  asset_type: "stock" | "etf" | "fii" | "crypto";
   quantity: number;
   avg_price: number;
   currency: "EUR" | "BRL" | "USD";
@@ -31,13 +32,18 @@ interface PositionFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   position?: PositionFormData & { id: string };
-  onSubmit: (data: PositionFormData) => void;
+  // Opção A: o formulário gere o fetch internamente; onSuccess é chamado apenas quando o POST retorna 201
+  onSuccess: (position: Position) => void;
+  // Mantido como prop opcional para compatibilidade com o modo de edição (position-table.tsx)
+  onSubmit?: (data: PositionFormData) => void;
   isLoading?: boolean;
 }
 
-const ASSET_TYPES: { value: "stock" | "etf"; label: string }[] = [
+const ASSET_TYPES: { value: "stock" | "etf" | "fii" | "crypto"; label: string }[] = [
   { value: "stock", label: "Stock" },
   { value: "etf", label: "ETF" },
+  { value: "fii", label: "FII" },
+  { value: "crypto", label: "Crypto" },
 ];
 
 const CURRENCIES: { value: "EUR" | "BRL" | "USD"; label: string }[] = [
@@ -46,18 +52,28 @@ const CURRENCIES: { value: "EUR" | "BRL" | "USD"; label: string }[] = [
   { value: "USD", label: "USD" },
 ];
 
+type AssetType = "stock" | "etf" | "fii" | "crypto";
+const VALID_ASSET_TYPES: readonly AssetType[] = ["stock", "etf", "fii", "crypto"];
+
+function resolveAssetType(value: string | undefined): AssetType {
+  return (VALID_ASSET_TYPES as readonly string[]).includes(value ?? "")
+    ? (value as AssetType)
+    : "stock";
+}
+
 export function PositionFormDialog({
   open,
   onOpenChange,
   position,
+  onSuccess,
   onSubmit,
   isLoading = false,
 }: PositionFormDialogProps) {
   const isEditing = Boolean(position);
 
   const [ticker, setTicker] = React.useState(position?.ticker ?? "");
-  const [assetType, setAssetType] = React.useState<"stock" | "etf">(
-    position?.asset_type === "etf" ? "etf" : "stock"
+  const [assetType, setAssetType] = React.useState<AssetType>(
+    resolveAssetType(position?.asset_type)
   );
   const [quantity, setQuantity] = React.useState(
     position?.quantity?.toString() ?? ""
@@ -69,14 +85,29 @@ export function PositionFormDialog({
     position?.currency ?? "BRL"
   );
 
-  // Reset form when dialog opens with a new position (or clears)
+  // Estados de verificação de ticker
+  const [tickerError, setTickerError] = React.useState<string | null>(null);
+  const [tickerVerifying, setTickerVerifying] = React.useState(false);
+  const [tickerPreview, setTickerPreview] = React.useState<{
+    name: string;
+    price: number;
+    currency: string;
+  } | null>(null);
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+  // Reset do formulário e dos estados de verificação quando o diálogo abre/fecha
   React.useEffect(() => {
     if (open) {
       setTicker(position?.ticker ?? "");
-      setAssetType(position?.asset_type === "etf" ? "etf" : "stock");
+      setAssetType(resolveAssetType(position?.asset_type));
       setQuantity(position?.quantity?.toString() ?? "");
       setAvgPrice(position?.avg_price?.toString() ?? "");
       setCurrency(position?.currency ?? "BRL");
+      // CA-07: limpar todos os estados de verificação
+      setTickerError(null);
+      setTickerVerifying(false);
+      setTickerPreview(null);
+      setIsSubmitting(false);
     }
   }, [open, position]);
 
@@ -87,18 +118,99 @@ export function PositionFormDialog({
     Number(quantity) > 0 &&
     Number(avgPrice) > 0;
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!isFormValid) return;
+  // CA-03: Verificar ticker via API antes de submeter
+  async function handleVerify() {
+    const trimmed = ticker.trim().toUpperCase();
+    if (!trimmed) return;
 
-    onSubmit({
-      ticker: ticker.trim().toUpperCase(),
-      asset_type: assetType,
-      quantity: Number(quantity),
-      avg_price: Number(avgPrice),
-      currency,
-    });
+    setTickerVerifying(true);
+    setTickerError(null);
+    setTickerPreview(null);
+
+    try {
+      const res = await fetch(
+        `/api/portfolio/verify-ticker?ticker=${encodeURIComponent(trimmed)}`
+      );
+      const body = (await res.json()) as {
+        data?: { name: string; price: number; currency: string };
+        error?: string;
+      };
+
+      if (res.ok && body.data) {
+        // CA-04: exibir preview com nome e preço
+        setTickerPreview(body.data);
+      } else {
+        // CA-05: exibir mensagem de erro da API
+        setTickerError(body.error ?? "Erro ao verificar o ticker.");
+      }
+    } catch {
+      // CA-09: erro de rede
+      setTickerError("Erro ao comunicar com o servidor. Tente novamente.");
+    } finally {
+      setTickerVerifying(false);
+    }
   }
+
+  // Submissão com fetch interno (Opção A) — gere erros 422 sem fechar o diálogo
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!isFormValid || isSubmitting || tickerVerifying) return;
+
+    // Modo edição: delegar ao onSubmit externo (position-table.tsx gere o PATCH)
+    if (isEditing && onSubmit) {
+      onSubmit({
+        ticker: ticker.trim().toUpperCase(),
+        asset_type: assetType,
+        quantity: Number(quantity),
+        avg_price: Number(avgPrice),
+        currency,
+      });
+      return;
+    }
+
+    // Modo criação: fetch POST interno
+    setIsSubmitting(true);
+    setTickerError(null);
+
+    try {
+      const res = await fetch("/api/portfolio", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ticker: ticker.trim().toUpperCase(),
+          asset_type: assetType,
+          quantity: Number(quantity),
+          avg_price: Number(avgPrice),
+          currency,
+        }),
+      });
+
+      const body = (await res.json()) as { data?: Position; error?: string };
+
+      if (!res.ok) {
+        // CA-01: manter diálogo aberto e exibir erro inline
+        if (res.status === 422 || res.status === 429) {
+          setTickerError(body.error ?? "Erro ao adicionar posição.");
+        } else {
+          // CA-09: erro genérico de servidor
+          setTickerError("Erro ao comunicar com o servidor. Tente novamente.");
+        }
+        return;
+      }
+
+      if (body.data) {
+        onSuccess(body.data);
+      }
+    } catch {
+      // CA-09: erro de rede (sem resposta)
+      setTickerError("Erro ao comunicar com o servidor. Tente novamente.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  // Loading efectivo: interno ou externo (modo edição)
+  const effectiveLoading = isSubmitting || isLoading;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -113,20 +225,55 @@ export function PositionFormDialog({
           {/* Ticker */}
           <div className="grid gap-1.5">
             <Label htmlFor="ticker">Ticker *</Label>
-            <Input
-              id="ticker"
-              placeholder="ex: AAPL"
-              value={ticker}
-              onChange={(e) => setTicker(e.target.value)}
-              maxLength={10}
-              required
-            />
+            <div className="flex gap-2">
+              <Input
+                id="ticker"
+                placeholder="ex: AAPL"
+                value={ticker}
+                onChange={(e) => {
+                  setTicker(e.target.value);
+                  // CA-02: limpar erro e preview ao editar o ticker
+                  setTickerError(null);
+                  setTickerPreview(null);
+                }}
+                maxLength={20}
+                required
+                className="flex-1"
+                aria-describedby={tickerError ? "ticker-error" : undefined}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleVerify}
+                disabled={!ticker.trim() || tickerVerifying || effectiveLoading}
+              >
+                {tickerVerifying ? "A verificar..." : "Verificar"}
+              </Button>
+            </div>
+
+            {/* CA-04: Preview de ticker válido */}
+            {tickerPreview && (
+              <div className="rounded-md border border-border/50 bg-muted px-3 py-2 text-sm">
+                <p className="text-foreground font-medium">{tickerPreview.name}</p>
+                <p className="text-[var(--primary)] tabular-nums">
+                  {tickerPreview.currency} {tickerPreview.price.toFixed(2)}
+                </p>
+              </div>
+            )}
+
+            {/* CA-01, CA-05, CA-09, CA-10: Mensagem de erro acessível */}
+            {tickerError && (
+              <p id="ticker-error" role="alert" className="text-[var(--destructive)] text-sm">
+                {tickerError}
+              </p>
+            )}
           </div>
 
           {/* Tipo */}
           <div className="grid gap-1.5">
             <Label htmlFor="asset_type">Tipo *</Label>
-            <Select value={assetType} onValueChange={(v) => setAssetType(v as "stock" | "etf")}>
+            <Select value={assetType} onValueChange={(v) => setAssetType(v as AssetType)}>
               <SelectTrigger id="asset_type" className="w-full">
                 <SelectValue placeholder="Seleccionar tipo" />
               </SelectTrigger>
@@ -187,17 +334,25 @@ export function PositionFormDialog({
             </Select>
           </div>
 
+          {/* CA-06: Botões desactivados durante submissão e verificação */}
           <DialogFooter>
             <Button
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
-              disabled={isLoading}
+              disabled={effectiveLoading || tickerVerifying}
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={!isFormValid || isLoading}>
-              {isLoading ? "A guardar..." : isEditing ? "Guardar" : "Adicionar"}
+            <Button
+              type="submit"
+              disabled={!isFormValid || effectiveLoading || tickerVerifying}
+            >
+              {effectiveLoading
+                ? "A guardar..."
+                : isEditing
+                ? "Guardar"
+                : "Adicionar"}
             </Button>
           </DialogFooter>
         </form>

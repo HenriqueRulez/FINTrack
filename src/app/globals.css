@@ -5,8 +5,9 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-    --font-heading: var(--font-sans);
-    --font-sans: var(--font-sans);
+    --font-heading: var(--font-ibm-plex-mono);
+    --font-sans: var(--font-ibm-plex-mono);
+    --font-mono: var(--font-ibm-plex-mono);
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -83,37 +84,57 @@
 }
 
 .dark {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.205 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.922 0 0);
-    --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.704 0.191 22.216);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.556 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
-    --sidebar: oklch(0.205 0 0);
-    --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.488 0.243 264.376);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.269 0 0);
-    --sidebar-accent-foreground: oklch(0.985 0 0);
-    --sidebar-border: oklch(1 0 0 / 10%);
-    --sidebar-ring: oklch(0.556 0 0);
+    /* Fundos — camadas */
+    --background:  oklch(0.09 0.015 250);   /* #0B0D18 — fundo da página    */
+    --card:        oklch(0.13 0.012 250);   /* #101421 — cards e painéis    */
+    --popover:     oklch(0.13 0.012 250);   /* #101421 — dropdowns          */
+    --muted:       oklch(0.17 0.012 250);   /* #161A28 — superfícies suaves */
+    --secondary:   oklch(0.17 0.012 250);   /* #161A28 — botões secundários */
+
+    /* Texto */
+    --foreground:           oklch(0.93 0.010 250);  /* #E6E9F3 — texto principal  */
+    --card-foreground:      oklch(0.93 0.010 250);
+    --popover-foreground:   oklch(0.93 0.010 250);
+    --muted-foreground:     oklch(0.55 0.015 250);  /* #717799 — labels, metadados */
+    --secondary-foreground: oklch(0.93 0.010 250);
+    --accent-foreground:    oklch(0.93 0.010 250);
+
+    /* Acento principal — Teal */
+    --primary:            oklch(0.72 0.17 185);  /* #00B5A8 — botões, links, ring */
+    --primary-foreground: oklch(0.09 0.015 250); /* texto escuro sobre teal      */
+    --accent:             oklch(0.17 0.012 250); /* hover sutil                  */
+    --ring:               oklch(0.72 0.17 185);  /* outline de foco              */
+
+    /* Bordas e inputs */
+    --border: oklch(1 0 0 / 8%);
+    --input:  oklch(1 0 0 / 12%);
+
+    /* Semântica financeira */
+    --gain: oklch(0.70 0.18 145);   /* #1AB35A — ganho positivo */
+    --loss: oklch(0.63 0.22 25);    /* #E05050 — perda negativa */
+    --destructive: oklch(0.63 0.22 25);
+
+    /* Glows neon — sombras para efeitos de brilho */
+    --glow-primary: 0 0 12px oklch(0.72 0.17 185 / 60%), 0 0 40px oklch(0.72 0.17 185 / 20%);
+    --glow-gain:    0 0 12px oklch(0.70 0.18 145 / 60%), 0 0 40px oklch(0.70 0.18 145 / 20%);
+    --glow-loss:    0 0 12px oklch(0.63 0.22 25  / 60%), 0 0 40px oklch(0.63 0.22 25  / 20%);
+
+    /* Gráficos */
+    --chart-1: oklch(0.72 0.17 185);  /* Teal   — Stocks  */
+    --chart-2: oklch(0.65 0.20 280);  /* Violeta — ETFs   */
+    --chart-3: oklch(0.78 0.16 55);   /* Âmbar  — FIIs    */
+    --chart-4: oklch(0.70 0.18 335);  /* Rosa   — Crypto  */
+    --chart-5: oklch(0.68 0.17 220);  /* Azul céu — Outros */
+
+    /* Sidebar */
+    --sidebar:                    oklch(0.11 0.012 250);  /* #0E111C */
+    --sidebar-foreground:         oklch(0.93 0.010 250);
+    --sidebar-primary:            oklch(0.72 0.17 185);
+    --sidebar-primary-foreground: oklch(0.09 0.015 250);
+    --sidebar-accent:             oklch(0.16 0.012 250);
+    --sidebar-accent-foreground:  oklch(0.93 0.010 250);
+    --sidebar-border:             oklch(1 0 0 / 8%);
+    --sidebar-ring:               oklch(0.72 0.17 185);
 }
 
 @layer base {
@@ -126,4 +147,57 @@
   html {
     @apply font-sans;
     }
+}
+
+@layer utilities {
+  /* Glow no acento principal (teal) */
+  .neon-primary {
+    box-shadow: var(--glow-primary);
+  }
+  .neon-primary-text {
+    text-shadow: 0 0 8px oklch(0.72 0.17 185 / 80%), 0 0 20px oklch(0.72 0.17 185 / 40%);
+  }
+
+  /* Glow em borda (card/button com borda neon) */
+  .neon-border-primary {
+    border-color: oklch(0.72 0.17 185 / 50%);
+    box-shadow: 0 0 0 1px oklch(0.72 0.17 185 / 20%), inset 0 0 20px oklch(0.72 0.17 185 / 5%);
+  }
+
+  /* Glow para ganho */
+  .neon-gain {
+    text-shadow: 0 0 8px oklch(0.70 0.18 145 / 80%), 0 0 20px oklch(0.70 0.18 145 / 40%);
+  }
+
+  /* Glow para perda */
+  .neon-loss {
+    text-shadow: 0 0 8px oklch(0.63 0.22 25 / 80%), 0 0 20px oklch(0.63 0.22 25 / 40%);
+  }
+
+  /* Linha divisória com gradiente neon */
+  .neon-divider {
+    border: none;
+    height: 1px;
+    background: linear-gradient(
+      to right,
+      transparent,
+      oklch(0.72 0.17 185 / 50%),
+      transparent
+    );
+  }
+
+  /* Dot pulsante (status online, preço atualizado) */
+  .neon-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 9999px;
+    background-color: oklch(0.72 0.17 185);
+    box-shadow: var(--glow-primary);
+    animation: neon-pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes neon-pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.4; }
+  }
 }

@@ -76,20 +76,62 @@ src/
 └── proxy.ts             # Nonce CSP + proteção de rotas
 ```
 
+## Pipeline de Desenvolvimento
+
+```
+PO → Designer → frontend-design skill → SM → Engineer → QA → Security Review
+```
+
+- **Toda feature passa por esse pipeline completo** — sem exceções, incluindo as que eram "Simple Tasks"
+- **Security Review é gate obrigatório**: inclui auditoria OWASP + `npm audit` + verificação de pacotes suspeitos
+- **Security Reviewer deve actualizar `SECURITY_FINDINGS.md`** a cada ciclo: adicionar novos achados, marcar resolvidos, não duplicar
+## Pipeline de Agentes — Ordem Obrigatória
+
+```
+PO → Designer → Frontend → SM → Engineer → QA → Security Review
+```
+
+| Passo | Agente | Responsabilidade | Output |
+|-------|--------|-----------------|--------|
+| 1 | `po` | Define requisitos e critérios de aceite | `.claude/working-items/*.md` |
+| 2 | `designer` | Especifica visualmente usando DESIGN.md | `.claude/reports/design-*.md` |
+| 3 | `frontend` | Implementa UI (componentes, estilos, estados) | `.claude/reports/frontend-*.md` |
+| 4 | `sm` | Planeia tarefas de lógica/API para o Engineer | `.claude/tasks/*.md` |
+| 5 | `engineer` | Implementa API routes, DB, wiring UI↔API | `.claude/reports/*.md` |
+| 6 | `qa` | Escreve testes Playwright por CA + executa todos | `.claude/reports/qa-*.md` |
+| 7 | `security-reviewer` | Audita OWASP + npm audit + actualiza SECURITY_FINDINGS.md | `.claude/reports/security-*.md` |
+
+**Regra:** Todo agente criado deve estar explicitamente posicionado nesta tabela. Nunca criar agentes fora da pipeline sem actualizar este documento.
+
+**Loop de retry:** Engineer ↔ QA (máx. 3 ciclos). Security Review corre sempre após aprovação ou após 3 ciclos.
+
 ## Skills e Subagentes Disponíveis
 
 ### Skills (slash commands)
-- `/build-feature` — pipeline completo PO → SM → Engineer → QA com retry automático
-- `/review-security` — auditoria OWASP nos arquivos modificados
+- `/build-feature` — pipeline completo PO → Designer → Frontend → SM → Engineer → QA → Security Review
+- `/frontend-design` — plugin para UI de alta qualidade (uso manual ou pelo agente Frontend)
+- `/review-security` — auditoria OWASP nos arquivos modificados + `npm audit`
 - `/add-feature` — workflow guiado para adicionar features com segurança
 
 ### Subagentes
 - `po` — Product Owner: define requisitos e working items (com confirmação interactiva)
-- `sm` — Scrum Master: transforma working items em planos de tarefas ordenadas
-- `engineer` — implementa código seguindo os padrões do projecto
-- `qa` — verifica implementação contra critérios de aceite
-- `security-reviewer` — auditor OWASP especializado
+- `designer` — UX/UI Designer: especifica layout, componentes e visual usando `DESIGN.md`
+- `frontend` — Frontend Developer: implementa componentes visuais baseado na spec do Designer
+- `sm` — Scrum Master: planeia tarefas de lógica/API para o Engineer (após o Frontend)
+- `engineer` — implementa API routes, DB, lógica de negócio, wiring UI↔API
+- `qa` — escreve testes Playwright por CA + executa todos os testes no browser real
+- `security-reviewer` — auditor OWASP + npm audit + actualiza `SECURITY_FINDINGS.md`
 - `db-schema-designer` — designer de schema PostgreSQL + RLS para o Supabase
+
+## Design System
+
+- **Documento de referência**: `DESIGN.md` na raiz — fonte única de verdade para identidade visual
+- **Tema**: dark mode apenas — classe `dark` forçada no `<html>` em `layout.tsx`
+- **Fonte**: IBM Plex Mono (todas as variantes — heading, body, mono)
+- **Acento**: Teal (`oklch(0.72 0.17 185)`) — botões, links, ring, glow
+- **Semântica financeira**: `--gain` (verde) / `--loss` (vermelho) para variações de valor
+- **Efeitos neon**: classes `.neon-primary`, `.neon-gain`, `.neon-loss`, `.neon-border-primary`, `.neon-divider`, `.neon-dot`
+- **Paleta editável**: variáveis oklch no bloco `.dark` de `globals.css` — hot reload imediato
 
 ## Pattern Canônico de API Route
 
