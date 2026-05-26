@@ -1,4 +1,4 @@
-﻿export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -101,6 +101,7 @@ export type Database = {
         Row: {
           asset_type: string
           avg_price: number
+          chart_var: string | null
           created_at: string
           currency: string
           current_price: number | null
@@ -110,6 +111,7 @@ export type Database = {
           notes: string | null
           price_updated_at: string | null
           quantity: number
+          sold: boolean
           ticker: string
           updated_at: string
           user_id: string
@@ -117,6 +119,7 @@ export type Database = {
         Insert: {
           asset_type: string
           avg_price: number
+          chart_var?: string | null
           created_at?: string
           currency?: string
           current_price?: number | null
@@ -126,6 +129,7 @@ export type Database = {
           notes?: string | null
           price_updated_at?: string | null
           quantity: number
+          sold?: boolean
           ticker: string
           updated_at?: string
           user_id: string
@@ -133,6 +137,7 @@ export type Database = {
         Update: {
           asset_type?: string
           avg_price?: number
+          chart_var?: string | null
           created_at?: string
           currency?: string
           current_price?: number | null
@@ -142,6 +147,7 @@ export type Database = {
           notes?: string | null
           price_updated_at?: string | null
           quantity?: number
+          sold?: boolean
           ticker?: string
           updated_at?: string
           user_id?: string

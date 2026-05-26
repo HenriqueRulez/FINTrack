@@ -36,6 +36,9 @@ Ao fechar um achado, adicionar: `→ Resolvido em: [nome da feature] (YYYY-MM-DD
 | B-04 | `src/lib/yahoo-finance/client.ts:27` | Cache do Yahoo Finance sem limite de tamanho de entradas (mitigado pelo rate limit de 20 req/min no verify-ticker) | Ticker Validation | 2026-05-23 |
 | B-05 | `src/lib/yahoo-finance/client.ts:45` | `historyCache` (Map) para dados históricos sem limite de entradas — memory leak potencial idêntico ao B-04. Negligível para app pessoal com <100 tickers | Portfolio Aggregated View | 2026-05-23 |
 | B-06 | `src/lib/yahoo-finance/client.ts:104` | `console.error` em `getHistory` loga ticker + objecto de erro completo do Yahoo Finance (stack trace) nos logs do servidor. Risco baixo: ticker é validado por Zod, log é server-side | Portfolio Aggregated View | 2026-05-23 |
+| B-07 | `src/app/api/portfolio/summary/route.ts:53`, `chart/route.ts:73`, `movers/route.ts:35` | `select("*")` nas 3 novas routes — busca todas as colunas de `portfolio_positions`; expõe campos desnecessários e aumenta superfície de risco para colunas futuras | Dashboard Visual Redesign | 2026-05-26 |
+| B-08 | `src/app/api/portfolio/summary/route.ts:51`, `chart/route.ts:71`, `movers/route.ts:33` | `(supabase as any)` type cast nas 3 novas routes — contorna type checking; não é bypass de segurança (`.eq("user_id", user.id)` + RLS activos) mas pode mascarar erros de schema em compile time | Dashboard Visual Redesign | 2026-05-26 |
+| B-09 | `src/hooks/useAnimations.ts:8`, `src/components/settings/AnimationsToggle.tsx:8` | `useState(true)` como valor inicial antes de ler localStorage — flash visual de animações durante hidratação SSR→client se utilizador as tiver desactivado. Sem impacto de segurança | Dashboard Visual Redesign | 2026-05-26 |
 
 ---
 
@@ -71,5 +74,5 @@ A cada ciclo de desenvolvimento, após a auditoria:
 | Crítico   | 0       | 0          | 0       |
 | Alto      | 0       | 0          | 0       |
 | Médio     | 3       | 0          | 0       |
-| Baixo     | 6       | 0          | 1       |
-| **Total** | **9**   | **0**      | **1**   |
+| Baixo     | 9       | 0          | 1       |
+| **Total** | **12**  | **0**      | **1**   |

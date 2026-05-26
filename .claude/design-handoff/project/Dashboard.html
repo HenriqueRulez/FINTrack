@@ -1,0 +1,546 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>FINTrack — Dashboard</title>
+<link rel="stylesheet" href="design-system.css" />
+<style>
+  /* ── page-only layout · all visual tokens come from design-system.css ── */
+
+  /* faint terminal grid behind everything */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(to right, rgba(230,233,243,0.025) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(230,233,243,0.025) 1px, transparent 1px);
+    background-size: 56px 56px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    min-height: 100vh;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ── SIDEBAR ── */
+  .sidebar {
+    background: var(--sidebar);
+    border-right: 1px solid var(--line);
+    padding: var(--s-5) var(--s-4);
+    display: flex; flex-direction: column;
+    gap: var(--s-5);
+    position: sticky; top: 0; height: 100vh;
+  }
+  .brand {
+    display: flex; align-items: center; gap: var(--s-3);
+    padding: 0 var(--s-2) var(--s-4);
+    border-bottom: 1px solid var(--line);
+  }
+  .brand__mark {
+    width: 28px; height: 28px; border-radius: var(--r-2);
+    background: var(--primary);
+    color: var(--background);
+    display: grid; place-items: center;
+    font-weight: 700; font-size: 14px;
+    box-shadow: 0 0 14px rgba(var(--primary-rgb), 0.4);
+  }
+  .brand__name {
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: var(--tr-wide);
+  }
+  .brand__name span { color: var(--muted-foreground); }
+
+  .nav { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+
+  /* ── TOPBAR ── */
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: var(--s-4) var(--s-6);
+    border-bottom: 1px solid var(--line);
+    background: var(--background);
+  }
+  .topbar__date {
+    font-size: var(--t-small);
+    color: var(--muted-foreground);
+    letter-spacing: var(--tr-wide);
+  }
+  .topbar__date b {
+    color: var(--foreground);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: var(--tr-wider);
+    font-size: var(--t-micro);
+    margin-right: var(--s-2);
+  }
+  .topbar__status {
+    display: inline-flex; align-items: center; gap: var(--s-2);
+    font-size: var(--t-micro);
+    letter-spacing: var(--tr-wider);
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+  }
+  .topbar__status b { color: var(--foreground); font-weight: 500; }
+
+  /* ── MAIN ── */
+  main {
+    padding: var(--s-6) var(--s-6) var(--s-7);
+    display: flex; flex-direction: column;
+    gap: var(--s-6);
+  }
+
+  /* ── HERO ── */
+  .hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    gap: var(--s-7);
+    align-items: end;
+    padding-bottom: var(--s-6);
+    border-bottom: 1px solid var(--line);
+  }
+  .hero__label {
+    display: flex; align-items: center; gap: var(--s-3);
+    margin-bottom: var(--s-3);
+  }
+  .hero__number {
+    font-size: clamp(56px, 8vw, 96px);
+    font-weight: 500;
+    line-height: 0.95;
+    letter-spacing: var(--tr-tight);
+    margin: 0;
+    font-variant-numeric: tabular-nums;
+    display: flex; align-items: baseline; gap: 6px;
+  }
+  .hero__number .curr {
+    font-size: 0.42em;
+    color: var(--muted-foreground);
+    margin-right: var(--s-3);
+    font-weight: 400;
+  }
+  .hero__number .dec {
+    color: var(--muted-foreground);
+    font-weight: 400;
+  }
+  .hero__delta {
+    display: flex; align-items: center; gap: var(--s-3);
+    margin-top: var(--s-4);
+    font-size: var(--t-small);
+  }
+  .hero__delta .ref { color: var(--muted-foreground); }
+
+  /* ── KPI STRIP (right of hero) ── */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border-left: 1px solid var(--line);
+    border-top: 1px solid var(--line);
+  }
+  .kpi {
+    padding: var(--s-4) var(--s-5);
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    display: flex; flex-direction: column;
+    gap: var(--s-2);
+    background: rgba(16, 20, 33, 0.4);
+  }
+  .kpi:nth-child(2n) { border-right: none; }
+  .kpi:nth-last-child(-n+2) { border-bottom: none; }
+  .kpi__label {
+    font-size: var(--t-micro);
+    letter-spacing: var(--tr-wider);
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+  }
+  .kpi__value {
+    font-size: 24px;
+    font-weight: 500;
+    line-height: 1;
+    margin-top: var(--s-1);
+    font-variant-numeric: tabular-nums;
+  }
+  .kpi__sub {
+    font-size: var(--t-micro);
+    color: var(--faint-foreground);
+    letter-spacing: var(--tr-wide);
+  }
+
+  /* ── CHART SECTION ── */
+  .chart-card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--r-2);
+    padding: var(--s-5) var(--s-5) var(--s-4);
+  }
+  .chart-head {
+    display: flex; align-items: flex-end; justify-content: space-between;
+    margin-bottom: var(--s-4);
+    gap: var(--s-4);
+    flex-wrap: wrap;
+  }
+  .chart-title {
+    font-size: var(--t-h2);
+    font-weight: 500;
+    letter-spacing: var(--tr-tight);
+    margin: 0 0 var(--s-2);
+    line-height: 1;
+  }
+  .chart-title span { color: var(--muted-foreground); }
+  .chart-meta {
+    display: flex; align-items: center; gap: var(--s-5);
+    flex-wrap: wrap;
+  }
+  .legend { display: flex; align-items: center; gap: var(--s-4); }
+  .legend__item {
+    display: flex; align-items: center; gap: var(--s-2);
+    font-size: var(--t-small);
+    color: var(--muted-foreground);
+  }
+  .legend__sw { width: 14px; height: 2px; }
+  .legend__sw--solid { background: var(--primary); }
+  .legend__sw--dash {
+    background: repeating-linear-gradient(to right, var(--muted-foreground) 0 4px, transparent 4px 7px);
+  }
+
+  .chart-wrap { position: relative; height: 320px; width: 100%; }
+  .chart-wrap svg { display: block; width: 100%; height: 100%; overflow: visible; }
+  .chart-yaxis {
+    position: absolute;
+    right: 6px;
+    top: 0; bottom: 0;
+    pointer-events: none;
+  }
+  .chart-yaxis span {
+    position: absolute;
+    right: 0;
+    transform: translateY(-100%);
+    font-family: var(--font);
+    font-size: var(--t-micro);
+    color: var(--faint-foreground);
+    letter-spacing: var(--tr-wide);
+    background: var(--card);
+    padding: 0 var(--s-1);
+  }
+  .chart-xaxis {
+    display: flex; justify-content: space-between;
+    margin-top: var(--s-3);
+    font-size: var(--t-micro);
+    color: var(--faint-foreground);
+    letter-spacing: var(--tr-wide);
+    text-transform: uppercase;
+  }
+
+  /* hover tooltip */
+  .tooltip {
+    position: absolute;
+    background: var(--muted);
+    color: var(--foreground);
+    padding: var(--s-2) var(--s-3);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-2);
+    font-size: var(--t-small);
+    pointer-events: none;
+    transform: translate(-50%, calc(-100% - 12px));
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 120ms ease;
+    z-index: 4;
+  }
+  .tooltip__date {
+    font-size: var(--t-micro);
+    color: var(--muted-foreground);
+    letter-spacing: var(--tr-wider);
+    text-transform: uppercase;
+  }
+  .tooltip__val {
+    font-size: 16px;
+    font-weight: 500;
+    margin-top: 2px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .chart-foot {
+    display: flex; justify-content: space-between;
+    margin-top: var(--s-3);
+    padding-top: var(--s-3);
+    border-top: 1px solid var(--line);
+    font-size: var(--t-micro);
+    letter-spacing: var(--tr-wide);
+    color: var(--faint-foreground);
+    text-transform: uppercase;
+  }
+
+  /* ── MOVERS ── */
+  .movers-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: var(--s-4);
+  }
+  .movers-head__title {
+    font-size: var(--t-h2);
+    font-weight: 500;
+    letter-spacing: var(--tr-tight);
+    margin: 0;
+  }
+  .movers-head__title span { color: var(--muted-foreground); }
+  .movers-head__see {
+    font-size: var(--t-small);
+    color: var(--muted-foreground);
+    text-decoration: none;
+  }
+  .movers-head__see:hover { color: var(--primary); }
+
+  .movers-grid {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--r-2);
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+  }
+  .mover {
+    padding: var(--s-4) var(--s-5);
+    border-right: 1px solid var(--line);
+    display: flex; flex-direction: column;
+    gap: var(--s-2);
+    min-width: 0;
+  }
+  .mover:last-child { border-right: none; }
+  .mover__head {
+    display: flex; align-items: baseline; justify-content: space-between;
+  }
+  .mover__ticker {
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: var(--tr-wide);
+  }
+  .mover__price {
+    font-size: var(--t-micro);
+    color: var(--muted-foreground);
+    font-variant-numeric: tabular-nums;
+  }
+  .mover__name {
+    font-size: var(--t-small);
+    color: var(--muted-foreground);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .mover__pct {
+    font-size: 22px;
+    font-weight: 500;
+    margin-top: var(--s-2);
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: var(--tr-tight);
+  }
+  .mover__pct--up   { color: var(--gain); }
+  .mover__pct--down { color: var(--loss); }
+  .mover__pct small { font-size: 0.55em; opacity: 0.8; margin-left: 2px; }
+  .mover__spark { height: 22px; opacity: 0.85; }
+
+  /* ── ENTRANCE ANIMATIONS ── */
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .rise { animation: rise 600ms cubic-bezier(.2,.7,.2,1) both; }
+  .d0 { animation-delay: 0ms; }
+  .d1 { animation-delay: 60ms; }
+  .d2 { animation-delay: 120ms; }
+  .d3 { animation-delay: 180ms; }
+  .d4 { animation-delay: 260ms; }
+  .d5 { animation-delay: 340ms; }
+
+  @keyframes draw {
+    from { stroke-dashoffset: 2400; }
+    to { stroke-dashoffset: 0; }
+  }
+  .chart-line {
+    stroke-dasharray: 2400;
+    animation: draw 1600ms 200ms cubic-bezier(.2,.7,.2,1) both;
+  }
+  @keyframes fadein-soft { from { opacity: 0; } to { opacity: 0.22; } }
+  @keyframes fadein-full { from { opacity: 0; } to { opacity: 1; } }
+  .chart-fill     { opacity: 0; animation: fadein-soft 600ms 1000ms both; }
+  .chart-grid     { opacity: 0; animation: fadein-full 600ms 1000ms both; }
+  .chart-invested { opacity: 0; animation: fadein-full 600ms 1000ms both; }
+
+  /* responsive trim */
+  @media (max-width: 1100px) {
+    .hero { grid-template-columns: 1fr; gap: var(--s-5); }
+    .kpi-grid { border-left: none; }
+    .movers-grid { grid-template-columns: repeat(3, 1fr); }
+    .mover:nth-child(3) { border-right: none; }
+    .mover:nth-child(n+4) { border-top: 1px solid var(--line); }
+  }
+  @media (max-width: 700px) {
+    .app { grid-template-columns: 1fr; }
+    .sidebar { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ── SIDEBAR ── -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand__mark">F</div>
+      <div class="brand__name">FINTrack <span>/ v0.1</span></div>
+    </div>
+
+    <nav class="nav">
+      <a class="nav-item nav-item--active">
+        <span class="nav-item__icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="5.5" height="5.5"/><rect x="8.5" y="2" width="5.5" height="5.5"/><rect x="2" y="8.5" width="5.5" height="5.5"/><rect x="8.5" y="8.5" width="5.5" height="5.5"/></svg></span>
+        Dashboard
+      </a>
+      <a class="nav-item">
+        <span class="nav-item__icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 5l6-3 6 3-6 3z"/><path d="M2 8l6 3 6-3"/><path d="M2 11l6 3 6-3"/></svg></span>
+        Portfolios
+        <span class="badge" style="margin-left:auto">2</span>
+      </a>
+      <a class="nav-item">
+        <span class="nav-item__icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 5h10l-3-3"/><path d="M13 11H3l3 3"/></svg></span>
+        Transactions
+      </a>
+      <a class="nav-item">
+        <span class="nav-item__icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 2v6l5 3"/></svg></span>
+        Holdings
+        <span class="badge" style="margin-left:auto">12</span>
+      </a>
+      <a class="nav-item">
+        <span class="nav-item__icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 12l4-4 3 2 5-6"/><path d="M10 4h4v4"/></svg></span>
+        Performance
+      </a>
+      <a class="nav-item">
+        <span class="nav-item__icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="2" width="10" height="12"/><path d="M5 5h6M5 8h2M9 8h2M5 11h2M9 11h2"/></svg></span>
+        Tax Calculator
+      </a>
+
+      <div style="flex:1"></div>
+
+      <a class="nav-item">
+        <span class="nav-item__icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.5 1.5M11.5 11.5L13 13M3 13l1.5-1.5M11.5 4.5L13 3"/></svg></span>
+        Settings
+      </a>
+    </nav>
+  </aside>
+
+  <!-- ── MAIN ── -->
+  <div>
+    <header class="topbar">
+      <div class="topbar__date rise d0">
+        <b>Tuesday</b> 25 · May · 2026
+      </div>
+      <div class="topbar__status rise d1">
+        <b>Sync</b> · 2 min ago
+      </div>
+    </header>
+
+    <main>
+
+      <!-- HERO -->
+      <section class="hero">
+        <div>
+          <div class="hero__label rise d2">
+            <span class="neon-dot"></span>
+            <span class="t-micro" style="color: var(--foreground)">LIVE</span>
+            <span class="t-micro">·</span>
+            <span class="t-micro">Total net worth — EUR</span>
+          </div>
+
+          <h1 class="hero__number rise d3 neon-primary-text">
+            <span class="curr">€</span><span>2,243</span><span class="dec">.65</span>
+          </h1>
+
+          <div class="hero__delta rise d4">
+            <span class="badge badge--gain badge--live">+ €&nbsp;2,243.65</span>
+            <span class="num" style="color: var(--gain)">+ 0.00 %</span>
+            <span class="ref">since inception</span>
+          </div>
+        </div>
+
+        <div class="kpi-grid rise d3">
+          <div class="kpi">
+            <div class="kpi__label">Invested capital</div>
+            <div class="kpi__value">€ 0.00</div>
+            <div class="kpi__sub">net of withdrawals</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi__label">Cash reserve</div>
+            <div class="kpi__value">€ 142.20</div>
+            <div class="kpi__sub">settled · available</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi__label">Open positions</div>
+            <div class="kpi__value">12</div>
+            <div class="kpi__sub">4 asset classes</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi__label">Day P / L</div>
+            <div class="kpi__value text-loss">−€ 18.40</div>
+            <div class="kpi__sub text-loss" style="opacity:0.85">▼ −0.82 % today</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- CHART -->
+      <section class="chart-card rise d4">
+        <div class="chart-head">
+          <div>
+            <h2 class="chart-title">Portfolio <span>over time</span></h2>
+            <div class="chart-meta">
+              <div class="legend">
+                <span class="legend__item"><span class="legend__sw legend__sw--solid"></span> Portfolio value</span>
+                <span class="legend__item"><span class="legend__sw legend__sw--dash"></span> Total invested</span>
+              </div>
+              <span class="t-micro">EUR · daily close</span>
+            </div>
+          </div>
+
+          <div class="seg" id="timeframes">
+            <button class="seg__btn" data-tf="1d">1D</button>
+            <button class="seg__btn" data-tf="1w">1W</button>
+            <button class="seg__btn" data-tf="1m">1M</button>
+            <button class="seg__btn seg__btn--on" data-tf="3m">3M</button>
+            <button class="seg__btn" data-tf="ytd">YTD</button>
+            <button class="seg__btn" data-tf="1y">1Y</button>
+            <button class="seg__btn" data-tf="all">ALL</button>
+          </div>
+        </div>
+
+        <div class="chart-wrap" id="chart-wrap">
+          <svg id="chart" preserveAspectRatio="none" viewBox="0 0 1000 320"></svg>
+          <div class="chart-yaxis" id="yaxis"></div>
+          <div class="tooltip" id="tooltip">
+            <div class="tooltip__date" id="tt-date">—</div>
+            <div class="tooltip__val num" id="tt-val">—</div>
+          </div>
+        </div>
+        <div class="chart-xaxis" id="xaxis"></div>
+
+        <div class="chart-foot">
+          <span>Updated continuously</span>
+          <span>Source — broker statements &amp; live quotes</span>
+        </div>
+      </section>
+
+      <!-- TOP MOVERS -->
+      <section>
+        <div class="movers-head">
+          <h2 class="movers-head__title">Top movers <span>· today</span></h2>
+          <a class="movers-head__see t-micro">See all watchlist →</a>
+        </div>
+        <div class="movers-grid" id="movers"></div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<script src="dashboard.js"></script>
+
+</body>
+</html>

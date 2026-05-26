@@ -1,5 +1,6 @@
 import { requireUser } from "@/lib/auth";
 import { LogoutButton } from "@/components/settings/logout-button";
+import { AnimationsToggle } from "@/components/settings/AnimationsToggle";
 
 export default async function SettingsPage() {
   const user = await requireUser();
@@ -20,6 +21,14 @@ export default async function SettingsPage() {
           <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">ID da conta</p>
           <p className="font-mono text-xs text-muted-foreground">{user.id}</p>
         </div>
+      </div>
+
+      {/* Card — Animações */}
+      <div className="bg-card rounded-xl border border-border/50 p-6 max-w-lg w-full mt-4">
+        <p className="text-xs text-muted-foreground uppercase tracking-wide mb-4">
+          Aparência
+        </p>
+        <AnimationsToggle />
       </div>
 
       {/* Card — Sessão */}

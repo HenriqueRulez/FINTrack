@@ -34,7 +34,17 @@
       "Bash(npx playwright *)",
       "Bash(New-Item -ItemType Directory -Force \"E:\\\\Projetos\\\\FINTrack\\\\tests\\\\e2e\\\\.auth\")",
       "Bash(Write-Output \"done\")",
-      "Bash(powershell -Command \"Get-Date *)"
+      "Bash(powershell -Command \"Get-Date *)",
+      "WebFetch(domain:api.anthropic.com)",
+      "Bash(curl -s http://localhost:3000)",
+      "Bash(curl *)",
+      "Bash(findstr /i \"passphrase\\\\|E2E\")",
+      "Bash(Get-Content *)",
+      "Bash(npx supabase *)",
+      "Bash(E2E_PASSPHRASE=dummy npx playwright test tests/e2e/dashboard-visual-redesign.spec.ts --reporter=list)",
+      "Bash(E2E_PASSPHRASE=fintrack npx playwright test *)",
+      "Bash(echo \"---EXIT:$?\")",
+      "Bash(Get-Date *)"
     ]
   },
   "outputStyle": "default",

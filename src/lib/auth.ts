@@ -11,7 +11,7 @@ export async function requireUser() {
   } = await supabase.auth.getUser();
 
   if (error || !user) {
-    redirect("/login");
+    redirect("/passphrase");
   }
 
   return user;

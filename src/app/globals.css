@@ -200,4 +200,32 @@
     0%, 100% { opacity: 1; }
     50%       { opacity: 0.4; }
   }
+
+  /* Terminal grid background */
+  .terminal-grid {
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(to right, rgba(230,233,243,0.025) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(230,233,243,0.025) 1px, transparent 1px);
+    background-size: 56px 56px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Entrance animations — controlled by .animations-enabled on <body> */
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .animations-enabled .rise {
+    animation: rise 600ms cubic-bezier(.2,.7,.2,1) both;
+  }
+  .animations-enabled .d0 { animation-delay: 0ms; }
+  .animations-enabled .d1 { animation-delay: 60ms; }
+  .animations-enabled .d2 { animation-delay: 120ms; }
+  .animations-enabled .d3 { animation-delay: 180ms; }
+  .animations-enabled .d4 { animation-delay: 260ms; }
+  .animations-enabled .d5 { animation-delay: 340ms; }
 }

@@ -1,0 +1,953 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>FINTrack — Design System</title>
+<link rel="stylesheet" href="design-system.css" />
+<style>
+  /* ── page-specific layout only ─────────────────────── */
+  .ds-app {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    min-height: 100vh;
+  }
+
+  /* faint grid background — terminal feel */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(to right, rgba(230,233,243,0.025) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(230,233,243,0.025) 1px, transparent 1px);
+    background-size: 56px 56px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* sidebar */
+  .ds-side {
+    background: var(--sidebar);
+    border-right: 1px solid var(--line);
+    padding: 28px 20px;
+    position: sticky; top: 0; height: 100vh;
+    display: flex; flex-direction: column;
+    gap: var(--s-5);
+    z-index: 2;
+  }
+  .ds-brand {
+    display: flex; align-items: center; gap: var(--s-3);
+    padding-bottom: var(--s-4);
+    border-bottom: 1px solid var(--line);
+  }
+  .ds-brand__mark {
+    width: 28px; height: 28px; border-radius: var(--r-2);
+    background: var(--primary);
+    color: var(--background);
+    display: grid; place-items: center;
+    font-weight: 700; font-size: 14px;
+    box-shadow: 0 0 16px rgba(var(--primary-rgb), 0.4);
+  }
+  .ds-brand__name { font-size: 14px; font-weight: 500; letter-spacing: var(--tr-wide); }
+  .ds-brand__name span { color: var(--muted-foreground); }
+
+  .ds-toc { display: flex; flex-direction: column; gap: 2px; }
+  .ds-toc__group { font-size: var(--t-micro); letter-spacing: var(--tr-wider); text-transform: uppercase; color: var(--faint-foreground); padding: var(--s-3) var(--s-3) var(--s-2); }
+  .ds-toc a {
+    display: block;
+    padding: 6px var(--s-3);
+    color: var(--muted-foreground);
+    text-decoration: none;
+    font-size: var(--t-body);
+    border-radius: var(--r-2);
+    border-left: 2px solid transparent;
+  }
+  .ds-toc a:hover { background: var(--muted); color: var(--foreground); }
+  .ds-toc a.active { color: var(--primary); border-left-color: var(--primary); }
+
+  .ds-side__foot {
+    margin-top: auto;
+    padding-top: var(--s-4);
+    border-top: 1px solid var(--line);
+    color: var(--faint-foreground);
+    font-size: var(--t-micro);
+    letter-spacing: var(--tr-wide);
+  }
+
+  /* main column */
+  .ds-main { padding: var(--s-8) var(--s-9) var(--s-9); max-width: 1280px; position: relative; z-index: 1; }
+  @media (max-width: 1100px) { .ds-main { padding: var(--s-7) var(--s-6); } }
+
+  /* page header */
+  .ds-hero {
+    padding-bottom: var(--s-7);
+    border-bottom: 1px solid var(--line-strong);
+    margin-bottom: var(--s-8);
+    display: grid; grid-template-columns: 1fr auto; align-items: end; gap: var(--s-7);
+  }
+  .ds-hero__eyebrow {
+    display: inline-flex; align-items: center; gap: var(--s-2);
+    color: var(--muted-foreground);
+    font-size: var(--t-micro);
+    letter-spacing: var(--tr-wider);
+    text-transform: uppercase;
+    margin-bottom: var(--s-5);
+  }
+  .ds-hero__title {
+    font-size: clamp(40px, 5vw, var(--t-display));
+    line-height: 1;
+    font-weight: 500;
+    letter-spacing: var(--tr-tight);
+    margin: 0 0 var(--s-4);
+  }
+  .ds-hero__title em { font-style: normal; color: var(--primary); }
+  .ds-hero__sub {
+    color: var(--muted-foreground);
+    font-size: 15px;
+    max-width: 60ch;
+  }
+  .ds-hero__meta {
+    text-align: right;
+    color: var(--muted-foreground);
+    font-size: var(--t-small);
+    line-height: 1.8;
+  }
+  .ds-hero__meta b { color: var(--foreground); font-weight: 500; }
+
+  /* sections */
+  section.ds-section {
+    margin-bottom: var(--s-9);
+    scroll-margin-top: var(--s-5);
+  }
+  .ds-section__head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: var(--s-3);
+    margin-bottom: var(--s-6);
+    gap: var(--s-5);
+  }
+  .ds-section__num { color: var(--faint-foreground); font-size: var(--t-body); letter-spacing: var(--tr-wide); }
+  .ds-section__title { font-size: var(--t-h2); font-weight: 500; letter-spacing: var(--tr-tight); margin: 0; }
+  .ds-section__desc { color: var(--muted-foreground); font-size: var(--t-small); max-width: 50ch; text-align: right; }
+
+  .ds-block {
+    margin-bottom: var(--s-7);
+  }
+  .ds-block__title {
+    font-size: var(--t-h3);
+    font-weight: 500;
+    margin: 0 0 var(--s-2);
+    display: flex; align-items: baseline; gap: var(--s-3);
+  }
+  .ds-block__title small { color: var(--muted-foreground); font-size: var(--t-micro); letter-spacing: var(--tr-wider); text-transform: uppercase; font-weight: 400; }
+  .ds-block__desc { color: var(--muted-foreground); font-size: var(--t-small); margin-bottom: var(--s-4); max-width: 64ch; }
+
+  /* swatch grid */
+  .swatch-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: var(--s-3);
+  }
+
+  /* type specimen */
+  .type-row {
+    display: grid;
+    grid-template-columns: 120px 1fr auto;
+    align-items: baseline;
+    gap: var(--s-5);
+    padding: var(--s-4) 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .type-row:last-child { border-bottom: none; }
+  .type-row__token { color: var(--primary); font-size: var(--t-small); }
+  .type-row__meta { color: var(--muted-foreground); font-size: var(--t-small); text-align: right; }
+  .type-row__specimen { color: var(--foreground); }
+
+  /* spacing visual */
+  .space-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: var(--s-3); }
+  .space-cell {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--r-2);
+    padding: var(--s-4);
+    display: flex; flex-direction: column; gap: var(--s-3);
+  }
+  .space-cell__bar { background: var(--primary); height: 4px; border-radius: 2px; }
+  .space-cell__meta { display: flex; justify-content: space-between; font-size: var(--t-micro); color: var(--muted-foreground); letter-spacing: var(--tr-wide); text-transform: uppercase; }
+
+  /* radius visual */
+  .radius-grid { display: flex; gap: var(--s-4); flex-wrap: wrap; }
+  .radius-cell { display: flex; flex-direction: column; gap: var(--s-2); align-items: center; }
+  .radius-cell__box { width: 72px; height: 72px; background: var(--muted); border: 1px solid var(--line-strong); }
+  .radius-cell__meta { font-size: var(--t-micro); color: var(--muted-foreground); letter-spacing: var(--tr-wide); }
+
+  /* effects gallery */
+  .effects-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--s-4); }
+  .effect-card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--r-2);
+    padding: var(--s-5);
+    display: flex; flex-direction: column;
+    gap: var(--s-4);
+    min-height: 200px;
+  }
+  .effect-card__stage {
+    flex: 1;
+    background: var(--background);
+    border: 1px solid var(--line);
+    border-radius: var(--r-2);
+    display: grid; place-items: center;
+    padding: var(--s-5);
+    text-align: center;
+    min-height: 110px;
+  }
+  .effect-card__head { display: flex; align-items: baseline; justify-content: space-between; }
+  .effect-card__code {
+    font-size: var(--t-micro);
+    color: var(--primary);
+    background: var(--muted);
+    padding: 2px 6px;
+    border-radius: var(--r-1);
+    letter-spacing: var(--tr-wide);
+  }
+  .effect-card__desc { font-size: var(--t-small); color: var(--muted-foreground); }
+
+  /* component examples */
+  .examples-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: var(--s-4); }
+  .example {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--r-2);
+    padding: var(--s-5);
+    display: flex; flex-direction: column; gap: var(--s-3);
+  }
+  .example__label { font-size: var(--t-micro); letter-spacing: var(--tr-wider); text-transform: uppercase; color: var(--muted-foreground); }
+  .example__stage {
+    background: var(--background);
+    border: 1px solid var(--line);
+    border-radius: var(--r-2);
+    padding: var(--s-4);
+    display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-3);
+    min-height: 64px;
+  }
+  .example__stage--col { flex-direction: column; align-items: stretch; }
+
+  /* pattern frame */
+  .pattern-frame {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--r-2);
+    padding: var(--s-6);
+    margin-bottom: var(--s-4);
+  }
+
+  .row { display: flex; }
+  .gap-2 { gap: var(--s-2); }
+  .gap-3 { gap: var(--s-3); }
+  .gap-4 { gap: var(--s-4); }
+  .gap-5 { gap: var(--s-5); }
+  .col { display: flex; flex-direction: column; }
+  .grow { flex: 1; }
+  .between { justify-content: space-between; }
+  .center { align-items: center; }
+
+  /* mini chart for chart-palette demo */
+  .palette-chart { height: 160px; display: grid; place-items: end; padding: 0 var(--s-4); }
+  .palette-chart svg { display: block; }
+
+  /* tiny allocation bar */
+  .alloc-bar {
+    height: 8px; border-radius: var(--r-1);
+    display: flex; overflow: hidden;
+    background: var(--muted);
+  }
+  .alloc-legend {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: var(--s-3);
+    margin-top: var(--s-3);
+  }
+  .alloc-legend__item {
+    display: flex; align-items: center; gap: var(--s-2);
+    font-size: var(--t-small);
+  }
+  .alloc-legend__sw { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+  /* divider with caption */
+  .rule-cap {
+    display: flex; align-items: center; gap: var(--s-3);
+    color: var(--faint-foreground);
+    font-size: var(--t-micro);
+    letter-spacing: var(--tr-wider);
+    text-transform: uppercase;
+    margin: var(--s-6) 0 var(--s-4);
+  }
+  .rule-cap::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+
+  /* sidebar example */
+  .demo-sidebar {
+    width: 200px;
+    background: var(--sidebar);
+    border: 1px solid var(--line);
+    border-radius: var(--r-2);
+    padding: var(--s-3);
+    display: flex; flex-direction: column; gap: 2px;
+  }
+</style>
+</head>
+<body>
+
+<div class="ds-app">
+
+  <!-- ───────── SIDEBAR ───────── -->
+  <aside class="ds-side">
+    <div class="ds-brand">
+      <div class="ds-brand__mark">F</div>
+      <div class="ds-brand__name">FINTrack <span>/ Design System</span></div>
+    </div>
+
+    <nav class="ds-toc">
+      <div class="ds-toc__group">Foundations</div>
+      <a href="#color" class="active">Color</a>
+      <a href="#typography">Typography</a>
+      <a href="#spacing">Spacing &amp; Radius</a>
+
+      <div class="ds-toc__group">Effects</div>
+      <a href="#neon">Neon utilities</a>
+
+      <div class="ds-toc__group">Components</div>
+      <a href="#buttons">Buttons</a>
+      <a href="#chips">Chips &amp; Badges</a>
+      <a href="#controls">Controls &amp; Inputs</a>
+      <a href="#surfaces">Cards &amp; Nav</a>
+      <a href="#data">KPI &amp; Table</a>
+
+      <div class="ds-toc__group">Patterns</div>
+      <a href="#patterns">In context</a>
+    </nav>
+
+    <div class="ds-side__foot">
+      v 0.1 · maio 2026<br />
+      dark only
+    </div>
+  </aside>
+
+  <!-- ───────── MAIN ───────── -->
+  <main class="ds-main">
+
+    <!-- HERO -->
+    <header class="ds-hero">
+      <div>
+        <div class="ds-hero__eyebrow">
+          <span class="neon-dot"></span>
+          Living document
+        </div>
+        <h1 class="ds-hero__title">FIN<em>Track</em> Design System</h1>
+        <p class="ds-hero__sub">
+          A dark-only, monospace-first language for portfolio tracking. Built on hairlines and tabular numerics; neon used sparingly as signal, never decoration.
+        </p>
+      </div>
+      <div class="ds-hero__meta">
+        <b>v 0.1.0</b><br />
+        IBM Plex Mono<br />
+        56 tokens · 12 components
+      </div>
+    </header>
+
+    <!-- ════════ 01 · COLOR ════════ -->
+    <section id="color" class="ds-section">
+      <div class="ds-section__head">
+        <div>
+          <div class="ds-section__num">01 / Foundations</div>
+          <h2 class="ds-section__title">Color</h2>
+        </div>
+        <p class="ds-section__desc">Five surface tones from background to muted hover. Semantic colors are reserved for financial values only.</p>
+      </div>
+
+      <div class="ds-block">
+        <h3 class="ds-block__title">Surfaces <small>4 tokens</small></h3>
+        <p class="ds-block__desc">Vertical stacking by elevation. Each tone is ~3% lighter than the one below it; the system reads as low-contrast on purpose so data can speak.</p>
+        <div class="swatch-grid">
+          <div class="swatch"><div class="swatch__color" style="background: var(--background)"></div><div class="swatch__meta"><div class="swatch__name">background</div><div class="swatch__hex">#0B0D18</div></div></div>
+          <div class="swatch"><div class="swatch__color" style="background: var(--sidebar)"></div><div class="swatch__meta"><div class="swatch__name">sidebar</div><div class="swatch__hex">#0E111C</div></div></div>
+          <div class="swatch"><div class="swatch__color" style="background: var(--card)"></div><div class="swatch__meta"><div class="swatch__name">card</div><div class="swatch__hex">#101421</div></div></div>
+          <div class="swatch"><div class="swatch__color" style="background: var(--muted)"></div><div class="swatch__meta"><div class="swatch__name">muted</div><div class="swatch__hex">#161A28</div></div></div>
+        </div>
+      </div>
+
+      <div class="ds-block">
+        <h3 class="ds-block__title">Text &amp; brand <small>4 tokens</small></h3>
+        <div class="swatch-grid">
+          <div class="swatch"><div class="swatch__color" style="background: var(--foreground)"></div><div class="swatch__meta"><div class="swatch__name">foreground</div><div class="swatch__hex">#E6E9F3</div></div></div>
+          <div class="swatch"><div class="swatch__color" style="background: var(--muted-foreground)"></div><div class="swatch__meta"><div class="swatch__name">muted-foreground</div><div class="swatch__hex">#717799</div></div></div>
+          <div class="swatch"><div class="swatch__color" style="background: var(--primary)"></div><div class="swatch__meta"><div class="swatch__name">primary</div><div class="swatch__hex">#00B5A8</div></div></div>
+          <div class="swatch"><div class="swatch__color" style="background: var(--faint-foreground)"></div><div class="swatch__meta"><div class="swatch__name">faint-foreground</div><div class="swatch__hex">#4A506B</div></div></div>
+        </div>
+      </div>
+
+      <div class="ds-block">
+        <h3 class="ds-block__title">Semantic <small>financial values only</small></h3>
+        <p class="ds-block__desc">Gain and loss may only color numbers. Never UI chrome, never icons unrelated to P/L.</p>
+        <div class="swatch-grid">
+          <div class="swatch"><div class="swatch__color" style="background: var(--gain)"></div><div class="swatch__meta"><div class="swatch__name">gain</div><div class="swatch__hex">#1AB35A</div></div></div>
+          <div class="swatch"><div class="swatch__color" style="background: var(--loss)"></div><div class="swatch__meta"><div class="swatch__name">loss</div><div class="swatch__hex">#E05050</div></div></div>
+        </div>
+      </div>
+
+      <div class="ds-block">
+        <h3 class="ds-block__title">Chart categories <small>5 tokens</small></h3>
+        <p class="ds-block__desc">One color per asset class. Order is fixed to maintain identity across charts.</p>
+        <div class="swatch-grid" style="margin-bottom: var(--s-4)">
+          <div class="swatch"><div class="swatch__color" style="background: var(--chart-1)"></div><div class="swatch__meta"><div class="swatch__name">chart-1 · Stocks</div><div class="swatch__hex">#00B5A8</div></div></div>
+          <div class="swatch"><div class="swatch__color" style="background: var(--chart-2)"></div><div class="swatch__meta"><div class="swatch__name">chart-2 · ETFs</div><div class="swatch__hex">#8B5CF6</div></div></div>
+          <div class="swatch"><div class="swatch__color" style="background: var(--chart-3)"></div><div class="swatch__meta"><div class="swatch__name">chart-3 · FIIs</div><div class="swatch__hex">#F59E0B</div></div></div>
+          <div class="swatch"><div class="swatch__color" style="background: var(--chart-4)"></div><div class="swatch__meta"><div class="swatch__name">chart-4 · Crypto</div><div class="swatch__hex">#E879A0</div></div></div>
+          <div class="swatch"><div class="swatch__color" style="background: var(--chart-5)"></div><div class="swatch__meta"><div class="swatch__name">chart-5 · Others</div><div class="swatch__hex">#38BDF8</div></div></div>
+        </div>
+
+        <!-- live demo: stacked bars + allocation bar -->
+        <div class="pattern-frame">
+          <div class="t-micro" style="margin-bottom: var(--s-3)">Allocation · all classes in order</div>
+          <div class="alloc-bar">
+            <div style="background: var(--chart-1); width: 32%"></div>
+            <div style="background: var(--chart-2); width: 28%"></div>
+            <div style="background: var(--chart-3); width: 18%"></div>
+            <div style="background: var(--chart-4); width: 14%"></div>
+            <div style="background: var(--chart-5); width: 8%"></div>
+          </div>
+          <div class="alloc-legend">
+            <div class="alloc-legend__item"><span class="alloc-legend__sw" style="background: var(--chart-1)"></span>Stocks <span class="text-muted" style="margin-left:auto">32 %</span></div>
+            <div class="alloc-legend__item"><span class="alloc-legend__sw" style="background: var(--chart-2)"></span>ETFs <span class="text-muted" style="margin-left:auto">28 %</span></div>
+            <div class="alloc-legend__item"><span class="alloc-legend__sw" style="background: var(--chart-3)"></span>FIIs <span class="text-muted" style="margin-left:auto">18 %</span></div>
+            <div class="alloc-legend__item"><span class="alloc-legend__sw" style="background: var(--chart-4)"></span>Crypto <span class="text-muted" style="margin-left:auto">14 %</span></div>
+            <div class="alloc-legend__item"><span class="alloc-legend__sw" style="background: var(--chart-5)"></span>Others <span class="text-muted" style="margin-left:auto">8 %</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════ 02 · TYPOGRAPHY ════════ -->
+    <section id="typography" class="ds-section">
+      <div class="ds-section__head">
+        <div>
+          <div class="ds-section__num">02 / Foundations</div>
+          <h2 class="ds-section__title">Typography</h2>
+        </div>
+        <p class="ds-section__desc">IBM Plex Mono — single family. Monospace guarantees perfect column alignment in numeric tables.</p>
+      </div>
+
+      <div class="ds-block">
+        <h3 class="ds-block__title">Scale <small>7 sizes</small></h3>
+
+        <div class="type-row">
+          <div class="type-row__token">--t-display</div>
+          <div class="type-row__specimen t-display">€ 2,243.65</div>
+          <div class="type-row__meta">56 px · 500 · −0.02em</div>
+        </div>
+        <div class="type-row">
+          <div class="type-row__token">--t-h1</div>
+          <div class="type-row__specimen t-h1">Portfolio overview</div>
+          <div class="type-row__meta">32 px · 500</div>
+        </div>
+        <div class="type-row">
+          <div class="type-row__token">--t-h2</div>
+          <div class="type-row__specimen t-h2">Top movers · today</div>
+          <div class="type-row__meta">22 px · 500</div>
+        </div>
+        <div class="type-row">
+          <div class="type-row__token">--t-h3</div>
+          <div class="type-row__specimen t-h3">Section subtitle</div>
+          <div class="type-row__meta">16 px · 500</div>
+        </div>
+        <div class="type-row">
+          <div class="type-row__token">--t-body</div>
+          <div class="type-row__specimen t-body">Body copy and table cells live here. The quick brown fox jumps over the lazy dog. 0123456789</div>
+          <div class="type-row__meta">13 px · 400</div>
+        </div>
+        <div class="type-row">
+          <div class="type-row__token">--t-small</div>
+          <div class="type-row__specimen t-small">Labels, metadata, secondary text</div>
+          <div class="type-row__meta">12 px · 400</div>
+        </div>
+        <div class="type-row">
+          <div class="type-row__token">--t-micro</div>
+          <div class="type-row__specimen t-micro">Eyebrows · column headers · stamps</div>
+          <div class="type-row__meta">10.5 px · 500 · +0.14em</div>
+        </div>
+      </div>
+
+      <div class="ds-block">
+        <h3 class="ds-block__title">Weights <small>4 of 5 in use</small></h3>
+        <div class="examples-grid">
+          <div class="example"><div class="example__label">300 · light</div><div class="example__stage" style="font-weight: 300; font-size: 20px">€ 2,243.65</div></div>
+          <div class="example"><div class="example__label">400 · regular</div><div class="example__stage" style="font-weight: 400; font-size: 20px">€ 2,243.65</div></div>
+          <div class="example"><div class="example__label">500 · medium · default</div><div class="example__stage" style="font-weight: 500; font-size: 20px">€ 2,243.65</div></div>
+          <div class="example"><div class="example__label">700 · bold</div><div class="example__stage" style="font-weight: 700; font-size: 20px">€ 2,243.65</div></div>
+        </div>
+      </div>
+
+      <div class="ds-block">
+        <h3 class="ds-block__title">Tabular alignment <small>.num</small></h3>
+        <p class="ds-block__desc">All numeric columns must use the <code style="color:var(--primary)">.num</code> class (or the parent element must enable <code>tnum</code>) so digits keep equal width.</p>
+        <div class="pattern-frame">
+          <div class="col gap-2" style="font-size: 16px">
+            <div class="row between"><span class="text-muted">CSPX</span><span class="num">€ 3,074.40</span></div>
+            <div class="row between"><span class="text-muted">VWCE</span><span class="num">€ 1,353.60</span></div>
+            <div class="row between"><span class="text-muted">AAPL</span><span class="num">€&nbsp;&nbsp;&nbsp;713.60</span></div>
+            <div class="row between"><span class="text-muted">GLD</span><span class="num">€&nbsp;&nbsp;&nbsp;594.60</span></div>
+            <div class="row between"><span class="text-muted">TSLA</span><span class="num">€&nbsp;&nbsp;&nbsp;436.60</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════ 03 · SPACING ════════ -->
+    <section id="spacing" class="ds-section">
+      <div class="ds-section__head">
+        <div>
+          <div class="ds-section__num">03 / Foundations</div>
+          <h2 class="ds-section__title">Spacing &amp; Radius</h2>
+        </div>
+        <p class="ds-section__desc">Linear scale with one geometric step at the top. Radius is small or absent — sharp corners reinforce the terminal feel.</p>
+      </div>
+
+      <div class="ds-block">
+        <h3 class="ds-block__title">Spacing scale</h3>
+        <div class="space-grid">
+          <div class="space-cell"><div class="space-cell__bar" style="width: 2px"></div><div class="space-cell__meta"><span>--s-0</span><span>2 px</span></div></div>
+          <div class="space-cell"><div class="space-cell__bar" style="width: 4px"></div><div class="space-cell__meta"><span>--s-1</span><span>4 px</span></div></div>
+          <div class="space-cell"><div class="space-cell__bar" style="width: 8px"></div><div class="space-cell__meta"><span>--s-2</span><span>8 px</span></div></div>
+          <div class="space-cell"><div class="space-cell__bar" style="width: 12px"></div><div class="space-cell__meta"><span>--s-3</span><span>12 px</span></div></div>
+          <div class="space-cell"><div class="space-cell__bar" style="width: 16px"></div><div class="space-cell__meta"><span>--s-4</span><span>16 px</span></div></div>
+          <div class="space-cell"><div class="space-cell__bar" style="width: 24px"></div><div class="space-cell__meta"><span>--s-5</span><span>24 px</span></div></div>
+          <div class="space-cell"><div class="space-cell__bar" style="width: 32px"></div><div class="space-cell__meta"><span>--s-6</span><span>32 px</span></div></div>
+          <div class="space-cell"><div class="space-cell__bar" style="width: 48px"></div><div class="space-cell__meta"><span>--s-7</span><span>48 px</span></div></div>
+          <div class="space-cell"><div class="space-cell__bar" style="width: 64px"></div><div class="space-cell__meta"><span>--s-8</span><span>64 px</span></div></div>
+          <div class="space-cell"><div class="space-cell__bar" style="width: 96px"></div><div class="space-cell__meta"><span>--s-9</span><span>96 px</span></div></div>
+        </div>
+      </div>
+
+      <div class="ds-block">
+        <h3 class="ds-block__title">Radius</h3>
+        <div class="radius-grid">
+          <div class="radius-cell"><div class="radius-cell__box" style="border-radius: var(--r-1)"></div><div class="radius-cell__meta">--r-1 · 2</div></div>
+          <div class="radius-cell"><div class="radius-cell__box" style="border-radius: var(--r-2)"></div><div class="radius-cell__meta">--r-2 · 4</div></div>
+          <div class="radius-cell"><div class="radius-cell__box" style="border-radius: var(--r-3)"></div><div class="radius-cell__meta">--r-3 · 8</div></div>
+          <div class="radius-cell"><div class="radius-cell__box" style="border-radius: var(--r-4)"></div><div class="radius-cell__meta">--r-4 · 12</div></div>
+          <div class="radius-cell"><div class="radius-cell__box" style="border-radius: var(--r-full)"></div><div class="radius-cell__meta">--r-full</div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════ 04 · NEON ════════ -->
+    <section id="neon" class="ds-section">
+      <div class="ds-section__head">
+        <div>
+          <div class="ds-section__num">04 / Effects</div>
+          <h2 class="ds-section__title">Neon utilities</h2>
+        </div>
+        <p class="ds-section__desc">Maximum 2&ndash;3 per page. Neon is signal: it marks live data, the active context, or a critical value. Never a generic accent.</p>
+      </div>
+
+      <div class="effects-grid">
+        <div class="effect-card">
+          <div class="effect-card__head">
+            <strong>Primary text</strong>
+            <span class="effect-card__code">.neon-primary-text</span>
+          </div>
+          <div class="effect-card__stage">
+            <span class="neon-primary-text" style="font-size: 36px; font-weight: 500">€ 2,243.65</span>
+          </div>
+          <div class="effect-card__desc">Glow on a single headline number or the active brand mark.</div>
+        </div>
+
+        <div class="effect-card">
+          <div class="effect-card__head">
+            <strong>Border</strong>
+            <span class="effect-card__code">.neon-border-primary</span>
+          </div>
+          <div class="effect-card__stage neon-border-primary" style="background: var(--card)">
+            <div>
+              <div class="t-micro" style="margin-bottom: var(--s-2)">Spotlight</div>
+              <div style="font-size: 18px">Active portfolio</div>
+            </div>
+          </div>
+          <div class="effect-card__desc">Outlines the currently focused card. One at a time.</div>
+        </div>
+
+        <div class="effect-card">
+          <div class="effect-card__head">
+            <strong>Gain</strong>
+            <span class="effect-card__code">.neon-gain</span>
+          </div>
+          <div class="effect-card__stage">
+            <span class="neon-gain" style="font-size: 36px; font-weight: 500">+ 12.4 %</span>
+          </div>
+          <div class="effect-card__desc">Critical positive value — hero P/L only.</div>
+        </div>
+
+        <div class="effect-card">
+          <div class="effect-card__head">
+            <strong>Loss</strong>
+            <span class="effect-card__code">.neon-loss</span>
+          </div>
+          <div class="effect-card__stage">
+            <span class="neon-loss" style="font-size: 36px; font-weight: 500">− 8.7 %</span>
+          </div>
+          <div class="effect-card__desc">Critical negative value — hero P/L only.</div>
+        </div>
+
+        <div class="effect-card">
+          <div class="effect-card__head">
+            <strong>Live dot</strong>
+            <span class="effect-card__code">.neon-dot</span>
+          </div>
+          <div class="effect-card__stage">
+            <div class="row center gap-3">
+              <span class="neon-dot"></span>
+              <span class="t-micro" style="color: var(--foreground)">Live · streaming quotes</span>
+            </div>
+          </div>
+          <div class="effect-card__desc">Pulsing status indicator. Pair with short label, never standalone.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════ 05 · BUTTONS ════════ -->
+    <section id="buttons" class="ds-section">
+      <div class="ds-section__head">
+        <div>
+          <div class="ds-section__num">05 / Components</div>
+          <h2 class="ds-section__title">Buttons</h2>
+        </div>
+        <p class="ds-section__desc">Three variants. Primary for the single most important action per view.</p>
+      </div>
+
+      <div class="examples-grid">
+        <div class="example">
+          <div class="example__label">.btn .btn--primary</div>
+          <div class="example__stage">
+            <button class="btn btn--primary">Buy</button>
+            <button class="btn btn--primary btn--sm">Buy</button>
+          </div>
+        </div>
+        <div class="example">
+          <div class="example__label">.btn .btn--ghost</div>
+          <div class="example__stage">
+            <button class="btn btn--ghost">Export CSV</button>
+            <button class="btn btn--ghost btn--sm">Filter</button>
+          </div>
+        </div>
+        <div class="example">
+          <div class="example__label">.btn .btn--icon</div>
+          <div class="example__stage">
+            <button class="btn btn--icon" title="Settings"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="7" cy="7" r="2"/><path d="M7 1v2M7 11v2M1 7h2M11 7h2M2.5 2.5l1.5 1.5M10 10l1.5 1.5M2.5 11.5L4 10M10 4l1.5-1.5"/></svg></button>
+            <button class="btn btn--icon" title="Search"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="6" cy="6" r="4"/><path d="M9 9l3.5 3.5"/></svg></button>
+            <button class="btn btn--icon" title="Add"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M7 2v10M2 7h10"/></svg></button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════ 06 · CHIPS / BADGES ════════ -->
+    <section id="chips" class="ds-section">
+      <div class="ds-section__head">
+        <div>
+          <div class="ds-section__num">06 / Components</div>
+          <h2 class="ds-section__title">Chips &amp; Badges</h2>
+        </div>
+        <p class="ds-section__desc">Chips for filters and selectors. Badges for P/L status only.</p>
+      </div>
+
+      <div class="examples-grid">
+        <div class="example">
+          <div class="example__label">.chip</div>
+          <div class="example__stage">
+            <span class="chip">Trade · IBKR <span class="text-muted">▾</span></span>
+            <span class="chip">EUR <span class="text-muted">▾</span></span>
+            <span class="chip chip--ghost">+ Filter</span>
+          </div>
+        </div>
+        <div class="example">
+          <div class="example__label">.badge --gain / --loss / --primary</div>
+          <div class="example__stage">
+            <span class="badge badge--gain">+ 1.83 %</span>
+            <span class="badge badge--loss">− 2.14 %</span>
+            <span class="badge badge--primary">New</span>
+            <span class="badge">Settled</span>
+          </div>
+        </div>
+        <div class="example">
+          <div class="example__label">.badge.badge--live</div>
+          <div class="example__stage">
+            <span class="badge badge--gain badge--live">Live</span>
+            <span class="badge badge--primary badge--live">Streaming</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════ 07 · CONTROLS ════════ -->
+    <section id="controls" class="ds-section">
+      <div class="ds-section__head">
+        <div>
+          <div class="ds-section__num">07 / Components</div>
+          <h2 class="ds-section__title">Controls &amp; Inputs</h2>
+        </div>
+        <p class="ds-section__desc">Quiet by default; primary glow appears on focus.</p>
+      </div>
+
+      <div class="examples-grid">
+        <div class="example">
+          <div class="example__label">.seg</div>
+          <div class="example__stage">
+            <div class="seg">
+              <button class="seg__btn">1D</button>
+              <button class="seg__btn">1W</button>
+              <button class="seg__btn">1M</button>
+              <button class="seg__btn seg__btn--on">3M</button>
+              <button class="seg__btn">1Y</button>
+              <button class="seg__btn">ALL</button>
+            </div>
+          </div>
+        </div>
+        <div class="example">
+          <div class="example__label">.input</div>
+          <div class="example__stage example__stage--col">
+            <input class="input" placeholder="Search ticker, ISIN…" />
+            <input class="input" value="AAPL" />
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════ 08 · SURFACES & NAV ════════ -->
+    <section id="surfaces" class="ds-section">
+      <div class="ds-section__head">
+        <div>
+          <div class="ds-section__num">08 / Components</div>
+          <h2 class="ds-section__title">Cards &amp; Nav</h2>
+        </div>
+        <p class="ds-section__desc">Hairline borders over solid surfaces. The active nav item is the only sidebar element that may use primary color.</p>
+      </div>
+
+      <div class="examples-grid">
+        <div class="example">
+          <div class="example__label">.surface-card</div>
+          <div class="example__stage">
+            <div class="surface-card" style="padding: var(--s-5); width: 100%">
+              <div class="t-micro" style="margin-bottom: var(--s-2)">Net worth</div>
+              <div class="num" style="font-size: 28px; font-weight: 500">€ 2,243.65</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="example">
+          <div class="example__label">.surface-card.neon-border-primary</div>
+          <div class="example__stage">
+            <div class="surface-card neon-border-primary" style="padding: var(--s-5); width: 100%; background: var(--card)">
+              <div class="t-micro" style="margin-bottom: var(--s-2)"><span class="neon-dot" style="width:6px; height:6px"></span>&nbsp; Active portfolio</div>
+              <div class="num neon-primary-text" style="font-size: 28px; font-weight: 500">€ 2,243.65</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="example">
+          <div class="example__label">.nav-item</div>
+          <div class="example__stage">
+            <div class="demo-sidebar">
+              <a class="nav-item">
+                <span class="nav-item__icon"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="5" height="5"/><rect x="9" y="2" width="5" height="5"/><rect x="2" y="9" width="5" height="5"/><rect x="9" y="9" width="5" height="5"/></svg></span>
+                Dashboard
+              </a>
+              <a class="nav-item nav-item--active">
+                <span class="nav-item__icon"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 5l6-3 6 3-6 3z"/><path d="M2 8l6 3 6-3"/></svg></span>
+                Portfolios
+              </a>
+              <a class="nav-item">
+                <span class="nav-item__icon"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 5h10l-3-3M13 11H3l3 3"/></svg></span>
+                Transactions
+              </a>
+              <a class="nav-item">
+                <span class="nav-item__icon"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 2v6l5 3"/></svg></span>
+                Holdings
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════ 09 · KPI & TABLE ════════ -->
+    <section id="data" class="ds-section">
+      <div class="ds-section__head">
+        <div>
+          <div class="ds-section__num">09 / Components</div>
+          <h2 class="ds-section__title">KPI &amp; Table</h2>
+        </div>
+        <p class="ds-section__desc">The bread &amp; butter — data display.</p>
+      </div>
+
+      <div class="ds-block">
+        <h3 class="ds-block__title">KPI cell <small>.kpi</small></h3>
+        <div class="surface-card" style="display: grid; grid-template-columns: repeat(4, 1fr)">
+          <div class="kpi" style="border-right: 1px solid var(--line)">
+            <div class="kpi__label">Total net worth</div>
+            <div class="kpi__value num">€ 2,243.65</div>
+            <div class="kpi__delta text-gain"><span>▲</span> +€ 2,243.65</div>
+          </div>
+          <div class="kpi" style="border-right: 1px solid var(--line)">
+            <div class="kpi__label">Invested capital</div>
+            <div class="kpi__value num">€ 0.00</div>
+            <div class="kpi__delta text-muted">net of withdrawals</div>
+          </div>
+          <div class="kpi" style="border-right: 1px solid var(--line)">
+            <div class="kpi__label">Positions</div>
+            <div class="kpi__value num">12</div>
+            <div class="kpi__delta text-muted">4 asset classes</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi__label">Day P/L</div>
+            <div class="kpi__value num text-loss">−€ 18.40</div>
+            <div class="kpi__delta text-loss"><span>▼</span> −0.82 %</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ds-block">
+        <h3 class="ds-block__title">Table <small>.table</small></h3>
+        <div class="surface-card">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Ticker</th>
+                <th>Name</th>
+                <th class="num-col">Qty</th>
+                <th class="num-col">Price</th>
+                <th class="num-col">Value</th>
+                <th class="num-col">P/L</th>
+                <th class="num-col">%</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td><strong>CSPX</strong></td><td class="text-muted">iShares Core S&amp;P 500</td><td class="num num-col">6</td><td class="num num-col">512.40</td><td class="num num-col">3,074.40</td><td class="num num-col text-gain">+193</td><td class="num num-col text-gain">+ 6.71 %</td></tr>
+              <tr><td><strong>VWCE</strong></td><td class="text-muted">Vanguard FTSE All-World</td><td class="num num-col">12</td><td class="num num-col">112.80</td><td class="num num-col">1,353.60</td><td class="num num-col text-gain">+50</td><td class="num num-col text-gain">+ 3.92 %</td></tr>
+              <tr><td><strong>AAPL</strong></td><td class="text-muted">Apple Inc.</td><td class="num num-col">4</td><td class="num num-col">178.40</td><td class="num num-col">713.60</td><td class="num num-col text-loss">−6</td><td class="num num-col text-loss">− 0.89 %</td></tr>
+              <tr><td><strong>GLD</strong></td><td class="text-muted">SPDR Gold Shares</td><td class="num num-col">3</td><td class="num num-col">198.20</td><td class="num num-col">594.60</td><td class="num num-col text-gain">+10</td><td class="num num-col text-gain">+ 1.64 %</td></tr>
+              <tr><td><strong>TSLA</strong></td><td class="text-muted">Tesla Inc.</td><td class="num num-col">2</td><td class="num num-col">218.30</td><td class="num num-col">436.60</td><td class="num num-col text-loss">−43</td><td class="num num-col text-loss">− 9.04 %</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════ 10 · PATTERNS ════════ -->
+    <section id="patterns" class="ds-section">
+      <div class="ds-section__head">
+        <div>
+          <div class="ds-section__num">10 / Patterns</div>
+          <h2 class="ds-section__title">In context</h2>
+        </div>
+        <p class="ds-section__desc">A reference composition using only the tokens above. Note the budget: one <em>neon-dot</em>, one <em>neon-primary-text</em>.</p>
+      </div>
+
+      <div class="pattern-frame">
+        <!-- header strip -->
+        <div class="row between center" style="margin-bottom: var(--s-5)">
+          <div class="row center gap-3">
+            <span class="neon-dot"></span>
+            <span class="t-micro" style="color: var(--foreground)">LIVE · streaming quotes</span>
+          </div>
+          <div class="seg">
+            <button class="seg__btn">1D</button>
+            <button class="seg__btn">1W</button>
+            <button class="seg__btn seg__btn--on">1M</button>
+            <button class="seg__btn">3M</button>
+            <button class="seg__btn">1Y</button>
+            <button class="seg__btn">ALL</button>
+          </div>
+        </div>
+
+        <!-- hero number -->
+        <div class="t-micro" style="margin-bottom: var(--s-2)">Total net worth · EUR</div>
+        <div class="t-display num neon-primary-text" style="margin-bottom: var(--s-3)">€ 2,243.65</div>
+        <div class="row center gap-3" style="margin-bottom: var(--s-6)">
+          <span class="badge badge--gain badge--live">+ €&nbsp;2,243.65</span>
+          <span class="text-muted t-small">since inception</span>
+        </div>
+
+        <!-- KPI strip -->
+        <div class="surface-card" style="display: grid; grid-template-columns: repeat(4, 1fr); margin-bottom: var(--s-5)">
+          <div class="kpi" style="border-right: 1px solid var(--line)">
+            <div class="kpi__label">Invested</div>
+            <div class="kpi__value num">€ 0.00</div>
+          </div>
+          <div class="kpi" style="border-right: 1px solid var(--line)">
+            <div class="kpi__label">Cash</div>
+            <div class="kpi__value num">€ 142.20</div>
+          </div>
+          <div class="kpi" style="border-right: 1px solid var(--line)">
+            <div class="kpi__label">Positions</div>
+            <div class="kpi__value num">12</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi__label">Day P/L</div>
+            <div class="kpi__value num text-loss">−€ 18.40</div>
+          </div>
+        </div>
+
+        <!-- allocation -->
+        <div class="t-micro" style="margin-bottom: var(--s-3)">Allocation</div>
+        <div class="alloc-bar">
+          <div style="background: var(--chart-1); width: 32%"></div>
+          <div style="background: var(--chart-2); width: 28%"></div>
+          <div style="background: var(--chart-3); width: 18%"></div>
+          <div style="background: var(--chart-4); width: 14%"></div>
+          <div style="background: var(--chart-5); width: 8%"></div>
+        </div>
+        <div class="alloc-legend">
+          <div class="alloc-legend__item"><span class="alloc-legend__sw" style="background: var(--chart-1)"></span>Stocks <span class="text-muted num" style="margin-left:auto">32 %</span></div>
+          <div class="alloc-legend__item"><span class="alloc-legend__sw" style="background: var(--chart-2)"></span>ETFs <span class="text-muted num" style="margin-left:auto">28 %</span></div>
+          <div class="alloc-legend__item"><span class="alloc-legend__sw" style="background: var(--chart-3)"></span>FIIs <span class="text-muted num" style="margin-left:auto">18 %</span></div>
+          <div class="alloc-legend__item"><span class="alloc-legend__sw" style="background: var(--chart-4)"></span>Crypto <span class="text-muted num" style="margin-left:auto">14 %</span></div>
+          <div class="alloc-legend__item"><span class="alloc-legend__sw" style="background: var(--chart-5)"></span>Others <span class="text-muted num" style="margin-left:auto">8 %</span></div>
+        </div>
+      </div>
+
+      <div class="rule-cap">End of document · v 0.1</div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+  // active TOC link on scroll
+  const links = [...document.querySelectorAll('.ds-toc a')];
+  const sections = links.map(a => document.querySelector(a.getAttribute('href'))).filter(Boolean);
+  function update() {
+    const y = window.scrollY + 120;
+    let idx = 0;
+    sections.forEach((s, i) => { if (s.offsetTop <= y) idx = i; });
+    links.forEach(l => l.classList.remove('active'));
+    if (links[idx]) links[idx].classList.add('active');
+  }
+  document.addEventListener('scroll', update, { passive: true });
+  update();
+
+  // smooth anchor scroll
+  links.forEach(a => a.addEventListener('click', (e) => {
+    const href = a.getAttribute('href');
+    if (href && href.startsWith('#')) {
+      const t = document.querySelector(href);
+      if (t) {
+        e.preventDefault();
+        const top = t.getBoundingClientRect().top + window.scrollY - 24;
+        window.scrollTo({ top, behavior: 'smooth' });
+        history.replaceState(null, '', href);
+      }
+    }
+  }));
+</script>
+
+</body>
+</html>

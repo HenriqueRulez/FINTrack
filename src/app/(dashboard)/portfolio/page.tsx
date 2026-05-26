@@ -13,7 +13,7 @@ export default async function PortfolioPage() {
   } = await supabase.auth.getUser();
 
   if (authError || !user) {
-    redirect("/login");
+    redirect("/passphrase");
   }
 
   // Buscar posições iniciais directamente via Supabase server client

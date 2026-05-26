@@ -25,3 +25,35 @@ export const PositionUpdateSchema = PositionSchema.partial().extend({
 
 export type PositionInput = z.infer<typeof PositionSchema>;
 export type PositionUpdate = z.infer<typeof PositionUpdateSchema>;
+
+// ---------------------------------------------------------------------------
+// Dashboard / Chart query schemas
+// ---------------------------------------------------------------------------
+
+export const ChartQuerySchema = z.object({
+  tf: z
+    .enum(["1D", "1W", "1M", "3M", "YTD", "1Y", "ALL"])
+    .default("3M"),
+});
+
+export type TimeFrame = z.infer<typeof ChartQuerySchema>["tf"];
+
+// ---------------------------------------------------------------------------
+// Holdings query schema — para futura GET /api/portfolio/holdings (Fase 2)
+// ---------------------------------------------------------------------------
+
+export const HoldingsQuerySchema = z.object({
+  currency: z.enum(["EUR", "USD"]).optional().default("EUR"),
+  showSold: z
+    .string()
+    .optional()
+    .default("false")
+    .transform((v) => v === "true" || v === "1"),
+  sortCol: z
+    .enum(["ticker", "pct", "shares", "avg", "cost", "price", "value", "gain"])
+    .optional()
+    .default("value"),
+  sortDir: z.enum(["asc", "desc"]).optional().default("desc"),
+});
+
+export type HoldingsQuery = z.infer<typeof HoldingsQuerySchema>;

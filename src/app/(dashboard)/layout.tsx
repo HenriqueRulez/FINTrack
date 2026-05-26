@@ -1,5 +1,5 @@
 import { Sidebar } from "@/components/layout/sidebar";
-import { Navbar } from "@/components/layout/navbar";
+import { Topbar } from "@/components/layout/topbar";
 
 export default function DashboardLayout({
   children,
@@ -7,11 +7,18 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex h-screen bg-background">
+    <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] min-h-screen bg-background relative">
+      {/* Terminal grid background */}
+      <div className="terminal-grid" aria-hidden="true" />
+
       <Sidebar />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <Navbar />
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+
+      {/* Main column */}
+      <div className="flex flex-col min-h-screen relative z-[1]">
+        <Topbar />
+        <main className="flex-1 overflow-y-auto p-6 flex flex-col gap-8">
+          {children}
+        </main>
       </div>
     </div>
   );

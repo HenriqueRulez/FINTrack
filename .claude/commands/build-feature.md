@@ -106,7 +106,7 @@ Use o agente `engineer` (subagent_type: "engineer") passando `task_path`, `worki
 ---
 
 ### Passo 6 — QA
-Informe: "**QA — a escrever testes e verificar...**"
+Informe: "**QA — verificação visual (Chrome Extension) + testes funcionais (Playwright)...**"
 
 Use o agente `qa` (subagent_type: "qa") passando **ambos** `engineer_report_path` e `working_item_path` no prompt.
 

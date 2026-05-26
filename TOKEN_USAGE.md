@@ -35,15 +35,33 @@
 
 ---
 
+### Run #1 — dashboard-visual-redesign (2026-05-26 14:08)
+
+| Agente | Status |
+|--------|--------|
+| PO | ✅ |
+| Designer | ✅ |
+| Frontend | ✅ |
+| SM | ✅ |
+| Engineer | ❌ (ciclo 1) → ❌ (ciclo 2) → ✅ (ciclo 3) |
+| QA | ✅ APROVADO (ciclo 3) |
+| Security Review | ✅ |
+
+**Ciclos QA:** 3 de 3
+**Ficheiros tocados:** 23 (11 criados + 12 modificados)
+**Relatórios gerados:** 8 ficheiros em `.claude/`
+**Testes E2E:** `tests/e2e/dashboard-visual-redesign.spec.ts` (23/23 pass)
+**Tokens exactos:** verificar Claude Code → Stats
+
 ---
 
 ## Resumo Acumulado
 
 | Métrica | Total |
 |---------|-------|
-| Execuções `/build-feature` | 0 |
-| Features entregues (APROVADO) | 0 |
+| Execuções `/build-feature` | 1 |
+| Features entregues (APROVADO) | 1 |
 | Features com retrabalho (PARCIAL) | 0 |
 | Features reprovadas | 0 |
-| Total de ciclos QA extra (retrabalho) | 0 |
-| Total de ficheiros tocados | 0 |
+| Total de ciclos QA extra (retrabalho) | 2 |
+| Total de ficheiros tocados | 23 |
