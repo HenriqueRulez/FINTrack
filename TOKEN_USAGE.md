@@ -55,13 +55,50 @@
 
 ---
 
+### [Fase 3] holdings-redesign (2026-05-27)
+
+| Agente | Status |
+|--------|--------|
+| QA | ✅ APROVADO |
+| Engineer (correcção) | N/A |
+| Security Review | ✅ SEM ACHADOS CRÍTICOS |
+
+**Ciclos QA:** 1 de 3
+**Relatório QA:** `.claude/reports/qa-holdings-redesign.md`
+**Relatório Security:** `.claude/reports/security-holdings-redesign.md`
+**Testes E2E:** `tests/e2e/holdings-redesign.spec.ts` (34 passed)
+
+**Tokens exactos:** verificar Claude Code → Stats
+
+---
+
+### Run #2 — performance-redesign (2026-05-27)
+
+| Agente | Status |
+|--------|--------|
+| PO | ✅ |
+| Designer | ✅ |
+| Frontend | ✅ |
+| SM | ✅ |
+| Engineer | ✅ (ciclo 1) |
+| QA | ✅ APROVADO |
+| Security Review | ✅ SEM ACHADOS CRÍTICOS |
+
+**Ciclos QA:** 1 de 3
+**Ficheiros tocados:** 10 (9 criados + 1 modificado)
+**Relatórios gerados:** 6 ficheiros em `.claude/`
+**Testes E2E:** `tests/e2e/performance-redesign.spec.ts` (58 passed)
+**Tokens exactos:** verificar Claude Code → Stats
+
+---
+
 ## Resumo Acumulado
 
 | Métrica | Total |
 |---------|-------|
-| Execuções `/build-feature` | 1 |
-| Features entregues (APROVADO) | 1 |
+| Execuções `/build-feature` | 3 |
+| Features entregues (APROVADO) | 3 |
 | Features com retrabalho (PARCIAL) | 0 |
 | Features reprovadas | 0 |
 | Total de ciclos QA extra (retrabalho) | 2 |
-| Total de ficheiros tocados | 23 |
+| Total de ficheiros tocados | 33+ |

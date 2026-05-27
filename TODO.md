@@ -7,8 +7,8 @@
 
 > Cada item abaixo requer o mesmo processo do Dashboard: PO cria working item com base nos protótipos em `.claude/design-handoff/project/`, depois segue pipeline completa. Primeira fase: apenas visual com dados mockados, sem funcionalidades.
 
-- [ ] **Holdings** — `Holdings.html` → nova página `/holdings` com 7 KPIs + tabela ordenável com alocação visual por ticker e logo colorido por classe de activo
-- [ ] **Performance** — `Performance.html` → nova página `/performance` com KPI strip com micro-visualizações (gauge, barra split, tick rows) + tabela de trade analysis com sparklines de 30 dias
+- [x] **Holdings** — `Holdings.html` → nova página `/holdings` com 7 KPIs + tabela ordenável com alocação visual por ticker e logo colorido por classe de activo
+- [x] **Performance** — `Performance.html` → nova página `/performance` com KPI strip com micro-visualizações (gauge, barra split, tick rows) + tabela de trade analysis com sparklines de 30 dias
 - [ ] **Transactions** — `Transactions.html` → nova página `/transactions` com filtros, tabs por tipo (BUY/SELL/CASH/DIV/etc.), tabela com badges coloridos e modo de edição
 - [ ] **Tax Calculator** — `Tax Calculator.html` → nova página `/tax-calculator` com 3 KPIs (Total Tax Liability, Capital Gains Tax, Dividend Tax) + painel Capital Gains + painel Dividend Tax
 

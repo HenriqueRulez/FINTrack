@@ -123,7 +123,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", active: true, icon: <DashboardIcon /> },
   { label: "Holdings", href: "/holdings", active: true, icon: <HoldingsIcon /> },
   { label: "Transactions", href: "#", active: false, icon: <TransactionsIcon /> },
-  { label: "Performance", href: "#", active: false, icon: <PerformanceIcon /> },
+  { label: "Performance", href: "/performance", active: true, icon: <PerformanceIcon /> },
   { label: "Tax Calculator", href: "#", active: false, icon: <TaxIcon /> },
 ];
 

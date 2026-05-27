@@ -44,7 +44,10 @@
       "Bash(E2E_PASSPHRASE=dummy npx playwright test tests/e2e/dashboard-visual-redesign.spec.ts --reporter=list)",
       "Bash(E2E_PASSPHRASE=fintrack npx playwright test *)",
       "Bash(echo \"---EXIT:$?\")",
-      "Bash(Get-Date *)"
+      "Bash(Get-Date *)",
+      "Bash(findstr /i \"passphrase\\\\|PASS\")",
+      "PowerShell($env:E2E_PASSPHRASE = \"fintrack\"; cd \"E:\\\\Projetos\\\\FINTrack\"; npx playwright test tests/e2e/performance-redesign.spec.ts tests/e2e/smoke.spec.ts --reporter=list 2>&1)",
+      "PowerShell($env:E2E_PASSPHRASE = \"fintrack\"; cd \"E:\\\\Projetos\\\\FINTrack\"; npx playwright test tests/e2e/performance-redesign.spec.ts --reporter=list 2>&1)"
     ]
   },
   "outputStyle": "default",

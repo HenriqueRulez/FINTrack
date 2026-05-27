@@ -39,6 +39,8 @@ Ao fechar um achado, adicionar: `→ Resolvido em: [nome da feature] (YYYY-MM-DD
 | B-07 | `src/app/api/portfolio/summary/route.ts:53`, `chart/route.ts:73`, `movers/route.ts:35` | `select("*")` nas 3 novas routes — busca todas as colunas de `portfolio_positions`; expõe campos desnecessários e aumenta superfície de risco para colunas futuras | Dashboard Visual Redesign | 2026-05-26 |
 | B-08 | `src/app/api/portfolio/summary/route.ts:51`, `chart/route.ts:71`, `movers/route.ts:33` | `(supabase as any)` type cast nas 3 novas routes — contorna type checking; não é bypass de segurança (`.eq("user_id", user.id)` + RLS activos) mas pode mascarar erros de schema em compile time | Dashboard Visual Redesign | 2026-05-26 |
 | B-09 | `src/hooks/useAnimations.ts:8`, `src/components/settings/AnimationsToggle.tsx:8` | `useState(true)` como valor inicial antes de ler localStorage — flash visual de animações durante hidratação SSR→client se utilizador as tiver desactivado. Sem impacto de segurança | Dashboard Visual Redesign | 2026-05-26 |
+| B-10 | `src/app/api/portfolio/holdings/route.ts:90` | `select("*")` busca todas as colunas de `portfolio_positions`, incluindo campos não retornados ao cliente. Padrão idêntico ao B-07 — mitigado por RLS + filtro por `user_id`. Recomenda-se selecção explícita de colunas na Fase 2 | Holdings Redesign | 2026-05-27 |
+| B-11 | `src/app/api/portfolio/holdings/route.ts:88` | `(supabase as any)` type cast para acomodar campos `sold`/`chart_var` recém-adicionados. Não é bypass de segurança (RLS activo); pode mascarar erros de schema. Padrão idêntico ao B-08. Resolver após regenerar tipos | Holdings Redesign | 2026-05-27 |
 
 ---
 
@@ -74,5 +76,5 @@ A cada ciclo de desenvolvimento, após a auditoria:
 | Crítico   | 0       | 0          | 0       |
 | Alto      | 0       | 0          | 0       |
 | Médio     | 3       | 0          | 0       |
-| Baixo     | 9       | 0          | 1       |
-| **Total** | **12**  | **0**      | **1**   |
+| Baixo     | 11      | 0          | 1       |
+| **Total** | **14**  | **0**      | **1**   |
