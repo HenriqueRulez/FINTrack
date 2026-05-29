@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 
 test("redireciona para passphrase se não autenticado", async ({ browser }) => {
-  const ctx = await browser.newContext(); // sem auth state
+  const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] } }); // contexto limpo, sem auth state
   const page = await ctx.newPage();
   await page.goto("/dashboard");
   await expect(page).toHaveURL(/passphrase/);
@@ -9,7 +9,7 @@ test("redireciona para passphrase se não autenticado", async ({ browser }) => {
 });
 
 test("passphrase page renderiza correctamente", async ({ browser }) => {
-  const ctx = await browser.newContext();
+  const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] } }); // contexto limpo, sem auth state
   const page = await ctx.newPage();
   await page.goto("/");
   await expect(page.locator("h1")).toContainText("FINTrack");

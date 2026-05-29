@@ -119,10 +119,13 @@ function SettingsIcon() {
   );
 }
 
+// Transaction count badge (hardcoded for mock phase — 13 transactions)
+const TX_COUNT = 13;
+
 const NAV_ITEMS: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", active: true, icon: <DashboardIcon /> },
   { label: "Holdings", href: "/holdings", active: true, icon: <HoldingsIcon /> },
-  { label: "Transactions", href: "#", active: false, icon: <TransactionsIcon /> },
+  { label: "Transactions", href: "/transactions", active: true, icon: <TransactionsIcon /> },
   { label: "Performance", href: "/performance", active: true, icon: <PerformanceIcon /> },
   { label: "Tax Calculator", href: "#", active: false, icon: <TaxIcon /> },
 ];
@@ -174,6 +177,11 @@ export function Sidebar() {
       >
         {item.icon}
         {item.label}
+        {item.label === "Transactions" && (
+          <span className="ml-auto text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded-sm tabular-nums border border-border/50">
+            {TX_COUNT}
+          </span>
+        )}
       </Link>
     );
   }

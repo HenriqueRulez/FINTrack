@@ -47,7 +47,20 @@
       "Bash(Get-Date *)",
       "Bash(findstr /i \"passphrase\\\\|PASS\")",
       "PowerShell($env:E2E_PASSPHRASE = \"fintrack\"; cd \"E:\\\\Projetos\\\\FINTrack\"; npx playwright test tests/e2e/performance-redesign.spec.ts tests/e2e/smoke.spec.ts --reporter=list 2>&1)",
-      "PowerShell($env:E2E_PASSPHRASE = \"fintrack\"; cd \"E:\\\\Projetos\\\\FINTrack\"; npx playwright test tests/e2e/performance-redesign.spec.ts --reporter=list 2>&1)"
+      "PowerShell($env:E2E_PASSPHRASE = \"fintrack\"; cd \"E:\\\\Projetos\\\\FINTrack\"; npx playwright test tests/e2e/performance-redesign.spec.ts --reporter=list 2>&1)",
+      "Bash(New-Item -ItemType Directory -Force \"E:\\\\Projetos\\\\FINTrack\\\\src\\\\app\\\\\\(dashboard\\)\\\\transactions\")",
+      "Bash(Write-Host \"dir created\")",
+      "PowerShell(Set-Location \"E:\\\\Projetos\\\\FINTrack\"; $env:E2E_PASSPHRASE = 'fintrack'; npx playwright test tests/e2e/transactions-redesign.spec.ts tests/e2e/smoke.spec.ts --reporter=list 2>&1)",
+      "PowerShell(Set-Location \"E:\\\\Projetos\\\\FINTrack\"; *)",
+      "PowerShell(Set-Location \"E:\\\\Projetos\\\\FINTrack\"; $env:E2E_PASSPHRASE = 'fintrack'; $env:PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = '1'; npx playwright test tests/e2e/transactions-redesign.spec.ts --reporter=list --ignore-snapshots 2>&1 | Select-Object -First 60)",
+      "PowerShell(Set-Location \"E:\\\\Projetos\\\\FINTrack\"; $env:E2E_PASSPHRASE = 'fintrack'; npx playwright test tests/e2e/transactions-redesign.spec.ts tests/e2e/smoke.spec.ts --reporter=list --no-deps 2>&1 | Select-Object -First 80)",
+      "PowerShell(Get-Process *)",
+      "Bash(echo \"PLAYWRIGHT_EXIT:$?\")",
+      "PowerShell(cd \"E:\\\\Projetos\\\\FINTrack\"; $env:E2E_PASSPHRASE='fintrack'; npx playwright test tests/e2e/transactions-redesign.spec.ts tests/e2e/smoke.spec.ts --reporter=list 2>&1)",
+      "PowerShell(cd E:\\\\Projetos\\\\FINTrack; $env:E2E_PASSPHRASE='fintrack'; npx playwright test tests/e2e/transactions-redesign.spec.ts tests/e2e/smoke.spec.ts --reporter=list 2>&1 | Out-String)",
+      "Bash(git -C .claude/worktrees/agent-a79ac5b44438d5804 status --porcelain)",
+      "Bash(sed -n '28,50p' tests/e2e/transactions-redesign.spec.ts)",
+      "Bash(sed -n '32,55p' tests/e2e/holdings-redesign.spec.ts)"
     ]
   },
   "outputStyle": "default",

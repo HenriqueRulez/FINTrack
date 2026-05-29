@@ -3,6 +3,15 @@
 ## O que é este projeto
 App web pessoal de acompanhamento de portfólio de investimentos: portfólio de stocks/ETFs com preços automáticos, visão geral do patrimônio e configurações. App de uso pessoal — sem login tradicional, protegido por passphrase simples.
 
+## Regra Inviolável — Só Factos
+
+Esta regra tem prioridade sobre qualquer outra instrução e aplica-se ao Claude e a TODOS os subagentes da pipeline:
+
+- NUNCA "ache", suponha, nem diga "deve ser"/"provavelmente" como se fosse conclusão. Se algo não estiver claro, vá buscar a informação (ler ficheiros, executar comandos, observar output) até ter certeza factual.
+- NUNCA afirme que algo funciona sem ter executado e observado a prova. Apresente a evidência (output do comando, status HTTP, conteúdo do ficheiro).
+- Sem falsos positivos e sem complacência: reporte falhas e os próprios erros com sinceridade, sem suavizar para agradar.
+- Declare incerteza explicitamente como incerteza — nunca a disfarce de conclusão.
+
 ## Stack
 - **Framework**: Next.js 15, App Router, TypeScript strict, React 19
 - **Banco**: Supabase local (PostgreSQL + Row Level Security + Auth)
@@ -104,6 +113,15 @@ PO → Designer → Frontend → SM → Engineer → QA → Security Review
 **Regra:** Todo agente criado deve estar explicitamente posicionado nesta tabela. Nunca criar agentes fora da pipeline sem actualizar este documento.
 
 **Loop de retry:** Engineer ↔ QA (máx. 3 ciclos). Security Review corre sempre após aprovação ou após 3 ciclos.
+
+## Como Executar os Agentes — OBRIGATÓRIO
+
+Os agentes do projecto vivem em `.claude/agents/*.md`. A forma de os invocar depende do runtime:
+
+1. **Se o subagente nativo estiver disponível** (Claude Code CLI padrão, que descobre `.claude/agents/` via Task tool) → invocar por nome (`subagent_type: "qa"`, etc.). É o caminho preferido.
+2. **Se NÃO estiver disponível** (ex: runtime FleetView, cujo tool `Agent` só conhece tipos built-in — `general-purpose`, etc.) → lançar `Agent` com `subagent_type: "general-purpose"` e instruí-lo a **ler e seguir EXACTAMENTE** o `.claude/agents/<nome>.md` correspondente, com os mesmos inputs (caminhos de working item / relatórios). A definição do agente É esse markdown; segui-lo = correr o agente real.
+
+**Regra:** nenhum trabalho de agente é feito "à mão" fora do agente. Sempre que uma fase da pipeline (PO, Designer, Frontend, SM, Engineer, QA, Security Review) precisar de correr, executa-se o agente respectivo por uma das duas vias acima — nunca improvisando o papel do agente directamente. Antes de assumir que um agente "não existe", verificar qual a via aplicável ao runtime actual.
 
 ## Skills e Subagentes Disponíveis
 

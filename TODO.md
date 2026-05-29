@@ -53,8 +53,18 @@
 >   - **Severity:** critical / high / medium / low
 > ```
 
+- [ ] **[BUG]** Botão aninhado dentro de botão no "Select All" do modo de edição — transactions-redesign (CA-07)
+  - **Expected:** HTML válido sem erro de hidratação React na página `/transactions`
+  - **Actual:** `FilterRow.tsx` (linhas 204-215) envolve um `<CheckBox>` (que renderiza `<button role="checkbox">`) dentro de um `<button onClick={onToggleAll}>`. `<button>` não pode conter outro `<button>` → erro de hidratação React: "In HTML, <button> cannot be a descendant of <button>. This will cause a hydration error." Confirmado via Chrome Extension console (2026-05-29).
+  - **Reproduce:** abrir `/transactions` autenticado → activar modo de edição (botão Edit) → observar console (2 erros de hidratação). O controlo "Select All" continua funcional visualmente, mas o DOM é inválido.
+  - **Como resolver:** trocar o `<button>` exterior por um `<div role="button">`/`<label>` ou extrair o CheckBox para fora do botão, mantendo um único elemento clicável.
+  - **Severity:** medium
+
 ## Done
 
+- [x] **[BUG resolvido]** Dev server HTTP 500 — `Module not found: Can't resolve 'chevron-svg'`
+  - **Causa:** Tailwind v4 escaneava `.claude/reports/*.md` e apanhava uma classe arbitrária de exemplo com `background-image:url(...)` apontando para um ficheiro inexistente, que o Turbopack tentava resolver como módulo CSS. (NOTA: não reescrever aqui a sintaxe literal da classe — fica fora dos `@source not` e re-introduz o bug.)
+  - **Correcção:** `@source not` para `.claude/`, `tests/`, `supabase/` em `globals.css` (linhas 5-7). Confirmado: server arranca e `/transactions` carrega (2026-05-29).
 - [x] Passphrase login
 - [x] CRUD de posições no portfólio (ticker, tipo, quantidade, preço médio, moeda)
 - [x] Nome automático via Yahoo Finance ao adicionar posição

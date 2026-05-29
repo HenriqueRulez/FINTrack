@@ -25,8 +25,8 @@ import { test, expect } from "@playwright/test";
 test("auth › /performance sem sessão: rota protegida — redirige para /passphrase ou carrega página", async ({
   browser,
 }) => {
-  // Middleware adds /performance to PROTECTED. Clean context verifies protection.
-  const ctx = await browser.newContext();
+  // Middleware adiciona /performance ao PROTECTED. Contexto limpo verifica a protecção.
+  const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] } }); // contexto verdadeiramente limpo, sem auth
   const page = await ctx.newPage();
 
   const errors: string[] = [];
@@ -35,8 +35,9 @@ test("auth › /performance sem sessão: rota protegida — redirige para /passp
   await page.goto("/performance");
   await page.waitForLoadState("networkidle");
 
+  // Sem sessão, o middleware DEVE redireccionar para /passphrase
   const url = page.url();
-  expect(url).toMatch(/passphrase|performance/);
+  expect(url).toMatch(/passphrase/);
   expect(errors).toHaveLength(0);
 
   await ctx.close();

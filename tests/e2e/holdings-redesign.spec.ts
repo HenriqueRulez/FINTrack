@@ -23,13 +23,7 @@ import { test, expect } from "@playwright/test";
 test("CA-09 auth › /holdings sem sessão: middleware configurado e rota protegida", async ({
   browser,
 }) => {
-  // Note: In the local dev environment with Supabase local, the Supabase session
-  // token may persist in the browser storage across new contexts because the
-  // storageState from the setup step shares the same localhost origin.
-  // The middleware protection IS configured (PROTECTED array includes "/holdings")
-  // and was verified by inspecting src/lib/supabase/middleware.ts.
-  // This test verifies the page loads without JS errors regardless of auth state.
-  const ctx = await browser.newContext(); // clean context, no auth cookies
+  const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] } }); // contexto verdadeiramente limpo, sem auth
   const page = await ctx.newPage();
 
   const errors: string[] = [];
@@ -38,10 +32,10 @@ test("CA-09 auth › /holdings sem sessão: middleware configurado e rota proteg
   await page.goto("/holdings");
   await page.waitForLoadState("networkidle");
 
-  // Page should either redirect to /passphrase OR load the holdings page (if session persists)
+  // Sem sessão, o middleware DEVE redireccionar para /passphrase
   const url = page.url();
-  expect(url).toMatch(/passphrase|holdings/);
-  // No JS errors regardless of which path was taken
+  expect(url).toMatch(/passphrase/);
+  // Sem erros JS
   expect(errors).toHaveLength(0);
 
   await ctx.close();
