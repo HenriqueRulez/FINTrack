@@ -1,6 +1,7 @@
 # FINTrack — Contexto do Projeto
 
 ## O que é este projeto
+
 App web pessoal de acompanhamento de portfólio de investimentos: portfólio de stocks/ETFs com preços automáticos, visão geral do patrimônio e configurações. App de uso pessoal — sem login tradicional, protegido por passphrase simples.
 
 ## Regra Inviolável — Só Factos
@@ -13,6 +14,7 @@ Esta regra tem prioridade sobre qualquer outra instrução e aplica-se ao Claude
 - Declare incerteza explicitamente como incerteza — nunca a disfarce de conclusão.
 
 ## Stack
+
 - **Framework**: Next.js 15, App Router, TypeScript strict, React 19
 - **Banco**: Supabase local (PostgreSQL + Row Level Security + Auth)
 - **Estilo**: TailwindCSS v4 + shadcn/ui (componentes em `src/components/ui/`)
@@ -24,6 +26,7 @@ Esta regra tem prioridade sobre qualquer outra instrução e aplica-se ao Claude
 ## Regras de Segurança — Obrigatórias
 
 ### Em todo API route (`src/app/api/**/route.ts`)
+
 1. Primeira operação SEMPRE: `supabase.auth.getUser()` — NUNCA `getSession()`
 2. Retornar 401 imediatamente se não houver usuário
 3. Aplicar rate limit via `rateLimit()` de `@/lib/rate-limit`
@@ -31,12 +34,14 @@ Esta regra tem prioridade sobre qualquer outra instrução e aplica-se ao Claude
 5. `user_id` vem SEMPRE da sessão autenticada, NUNCA do body da requisição
 
 ### Fronteira servidor/cliente
+
 - `src/lib/supabase/server.ts` → Server Components, API Routes
 - `src/lib/supabase/client.ts` → Client Components (`'use client'`) APENAS
 - `src/lib/anthropic/` → server-only, NUNCA importar em Client Components
 - `src/lib/yahoo-finance/` → server-only, NUNCA importar em Client Components
 
 ### Variáveis de ambiente
+
 - `NEXT_PUBLIC_*` → vai para o bundle do browser (OK: URL e anon key do Supabase)
 - Sem prefixo → server-only OBRIGATÓRIO (`ANTHROPIC_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`)
 
@@ -85,6 +90,17 @@ src/
 └── proxy.ts             # Nonce CSP + proteção de rotas
 ```
 
+## Subagentes
+
+- `po` — Product Owner: define requisitos e working items (com confirmação interactiva)
+- `designer` — UX/UI Designer: especifica layout, componentes e visual usando `DESIGN.md`
+- `frontend` — Frontend Developer: implementa componentes visuais baseado na spec do Designer
+- `sm` — Scrum Master: planeia tarefas de lógica/API para o Engineer (após o Frontend)
+- `engineer` — implementa API routes, DB, lógica de negócio, wiring UI↔API
+- `qa` — escreve testes Playwright por CA + executa todos os testes no browser real
+- `security-reviewer` — auditor OWASP + npm audit + actualiza `SECURITY_FINDINGS.md`
+- `db-schema-designer` — designer de schema PostgreSQL + RLS para o Supabase
+
 ## Pipeline de Desenvolvimento
 
 ```
@@ -94,21 +110,22 @@ PO → Designer → frontend-design skill → SM → Engineer → QA → Securit
 - **Toda feature passa por esse pipeline completo** — sem exceções, incluindo as que eram "Simple Tasks"
 - **Security Review é gate obrigatório**: inclui auditoria OWASP + `npm audit` + verificação de pacotes suspeitos
 - **Security Reviewer deve actualizar `SECURITY_FINDINGS.md`** a cada ciclo: adicionar novos achados, marcar resolvidos, não duplicar
+
 ## Pipeline de Agentes — Ordem Obrigatória
 
 ```
 PO → Designer → Frontend → SM → Engineer → QA → Security Review
 ```
 
-| Passo | Agente | Responsabilidade | Output |
-|-------|--------|-----------------|--------|
-| 1 | `po` | Define requisitos e critérios de aceite | `.claude/working-items/*.md` |
-| 2 | `designer` | Especifica visualmente usando DESIGN.md | `.claude/reports/design-*.md` |
-| 3 | `frontend` | Implementa UI (componentes, estilos, estados) | `.claude/reports/frontend-*.md` |
-| 4 | `sm` | Planeia tarefas de lógica/API para o Engineer | `.claude/tasks/*.md` |
-| 5 | `engineer` | Implementa API routes, DB, wiring UI↔API | `.claude/reports/*.md` |
-| 6 | `qa` | Escreve testes Playwright por CA + executa todos | `.claude/reports/qa-*.md` |
-| 7 | `security-reviewer` | Audita OWASP + npm audit + actualiza SECURITY_FINDINGS.md | `.claude/reports/security-*.md` |
+| Passo | Agente              | Local                                 | Responsabilidade                                          | Output                          |
+| ----- | ------------------- | ------------------------------------- | --------------------------------------------------------- | ------------------------------- |
+| 1     | `po`                | `.claude/agents/po.md`                | Define requisitos e critérios de aceite                   | `.claude/working-items/*.md`    |
+| 2     | `designer`          | `.claude/agents/designer.md`          | Especifica visualmente usando DESIGN.md                   | `.claude/reports/design-*.md`   |
+| 3     | `frontend`          | `.claude/agents/frontend.md`          | Implementa UI (componentes, estilos, estados)             | `.claude/reports/frontend-*.md` |
+| 4     | `sm`                | `.claude/agents/sm.md`                | Planeia tarefas de lógica/API para o Engineer             | `.claude/tasks/*.md`            |
+| 5     | `engineer`          | `.claude/agents/engineer.md`          | Implementa API routes, DB, wiring UI↔API                  | `.claude/reports/*.md`          |
+| 6     | `qa`                | `.claude/agents/qa.md`                | Escreve testes Playwright por CA + executa todos          | `.claude/reports/qa-*.md`       |
+| 7     | `security-reviewer` | `.claude/agents/security-reviewer.md` | Audita OWASP + npm audit + actualiza SECURITY_FINDINGS.md | `.claude/reports/security-*.md` |
 
 **Regra:** Todo agente criado deve estar explicitamente posicionado nesta tabela. Nunca criar agentes fora da pipeline sem actualizar este documento.
 
@@ -126,20 +143,11 @@ Os agentes do projecto vivem em `.claude/agents/*.md`. A forma de os invocar dep
 ## Skills e Subagentes Disponíveis
 
 ### Skills (slash commands)
+
 - `/build-feature` — pipeline completo PO → Designer → Frontend → SM → Engineer → QA → Security Review
 - `/frontend-design` — plugin para UI de alta qualidade (uso manual ou pelo agente Frontend)
 - `/review-security` — auditoria OWASP nos arquivos modificados + `npm audit`
 - `/add-feature` — workflow guiado para adicionar features com segurança
-
-### Subagentes
-- `po` — Product Owner: define requisitos e working items (com confirmação interactiva)
-- `designer` — UX/UI Designer: especifica layout, componentes e visual usando `DESIGN.md`
-- `frontend` — Frontend Developer: implementa componentes visuais baseado na spec do Designer
-- `sm` — Scrum Master: planeia tarefas de lógica/API para o Engineer (após o Frontend)
-- `engineer` — implementa API routes, DB, lógica de negócio, wiring UI↔API
-- `qa` — escreve testes Playwright por CA + executa todos os testes no browser real
-- `security-reviewer` — auditor OWASP + npm audit + actualiza `SECURITY_FINDINGS.md`
-- `db-schema-designer` — designer de schema PostgreSQL + RLS para o Supabase
 
 ## Design System
 
@@ -158,32 +166,39 @@ export async function POST(request: NextRequest) {
   const supabase = await createClient();
 
   // 1. Auth — sempre primeiro
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
   if (authError || !user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   // 2. Rate limit
   const rl = rateLimit(`resource:write:${user.id}`, 30, 60_000);
   if (!rl.success) {
-    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+    return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
   }
 
   // 3. Validação Zod
   const body = await request.json().catch(() => null);
   const parsed = MySchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: "Validation failed", details: parsed.error.flatten() }, { status: 422 });
+    return NextResponse.json(
+      { error: 'Validation failed', details: parsed.error.flatten() },
+      { status: 422 },
+    );
   }
 
   // 4. DB — user_id sempre da sessão
   const { data, error } = await supabase
-    .from("my_table")
+    .from('my_table')
     .insert({ ...parsed.data, user_id: user.id })
     .select()
     .single();
 
-  if (error) return NextResponse.json({ error: "Database error" }, { status: 500 });
+  if (error)
+    return NextResponse.json({ error: 'Database error' }, { status: 500 });
   return NextResponse.json({ data }, { status: 201 });
 }
 ```
@@ -191,6 +206,7 @@ export async function POST(request: NextRequest) {
 ## Banco de Dados — Padrão RLS
 
 Toda tabela de usuário usa:
+
 ```sql
 ALTER TABLE my_table ENABLE ROW LEVEL SECURITY;
 -- Usar (SELECT auth.uid()) não auth.uid() — cacheia por query, não por linha
@@ -201,6 +217,7 @@ CREATE POLICY "delete_own" ON my_table FOR DELETE USING ((SELECT auth.uid()) = u
 ```
 
 ## Adicionando shadcn/ui Components
+
 ```bash
 npx shadcn@latest add button input card dialog table select badge
 ```
