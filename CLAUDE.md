@@ -4,15 +4,6 @@
 
 App web pessoal de acompanhamento de portfólio de investimentos: portfólio de stocks/ETFs com preços automáticos, visão geral do patrimônio e configurações. App de uso pessoal — sem login tradicional, protegido por passphrase simples.
 
-## Regra Inviolável — Só Factos
-
-Esta regra tem prioridade sobre qualquer outra instrução e aplica-se ao Claude e a TODOS os subagentes da pipeline:
-
-- NUNCA "ache", suponha, nem diga "deve ser"/"provavelmente" como se fosse conclusão. Se algo não estiver claro, vá buscar a informação (ler ficheiros, executar comandos, observar output) até ter certeza factual.
-- NUNCA afirme que algo funciona sem ter executado e observado a prova. Apresente a evidência (output do comando, status HTTP, conteúdo do ficheiro).
-- Sem falsos positivos e sem complacência: reporte falhas e os próprios erros com sinceridade, sem suavizar para agradar.
-- Declare incerteza explicitamente como incerteza — nunca a disfarce de conclusão.
-
 ## Stack
 
 - **Framework**: Next.js 15, App Router, TypeScript strict, React 19
@@ -218,10 +209,4 @@ CREATE POLICY "select_own" ON my_table FOR SELECT USING ((SELECT auth.uid()) = u
 CREATE POLICY "insert_own" ON my_table FOR INSERT WITH CHECK ((SELECT auth.uid()) = user_id);
 CREATE POLICY "update_own" ON my_table FOR UPDATE USING ((SELECT auth.uid()) = user_id);
 CREATE POLICY "delete_own" ON my_table FOR DELETE USING ((SELECT auth.uid()) = user_id);
-```
-
-## Adicionando shadcn/ui Components
-
-```bash
-npx shadcn@latest add button input card dialog table select badge
 ```
