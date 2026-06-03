@@ -41,6 +41,7 @@ Ao fechar um achado, adicionar: `→ Resolvido em: [nome da feature] (YYYY-MM-DD
 | B-09 | `src/hooks/useAnimations.ts:8`, `src/components/settings/AnimationsToggle.tsx:8` | `useState(true)` como valor inicial antes de ler localStorage — flash visual de animações durante hidratação SSR→client se utilizador as tiver desactivado. Sem impacto de segurança | Dashboard Visual Redesign | 2026-05-26 |
 | B-10 | `src/app/api/portfolio/holdings/route.ts:90` | `select("*")` busca todas as colunas de `portfolio_positions`, incluindo campos não retornados ao cliente. Padrão idêntico ao B-07 — mitigado por RLS + filtro por `user_id`. Recomenda-se selecção explícita de colunas na Fase 2 | Holdings Redesign | 2026-05-27 |
 | B-11 | `src/app/api/portfolio/holdings/route.ts:88` | `(supabase as any)` type cast para acomodar campos `sold`/`chart_var` recém-adicionados. Não é bypass de segurança (RLS activo); pode mascarar erros de schema. Padrão idêntico ao B-08. Resolver após regenerar tipos | Holdings Redesign | 2026-05-27 |
+| B-12 | `src/lib/supabase/middleware.ts:33` | Protecção de rotas usa `pathname.startsWith(r)` — um match por prefixo. Para `/tax-calculator` não há sobreposição (nenhuma rota pública partilha o prefixo), mas o padrão é frágil se no futuro existir uma rota pública cujo caminho comece por um prefixo protegido (ex.: `/settings-public`). Recomenda-se match exacto ou com fronteira de segmento (`=== r || startsWith(r + "/")`). Risco actual negligível — registado como informacional, não introduzido por esta feature | Tax Calculator | 2026-06-03 |
 
 ---
 
@@ -76,5 +77,5 @@ A cada ciclo de desenvolvimento, após a auditoria:
 | Crítico   | 0       | 0          | 0       |
 | Alto      | 0       | 0          | 0       |
 | Médio     | 3       | 0          | 0       |
-| Baixo     | 11      | 0          | 1       |
-| **Total** | **14**  | **0**      | **1**   |
+| Baixo     | 12      | 0          | 1       |
+| **Total** | **15**  | **0**      | **1**   |

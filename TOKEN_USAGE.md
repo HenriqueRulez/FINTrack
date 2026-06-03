@@ -90,15 +90,33 @@
 **Testes E2E:** `tests/e2e/performance-redesign.spec.ts` (58 passed)
 **Tokens exactos:** verificar Claude Code → Stats
 
+### Run #3 — tax-calculator (2026-06-03 14:30)
+
+| Agente | Status |
+|--------|--------|
+| PO | ✅ |
+| Designer | ✅ |
+| Frontend | ✅ |
+| SM | ✅ |
+| Engineer | ✅ (ciclo 1) |
+| QA | ✅ APROVADO |
+| Security Review | ✅ (1 informacional B-12) |
+
+**Ciclos QA:** 1 de 3
+**Ficheiros tocados:** 11 (9 criados + 2 modificados)
+**Relatórios gerados:** 7 ficheiros em `.claude/`
+**Testes E2E:** `tests/e2e/tax-calculator.spec.ts` (35 passed)
+**Tokens exactos:** verificar Claude Code → Stats
+
 ---
 
 ## Resumo Acumulado
 
 | Métrica | Total |
 |---------|-------|
-| Execuções `/build-feature` | 3 |
-| Features entregues (APROVADO) | 3 |
+| Execuções `/build-feature` | 4 |
+| Features entregues (APROVADO) | 4 |
 | Features com retrabalho (PARCIAL) | 0 |
 | Features reprovadas | 0 |
 | Total de ciclos QA extra (retrabalho) | 2 |
-| Total de ficheiros tocados | 33+ |
+| Total de ficheiros tocados | 44+ |

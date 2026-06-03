@@ -127,7 +127,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Holdings", href: "/holdings", active: true, icon: <HoldingsIcon /> },
   { label: "Transactions", href: "/transactions", active: true, icon: <TransactionsIcon /> },
   { label: "Performance", href: "/performance", active: true, icon: <PerformanceIcon /> },
-  { label: "Tax Calculator", href: "#", active: false, icon: <TaxIcon /> },
+  { label: "Tax Calculator", href: "/tax-calculator", active: true, icon: <TaxIcon /> },
 ];
 
 const SETTINGS_ITEM: NavItem = {

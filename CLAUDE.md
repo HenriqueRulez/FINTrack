@@ -64,6 +64,10 @@ npx supabase db push
 npx supabase gen types typescript --local > src/types/database.ts
 ```
 
+### Python — usar `python`, NUNCA `python3` (obrigatório, Claude e subagentes)
+
+Neste ambiente Windows, `python3` resolve para o stub/alias da Microsoft Store, que NÃO executa nada e fica pendurado (causando o subagente a travar em "Running…"). O Python real é `python` (`C:\Python311\python`). Sempre que precisar de correr Python (ex.: cálculos de verificação), use `python` — nunca `python3`.
+
 ## Estrutura de Pastas Importante
 
 ```
