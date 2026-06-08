@@ -61,7 +61,8 @@
       "Bash(git -C .claude/worktrees/agent-a79ac5b44438d5804 status --porcelain)",
       "Bash(sed -n '28,50p' tests/e2e/transactions-redesign.spec.ts)",
       "Bash(sed -n '32,55p' tests/e2e/holdings-redesign.spec.ts)",
-      "PowerShell(try { $r = Invoke-WebRequest -Uri \"http://localhost:3000/passphrase\" -UseBasicParsing -TimeoutSec 15; \"HTTP:\" + $r.StatusCode } catch { \"ERR:\" + $_.Exception.Message })"
+      "PowerShell(try { $r = Invoke-WebRequest -Uri \"http://localhost:3000/passphrase\" -UseBasicParsing -TimeoutSec 15; \"HTTP:\" + $r.StatusCode } catch { \"ERR:\" + $_.Exception.Message })",
+      "Bash(git check-ignore *)"
     ]
   },
   "outputStyle": "default",

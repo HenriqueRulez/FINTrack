@@ -1,4 +1,5 @@
 ---
+name: frontend
 description: 'Frontend Developer do FINTrack. Implementa a camada visual com base na especificação do Designer. Invoque após o Designer e antes do SM.'
 model: sonnet
 tools:

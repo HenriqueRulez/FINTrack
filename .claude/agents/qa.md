@@ -1,4 +1,5 @@
 ---
+name: qa
 description: 'QA Engineer do FINTrack. Verifica CAs com duas ferramentas complementares: Chrome Extension (visual) + Playwright (funcional/CI). Invoque após o Engineer.'
 model: sonnet
 tools:

@@ -1,5 +1,5 @@
 ---
-name: 'po'
+name: 'searcher'
 description: 'Você é o explorador do código. Sabe onde está cada função e definição dentro do projeto. Realiza buscas rápidas, realizando exploração na base de código e lookup de documentação'
 model: haiku
 tools:

@@ -18,7 +18,7 @@ O input pode ser:
 ### Passo 1 — Bug Reporter
 Informe: "**Bug Reporter — a estruturar relatório...**"
 
-Use o agente `bug-reporter` (subagent_type: "general-purpose") com as instruções completas do ficheiro `.claude/agents/bug-reporter.md` e a descrição do bug como input.
+Use o agente `bug-reporter` (subagent_type: "bug-reporter") passando a descrição do bug como input.
 
 - Output esperado: caminho no formato `.claude/bug-reports/*.md`
 
@@ -31,7 +31,7 @@ Use o agente `bug-reporter` (subagent_type: "general-purpose") com as instruçõ
 ### Passo 2 — Engineer
 Informe: "**Engineer — a corrigir o bug...**"
 
-Use o agente `engineer` (subagent_type: "general-purpose") com as instruções completas do ficheiro `.claude/agents/engineer.md`. No prompt, inclua:
+Use o agente `engineer` (subagent_type: "engineer"). No prompt, inclua:
 - O `bug_report_path`
 - Instrução explícita: **"Está em modo BUG-FIX. O input não é um plano de tarefas do SM — é um bug report em `.claude/bug-reports/`. Leia o bug report no caminho indicado, identifique a root cause no codebase, corrija o problema, e produza o relatório em `.claude/reports/fix-[slug].md`."**
 
@@ -48,7 +48,7 @@ Use o agente `engineer` (subagent_type: "general-purpose") com as instruções c
 ### Passo 3 — QA
 Informe: "**QA — a verificar a correcção...**"
 
-Use o agente `qa` (subagent_type: "general-purpose") com as instruções completas do ficheiro `.claude/agents/qa.md`. No prompt, inclua:
+Use o agente `qa` (subagent_type: "qa"). No prompt, inclua:
 - O `engineer_report_path`
 - O `bug_report_path` **no lugar do working_item_path** — o bug report contém os critérios de aceite para a correcção
 - Instrução explícita: **"Está em modo BUG-FIX. O 'working item' é o bug report em `.claude/bug-reports/`. Verifique se os critérios de aceite do bug report foram satisfeitos e se não há regressões."**
@@ -68,7 +68,7 @@ Use o agente `qa` (subagent_type: "general-purpose") com as instruções complet
 
 **Se PARCIAL ou REPROVADO e ciclos < 3:**
 - Informe: "⚠️ **QA encontrou problemas — Engineer a corrigir (ciclo N de 3)...**"
-- Use o agente `engineer` (subagent_type: "general-purpose") passando no prompt: `bug_report_path` + caminho do relatório QA + instrução explícita de modo BUG-FIX + instrução de que se trata de uma correcção com base nos problemas listados no relatório QA
+- Use o agente `engineer` (subagent_type: "engineer") passando no prompt: `bug_report_path` + caminho do relatório QA + instrução explícita de modo BUG-FIX + instrução de que se trata de uma correcção com base nos problemas listados no relatório QA
 - Aplicar exactamente as mesmas validações do Passo 2 antes de avançar
 - Voltar ao Passo 3
 

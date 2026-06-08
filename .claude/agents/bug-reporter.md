@@ -1,6 +1,7 @@
 ---
+name: bug-reporter
 description: 'Estrutura a descrição de um bug em relatório formal para o Engineer. Invoque antes do Engineer no pipeline /bug-fix.'
-model: claude-sonnet-4-6
+model: sonnet
 tools:
   - Read
   - Glob

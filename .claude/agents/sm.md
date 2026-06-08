@@ -1,4 +1,5 @@
 ---
+name: sm
 description: 'Transforma um working item do PO num plano de tarefas ordenadas para o Engineer. Invoque após o PO ter criado o working item.'
 model: sonnet
 tools:

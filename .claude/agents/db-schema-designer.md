@@ -1,6 +1,7 @@
 ---
+name: db-schema-designer
 description: 'Especialista em schema PostgreSQL + RLS para Supabase. Projeta schemas seguros e performáticos.'
-model: claude-sonnet-4-6
+model: sonnet
 tools:
   - Read
   - Glob

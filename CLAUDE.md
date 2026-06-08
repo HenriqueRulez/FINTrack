@@ -94,7 +94,17 @@ src/
 - `engineer` — implementa API routes, DB, lógica de negócio, wiring UI↔API
 - `qa` — escreve testes Playwright por CA + executa todos os testes no browser real
 - `security-reviewer` — auditor OWASP + npm audit + actualiza `SECURITY_FINDINGS.md`
-- `db-schema-designer` — designer de schema PostgreSQL + RLS para o Supabase
+- `db-schema-designer` — designer de schema PostgreSQL + RLS para o Supabase. **USO SOB DEMANDA APENAS** — ver regra abaixo
+
+### `db-schema-designer` — uso sob demanda (NUNCA automático)
+
+O `db-schema-designer` está **fora da pipeline** e **não é invocado por nenhuma skill**. Só deve ser executado quando for **expressamente necessário ou solicitado** pelo utilizador (ex.: criar/alterar tabelas, políticas RLS, índices). É proibido:
+
+- Invocá-lo "por precaução" ou como passo de rotina em qualquer feature/bug.
+- Adicionar qualquer "verificação de base de dados" automática a tasks que não a peçam explicitamente.
+- Inseri-lo no `/build-feature`, `/implement-feature` ou outra skill.
+
+Se uma feature precisar de schema novo, isso deve estar escrito no working item do PO/plano do SM; mesmo assim, a invocação do `db-schema-designer` é uma decisão consciente, não um gate.
 
 ## Pipeline de Desenvolvimento
 
@@ -128,12 +138,9 @@ PO → Designer → Frontend → SM → Engineer → QA → Security Review
 
 ## Como Executar os Agentes — OBRIGATÓRIO
 
-Os agentes do projecto vivem em `.claude/agents/*.md`. A forma de os invocar depende do runtime:
+Os agentes do projecto vivem em `.claude/agents/*.md` e são descobertos pelo runtime. Invocar SEMPRE por nome via `subagent_type: "<nome>"` (ex.: `subagent_type: "engineer"`, `"qa"`, `"security-reviewer"`). A definição do agente é o próprio markdown, carregado como system prompt do subagente — NÃO é preciso (nem permitido) mandar um `general-purpose` "ler e seguir" o ficheiro. Confirmado por teste (2026-06-08): todos os agentes da pipeline arrancam por nome.
 
-1. **Se o subagente nativo estiver disponível** (Claude Code CLI padrão, que descobre `.claude/agents/` via Task tool) → invocar por nome (`subagent_type: "qa"`, etc.). É o caminho preferido.
-2. **Se NÃO estiver disponível** (ex: runtime FleetView, cujo tool `Agent` só conhece tipos built-in — `general-purpose`, etc.) → lançar `Agent` com `subagent_type: "general-purpose"` e instruí-lo a **ler e seguir EXACTAMENTE** o `.claude/agents/<nome>.md` correspondente, com os mesmos inputs (caminhos de working item / relatórios). A definição do agente É esse markdown; segui-lo = correr o agente real.
-
-**Regra:** nenhum trabalho de agente é feito "à mão" fora do agente. Sempre que uma fase da pipeline (PO, Designer, Frontend, SM, Engineer, QA, Security Review) precisar de correr, executa-se o agente respectivo por uma das duas vias acima — nunca improvisando o papel do agente directamente. Antes de assumir que um agente "não existe", verificar qual a via aplicável ao runtime actual.
+**Regra:** nenhum trabalho de agente é feito "à mão" fora do agente, e nenhum agente é invocado via `general-purpose`. Sempre que uma fase da pipeline (PO, Designer, Frontend, SM, Engineer, QA, Security Review) precisar de correr, executa-se o agente respectivo por nome. Se um `subagent_type` for rejeitado, verificar o frontmatter (`name`/`description`) de `.claude/agents/<nome>.md` — nunca recorrer a workarounds.
 
 ## Skills e Subagentes Disponíveis
 

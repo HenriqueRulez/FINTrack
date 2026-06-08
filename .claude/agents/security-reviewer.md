@@ -1,4 +1,5 @@
 ---
+name: security-reviewer
 description: 'Auditor de segurança OWASP do FINTrack. Invocado após QA aprovar. Actualiza SECURITY_FINDINGS.md e produz relatório de segurança.'
 model: opus
 tools:
