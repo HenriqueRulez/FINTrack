@@ -204,13 +204,12 @@ export function FilterRow({
             <button
               type="button"
               onClick={onToggleAll}
-              className="inline-flex items-center gap-2 px-3 py-[6px] rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors font-mono"
+              role="checkbox"
+              aria-checked={checkState === "mixed" ? "mixed" : checkState === "on"}
+              aria-label="Select all"
+              className="inline-flex items-center gap-2 px-3 py-[6px] rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
-              <CheckBox
-                state={checkState}
-                onClick={() => {}}
-                label="Select all"
-              />
+              <CheckBox state={checkState} interactive={false} />
               Select All ({pagedLength})
             </button>
 
