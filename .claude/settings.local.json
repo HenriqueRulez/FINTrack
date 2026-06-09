@@ -63,7 +63,8 @@
       "Bash(sed -n '32,55p' tests/e2e/holdings-redesign.spec.ts)",
       "PowerShell(try { $r = Invoke-WebRequest -Uri \"http://localhost:3000/passphrase\" -UseBasicParsing -TimeoutSec 15; \"HTTP:\" + $r.StatusCode } catch { \"ERR:\" + $_.Exception.Message })",
       "Bash(git check-ignore *)",
-      "PowerShell(git -C *)"
+      "PowerShell(git -C *)",
+      "PowerShell(npm run typecheck)"
     ]
   },
   "outputStyle": "default",

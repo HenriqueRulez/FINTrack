@@ -5,11 +5,14 @@
 export type Currency = "EUR" | "USD" | "Native";
 export type NativeCurrency = "EUR" | "USD";
 export type ChartVar = "chart-1" | "chart-2" | "chart-5";
+export type AssetClass = "Stocks" | "ETFs" | "Crypto" | "Other";
 
 export interface TradeItem {
   ticker: string;
   name: string;
   chart: ChartVar;
+  assetClass: AssetClass;
+  exchange: string;
   status: "active" | "closed";
   holdDays: number;
   invested: number;   // in native currency
@@ -23,6 +26,8 @@ export const TRADES: TradeItem[] = [
     ticker: "VWCE",
     name: "Vanguard FTSE All-World UCITS ETF",
     chart: "chart-2",
+    assetClass: "ETFs",
+    exchange: "XETRA",
     status: "active",
     holdDays: 54,
     invested: 180.00,
@@ -34,6 +39,8 @@ export const TRADES: TradeItem[] = [
     ticker: "AMAT",
     name: "Applied Materials, Inc.",
     chart: "chart-1",
+    assetClass: "Stocks",
+    exchange: "NASDAQ",
     status: "active",
     holdDays: 110,
     invested: 6672.00,
@@ -45,6 +52,8 @@ export const TRADES: TradeItem[] = [
     ticker: "CSPX",
     name: "iShares Core S&P 500 UCITS ETF",
     chart: "chart-2",
+    assetClass: "ETFs",
+    exchange: "LSE",
     status: "active",
     holdDays: 72,
     invested: 6722.80,
@@ -56,6 +65,8 @@ export const TRADES: TradeItem[] = [
     ticker: "MSFT",
     name: "Microsoft Corp.",
     chart: "chart-1",
+    assetClass: "Stocks",
+    exchange: "NASDAQ",
     status: "active",
     holdDays: 198,
     invested: 1600.00,
@@ -67,6 +78,8 @@ export const TRADES: TradeItem[] = [
     ticker: "TSLA",
     name: "Tesla Inc.",
     chart: "chart-1",
+    assetClass: "Stocks",
+    exchange: "NASDAQ",
     status: "closed",
     holdDays: 0,
     invested: 980.00,
@@ -78,6 +91,8 @@ export const TRADES: TradeItem[] = [
     ticker: "GLD",
     name: "SPDR Gold Shares",
     chart: "chart-5",
+    assetClass: "Other",
+    exchange: "NYSE ARCA",
     status: "closed",
     holdDays: 0,
     invested: 1170.00,

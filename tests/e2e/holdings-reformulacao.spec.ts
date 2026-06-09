@@ -12,14 +12,11 @@
  *  CA7  — Coluna "Market Value" presente (9ª coluna)
  *  CA8  — Colunas Portfolio%, Shares, Avg Cost, Current Price, Gain/Loss mantidas
  *  CA9  — Avg Cost é valor mock fixo (sem cálculo ponderado)
- *  CA10 — Botão "+ Add position" visível na página
- *  CA11 — Clicar "+ Add position" abre modal
- *  CA12 — Modal tem 6 campos: ticker, market/exchange, type, shares, price paid, currency
- *  CA13 — Campo currency pré-preenchido com EUR ao abrir modal
- *  CA14 — Campos calculados NÃO aparecem no modal
- *  CA15 — Fechar modal não altera dados da tabela
+ *  CA10 — [REMOVIDO 2026-06-09] Botão "+ Add position" eliminado — Holdings é só
+ *         visão geral; entrada/edição de dados passa a viver em Transactions.
+ *         CA11–CA15 (modal Add position) ficam obsoletos pela mesma razão.
  *  CA16 — 7 KPIs do topo presentes
- *  CA17 — CurrencySelector presente e funcional (independente do campo currency do modal)
+ *  CA17 — CurrencySelector presente e funcional (default = Native)
  *  CA18 — Labels de UI em inglês
  */
 
@@ -276,169 +273,23 @@ test.describe("Holdings Reformulacao — authenticated", () => {
     expect(text1?.trim()).toBe(text2?.trim());
   });
 
-  // ─── CA10 — Botão "+ Add position" visível ──────────────────────────────
+  // ─── CA10 — Botão "+ Add position" REMOVIDO ─────────────────────────────
+  // Holdings passou a ser só visão geral; a entrada/edição de dados vive em
+  // Transactions. O botão e o modal Add position foram eliminados (2026-06-09).
+  // CA11–CA15 (que exercitavam o modal) ficaram obsoletos e foram removidos.
 
-  test("CA10 add-button › botão '+ Add position' visível no header do card", async ({
+  test("CA10 no-add-button › botão '+ Add position' NÃO existe na página", async ({
     page,
   }) => {
-    // Button has aria-label="Add a new position" and visible text "+ Add position"
-    // Use locator with hasText for the visible text content
-    const addBtn = page.locator("button", { hasText: "+ Add position" });
-    await expect(addBtn).toBeVisible();
+    const addBtn = page.locator("button", { hasText: "Add position" });
+    await expect(addBtn).toHaveCount(0);
   });
 
-  // ─── CA11 — Clicar botão abre modal ─────────────────────────────────────
-
-  test("CA11 modal-open › clicar '+ Add position' abre modal com título 'Add position'", async ({
+  test("CA10 no-add-button › nenhum modal/dialog presente na página de Holdings", async ({
     page,
   }) => {
-    const addBtn = page.locator("button", { hasText: "+ Add position" });
-    await addBtn.click();
-
-    // Dialog should open — title "Add position" as heading
     const dialog = page.getByRole("dialog");
-    await expect(dialog).toBeVisible();
-
-    // Use getByRole("heading") to avoid strict mode violation (title + button both match "Add position")
-    const title = dialog.getByRole("heading", { name: "Add position" });
-    await expect(title).toBeVisible();
-  });
-
-  // ─── CA12 — Modal tem 6 campos ───────────────────────────────────────────
-
-  test("CA12 modal-fields › modal contém labels Ticker, Market / Exchange, Type, Currency, Shares, Price paid", async ({
-    page,
-  }) => {
-    const addBtn = page.locator("button", { hasText: "+ Add position" });
-    await addBtn.click();
-
-    const dialog = page.getByRole("dialog");
-    await expect(dialog).toBeVisible();
-
-    const expectedLabels = [
-      "Ticker",
-      "Market / Exchange",
-      "Type",
-      "Currency",
-      "Shares",
-      "Price paid",
-    ];
-
-    for (const label of expectedLabels) {
-      await expect(dialog.getByText(label, { exact: true })).toBeVisible();
-    }
-  });
-
-  test("CA12 modal-fields › modal tem 2 inputs numéricos e 2 inputs texto e 2 selects", async ({
-    page,
-  }) => {
-    const addBtn = page.locator("button", { hasText: "+ Add position" });
-    await addBtn.click();
-
-    const dialog = page.getByRole("dialog");
-    await expect(dialog).toBeVisible();
-
-    // 2 text inputs (Ticker, Market/Exchange)
-    const textInputs = dialog.locator('input[type="text"]');
-    await expect(textInputs).toHaveCount(2);
-
-    // 2 number inputs (Shares, Price paid)
-    const numberInputs = dialog.locator('input[type="number"]');
-    await expect(numberInputs).toHaveCount(2);
-
-    // 2 selects (Type, Currency)
-    const selectTriggers = dialog.locator('[role="combobox"]');
-    await expect(selectTriggers).toHaveCount(2);
-  });
-
-  // ─── CA13 — Currency pré-preenchido com EUR ──────────────────────────────
-
-  test("CA13 currency-default › currency selector no modal mostra EUR por defeito", async ({
-    page,
-  }) => {
-    const addBtn = page.locator("button", { hasText: "+ Add position" });
-    await addBtn.click();
-
-    const dialog = page.getByRole("dialog");
-    await expect(dialog).toBeVisible();
-
-    // The currency select trigger should display "EUR" as its value
-    const currencyTrigger = dialog.locator('[aria-label="Currency"]');
-    await expect(currencyTrigger).toBeVisible();
-    await expect(currencyTrigger).toContainText("EUR");
-  });
-
-  // ─── CA14 — Campos calculados NÃO no modal ──────────────────────────────
-
-  test("CA14 no-calculated-fields › modal NÃO contém campos Portfolio%, Gain/Loss, Total Invested, Current Price, Market Value", async ({
-    page,
-  }) => {
-    const addBtn = page.locator("button", { hasText: "+ Add position" });
-    await addBtn.click();
-
-    const dialog = page.getByRole("dialog");
-    await expect(dialog).toBeVisible();
-
-    const forbiddenLabels = [
-      "Portfolio%",
-      "Gain/Loss",
-      "Total Invested",
-      "Current Price",
-      "Market Value",
-    ];
-
-    for (const label of forbiddenLabels) {
-      // None of these should appear as input labels inside the dialog
-      await expect(dialog.getByText(label, { exact: true })).not.toBeVisible();
-    }
-  });
-
-  // ─── CA15 — Fechar modal não altera tabela ───────────────────────────────
-
-  test("CA15 no-persistence › fechar modal (Cancel) não altera contagem de linhas", async ({
-    page,
-  }) => {
-    // Count active rows before opening modal
-    const rowsBefore = await page.locator("table tbody tr").count();
-
-    const addBtn = page.locator("button", { hasText: "+ Add position" });
-    await addBtn.click();
-
-    const dialog = page.getByRole("dialog");
-    await expect(dialog).toBeVisible();
-
-    // Click Cancel
-    const cancelBtn = dialog.getByRole("button", { name: "Cancel" });
-    await cancelBtn.click();
-
-    // Modal should close
-    await expect(dialog).not.toBeVisible();
-
-    // Row count should be unchanged
-    const rowsAfter = await page.locator("table tbody tr").count();
-    expect(rowsAfter).toBe(rowsBefore);
-  });
-
-  test("CA15 no-persistence › fechar modal (Add position) não altera contagem de linhas", async ({
-    page,
-  }) => {
-    const rowsBefore = await page.locator("table tbody tr").count();
-
-    const addBtn = page.locator("button", { hasText: "+ Add position" });
-    await addBtn.click();
-
-    const dialog = page.getByRole("dialog");
-    await expect(dialog).toBeVisible();
-
-    // Click the "Add position" button inside the modal (mock — just closes)
-    // Use a more specific locator: button inside dialog with text "Add position"
-    const addInModal = dialog.locator("button").filter({ hasText: "Add position" });
-    await addInModal.click();
-
-    await expect(dialog).not.toBeVisible();
-
-    const rowsAfter = await page.locator("table tbody tr").count();
-    expect(rowsAfter).toBe(rowsBefore);
+    await expect(dialog).toHaveCount(0);
   });
 
   // ─── CA16 — 7 KPIs do topo presentes ────────────────────────────────────
@@ -480,17 +331,22 @@ test.describe("Holdings Reformulacao — authenticated", () => {
     await expect(buttons).toHaveCount(3);
   });
 
-  test("CA17 currency-selector › mudar para USD não abre o modal Add position", async ({
+  test("CA17 currency-selector › 'Native' seleccionado por defeito", async ({
+    page,
+  }) => {
+    const nativeBtn = page
+      .locator('[role="group"][aria-label*="moeda"] button')
+      .filter({ hasText: "Native" });
+    await expect(nativeBtn).toHaveAttribute("aria-pressed", "true");
+  });
+
+  test("CA17 currency-selector › mudar para USD activa aria-pressed", async ({
     page,
   }) => {
     const usdBtn = page
       .locator('[role="group"][aria-label*="moeda"] button')
       .filter({ hasText: "USD" });
     await usdBtn.click();
-
-    // Modal should NOT open when switching currency
-    const dialog = page.getByRole("dialog");
-    await expect(dialog).not.toBeVisible();
 
     // USD should now be active
     await expect(usdBtn).toHaveAttribute("aria-pressed", "true");
@@ -526,15 +382,6 @@ test.describe("Holdings Reformulacao — authenticated", () => {
     // Caption is sr-only but must exist in DOM
     const captionText = await caption.textContent();
     expect(captionText?.trim()).toBe("Holdings positions");
-  });
-
-  test("CA18 english-labels › botão no header contém texto '+ Add position' (EN)", async ({
-    page,
-  }) => {
-    const addBtn = page.locator("button", { hasText: "+ Add position" });
-    await expect(addBtn).toBeVisible();
-    const btnText = await addBtn.textContent();
-    expect(btnText?.trim()).toContain("Add position");
   });
 
   // ─── Ordem das colunas ───────────────────────────────────────────────────

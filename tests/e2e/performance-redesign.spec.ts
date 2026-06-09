@@ -197,18 +197,18 @@ test.describe("Performance Page — authenticated", () => {
 
   // ─── CA-03 — Tabela Trade Analysis ───────────────────────────────────────
 
-  test("CA-03 tabela › 9 colunas na ordem correcta", async ({ page }) => {
+  test("CA-03 tabela › 10 colunas na ordem correcta", async ({ page }) => {
     const headers = page.locator("table thead th");
-    await expect(headers).toHaveCount(9);
+    await expect(headers).toHaveCount(10);
 
-    // Verify the text content of all 9 headers via JS to avoid Playwright strict-mode issues
+    // Verify the text content of all 10 headers via JS to avoid Playwright strict-mode issues
     // with "Realized" substring matching "Unrealized"
     const headerTexts = await page.locator("table thead th").evaluateAll(
       (ths) => ths.map((th) => th.textContent?.trim() ?? "")
     );
-    expect(headerTexts).toHaveLength(9);
+    expect(headerTexts).toHaveLength(10);
     // Check each expected label is present as the start of a header text
-    for (const label of ["Asset", "Status", "Holding Period", "Invested",
+    for (const label of ["Asset", "Type", "Status", "Holding Period", "Invested",
       "Realized", "Unrealized", "Total Profit", "Last 30 days", "ROI"]) {
       const found = headerTexts.some((t) => t.startsWith(label));
       expect(found, `Header "${label}" not found in: ${JSON.stringify(headerTexts)}`).toBe(true);
@@ -291,6 +291,69 @@ test.describe("Performance Page — authenticated", () => {
   test("CA-04 asset-cell › min-width 240px no contentor da célula", async ({ page }) => {
     const container = page.locator("table tbody td:first-child .min-w-\\[240px\\]").first();
     await expect(container).toBeVisible();
+  });
+
+  // ─── Tipo do activo (coluna Type) — adicionado 2026-06-09 ────────────────
+
+  test("type-column › header 'Type' presente entre Asset e Status", async ({ page }) => {
+    const headerTexts = await page.locator("table thead th").evaluateAll(
+      (ths) => ths.map((th) => th.textContent?.trim() ?? "")
+    );
+    const assetIdx = headerTexts.findIndex((t) => t.startsWith("Asset"));
+    const typeIdx = headerTexts.findIndex((t) => t.startsWith("Type"));
+    const statusIdx = headerTexts.findIndex((t) => t.startsWith("Status"));
+    expect(typeIdx).toBe(assetIdx + 1);
+    expect(statusIdx).toBe(typeIdx + 1);
+  });
+
+  test("type-column › cada linha activa tem badge de tipo com label válido", async ({ page }) => {
+    const validLabels = ["Stock", "ETF", "Crypto", "Other"];
+    const typeCells = page.locator("table tbody td:nth-child(2)");
+    const count = await typeCells.count();
+    expect(count).toBeGreaterThanOrEqual(4);
+    for (let i = 0; i < count; i++) {
+      const text = (await typeCells.nth(i).textContent())?.trim() ?? "";
+      expect(validLabels).toContain(text);
+    }
+  });
+
+  test("type-column › Stock e ETF representados (showClosed OFF)", async ({ page }) => {
+    const stock = page.locator("table tbody td:nth-child(2) span").filter({ hasText: "Stock" });
+    const etf = page.locator("table tbody td:nth-child(2) span").filter({ hasText: "ETF" });
+    await expect(stock.first()).toBeVisible();
+    await expect(etf.first()).toBeVisible();
+  });
+
+  // ─── Exchange no nome do activo — adicionado 2026-06-09 ──────────────────
+
+  test("asset-exchange › linha VWCE mostra '| XETRA'", async ({ page }) => {
+    const vwceRow = page
+      .locator("table tbody tr")
+      .filter({ has: page.locator("span.font-semibold", { hasText: "VWCE" }) });
+    const exch = vwceRow.locator("span.text-muted-foreground\\/60");
+    const text = await exch.textContent();
+    expect(text).toContain("XETRA");
+    expect(text).toContain("|");
+  });
+
+  test("asset-exchange › linha CSPX mostra '| LSE'", async ({ page }) => {
+    const cspxRow = page
+      .locator("table tbody tr")
+      .filter({ has: page.locator("span.font-semibold", { hasText: "CSPX" }) });
+    const exch = cspxRow.locator("span.text-muted-foreground\\/60");
+    expect(await exch.textContent()).toContain("LSE");
+  });
+
+  test("asset-exchange › nenhuma linha activa mostra exchange vazio/undefined", async ({ page }) => {
+    const spans = page.locator("table tbody td:first-child span.text-muted-foreground\\/60");
+    const count = await spans.count();
+    expect(count).toBeGreaterThanOrEqual(4);
+    for (let i = 0; i < count; i++) {
+      const text = (await spans.nth(i).textContent())?.trim() ?? "";
+      expect(text).not.toBe("|");
+      expect(text).not.toContain("undefined");
+      expect(text.replace("|", "").trim()).not.toBe("");
+    }
   });
 
   // ─── CA-05 — Status Pill ─────────────────────────────────────────────────

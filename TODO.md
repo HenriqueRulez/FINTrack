@@ -7,6 +7,13 @@
 
 > Cada item abaixo requer o mesmo processo do Dashboard: PO cria working item com base nos protótipos em `.claude/design-handoff/project/`, depois segue pipeline completa. Primeira fase: apenas visual com dados mockados, sem funcionalidades.
 
+- [x] Alteração nas seguintes páginas: _(feito 2026-06-09, execução directa + testes Playwright realinhados)_
+  - Holdings
+    - Remoção do Botão "Add position" na pagina holdings. Explicação: Holdings deve mostrar a visão geral da carteira de investimentos. Apenas entraremos com dados/editaremos dentro de TRANSACTIONS
+    - Por padrão, o botão "native" deve estar selecionado.
+  - Performance
+    - Adicionar o tipo do ativo, assim como temos na pagina holdings
+    - No nome do ativo, adicionar " | LSE " e etc, assim como está na página holdings, mesmo estilo.
 - [x] **Holdings** — `Holdings.html` → nova página `/holdings` com 7 KPIs + tabela ordenável com alocação visual por ticker e logo colorido por classe de activo
 - [x] **Performance** — `Performance.html` → nova página `/performance` com KPI strip com micro-visualizações (gauge, barra split, tick rows) + tabela de trade analysis com sparklines de 30 dias
 - [x] **Transactions** — `Transactions.html` → nova página `/transactions` com filtros, tabs por tipo (BUY/SELL/CASH/DIV/etc.), tabela com badges coloridos e modo de edição
@@ -25,7 +32,7 @@
 
 - [x] Feedback de erro ao adicionar ticker inválido — mostrar mensagem clara quando o ticker não existe no Yahoo Finance (actualmente silencioso)
 - [x] Validação/busca de ticker — mecanismo para verificar o ticker correcto antes de salvar (ex: botão "Verificar" que mostra nome + preço antes de confirmar)
-- [ ] Reformular página de "Holdings", algumas coisas irão se manter, outras alterar ou remover por completo.
+- [x] Reformular página de "Holdings", algumas coisas irão se manter, outras alterar ou remover por completo.
   - Deverá ter os campos **Company**, **Tipo**, **Portifolio%**, **Shares**, **Preço médio pago**, **current price**, **Ganho/perda**, **Total investido**
     - Descrição dos campos: - **Company**: mostrar o ticker do item, além disso deve ser adicionado o mercado do ticker em especifico e o ícone do ticker E.g.: "´[icone]´ WEBN.DE | XETRA", "´[icone]´AAPL | NASDAQ" , etc. Basicamente, o jeito que está agora está ótimo, será apenas adicionar o ícone da respectiva company no lugar da letra escrita - **Tipo**: ETF, Stock, Cripto, etc - **Portifolio%**: Do mesmo jeito que está agora, mostra a % total do que eu detenho, baseado na carteira inteira - **Total investido**: Valor mostrando o total investido - **Shares**: Quantidade total que possuo - **Preço médio**: O preço médio deve levar em consideração a soma de todas as entradas de mesmo ticker da segunda tabela, fazendo o calculo correto para definir o preço médio pago pelas posições. DO mesmo jeito que está atualmente - **current price**: valor atual do item - **Ganho/perda**: Valor mostrando o montante total e % (como está atualmente) com base no valor agregado da segunda tabela
     <!--[TBD] - Segunda tabela: **Ticker**, **Nome completo**, **Broker**, **Tipo**, **Quantidade total**, **Preço médio pago**, **valor atual**, **data de compra**

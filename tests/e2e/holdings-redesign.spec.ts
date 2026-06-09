@@ -352,10 +352,10 @@ test.describe("Holdings Page — authenticated", () => {
 
   // ─── CA-05 — Selector de moeda ──────────────────────────────────────────
 
-  test("CA-05 currency › EUR seleccionado por defeito, USD e Native alteram valores", async ({
+  test("CA-05 currency › Native seleccionado por defeito, USD e EUR alteram valores", async ({
     page,
   }) => {
-    // EUR should be active by default
+    // Native should be active by default
     const eurBtn = page
       .locator('[role="group"][aria-label*="moeda"] button')
       .filter({ hasText: "EUR" });
@@ -366,17 +366,18 @@ test.describe("Holdings Page — authenticated", () => {
       .locator('[role="group"][aria-label*="moeda"] button')
       .filter({ hasText: "Native" });
 
-    await expect(eurBtn).toHaveAttribute("aria-pressed", "true");
+    await expect(nativeBtn).toHaveAttribute("aria-pressed", "true");
+    await expect(eurBtn).toHaveAttribute("aria-pressed", "false");
     await expect(usdBtn).toHaveAttribute("aria-pressed", "false");
-    await expect(nativeBtn).toHaveAttribute("aria-pressed", "false");
 
     // Switch to USD — first monetary column (Avg Cost) should contain "US$"
     await usdBtn.click();
     await expect(usdBtn).toHaveAttribute("aria-pressed", "true");
     await expect(eurBtn).toHaveAttribute("aria-pressed", "false");
 
-    // Wait for values to update
-    const firstAvgCost = page.locator("table tbody tr:first-child td:nth-child(4)");
+    // Wait for values to update — Avg Cost is the 5th column
+    // (Company=1, Type=2, Portfolio%=3, Shares=4, Avg Cost=5)
+    const firstAvgCost = page.locator("table tbody tr:first-child td:nth-child(5)");
     const usdText = await firstAvgCost.textContent();
     expect(usdText).toMatch(/US\$/);
 

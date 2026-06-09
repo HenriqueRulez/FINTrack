@@ -1,8 +1,9 @@
 "use client";
 
 import { AssetCell } from "./AssetCell";
+import { TypeBadge } from "./TypeBadge";
 import { Sparkline } from "./Sparkline";
-import type { Currency, NativeCurrency } from "./mock-data";
+import type { AssetClass, Currency, NativeCurrency } from "./mock-data";
 import { formatTradeAmount, formatTradeNative, convertTrade, formatHoldDays } from "./mock-data";
 
 // ---------------------------------------------------------------------------
@@ -30,6 +31,8 @@ export interface EnrichedTrade {
   ticker: string;
   name: string;
   chart: "chart-1" | "chart-2" | "chart-5";
+  assetClass: AssetClass;
+  exchange: string;
   status: "active" | "closed";
   holdDays: number;
   invested: number;
@@ -134,8 +137,9 @@ interface TradeTableProps {
   density: Density;
 }
 
-const SORTABLE_COLS: { label: string; col: TradeSortCol; minWidth: string }[] = [
+const SORTABLE_COLS: { label: string; col: TradeSortCol | "type"; minWidth: string; sortable?: boolean }[] = [
   { label: "Asset", col: "ticker", minWidth: "min-w-[240px]" },
+  { label: "Type", col: "type", minWidth: "min-w-[80px]", sortable: false },
   { label: "Status", col: "status", minWidth: "min-w-[80px]" },
   { label: "Holding Period", col: "hold", minWidth: "min-w-[110px]" },
   { label: "Invested", col: "invested", minWidth: "min-w-[100px]" },
@@ -199,27 +203,34 @@ export function TradeTable({ rows, currency, sort, onSort, density }: TradeTable
           <tr>
             {SORTABLE_COLS.map((col, i) => {
               const isFirst = i === 0;
+              const isType = col.col === "type";
+              const alignLeft = isFirst || isType;
               return (
                 <th
                   key={col.col}
-                  aria-sort={getAriaSortValue(col.col)}
+                  aria-sort={isType ? undefined : getAriaSortValue(col.col as TradeSortCol)}
                   className={[
                     dc.th,
                     "border-b border-border/40 text-[10px] font-medium uppercase tracking-wider text-muted-foreground whitespace-nowrap",
-                    isFirst ? "text-left pl-5" : "text-right",
+                    alignLeft ? "text-left" : "text-right",
+                    isFirst ? "pl-5" : "",
                     col.minWidth,
                   ].join(" ")}
                 >
-                  <button
-                    onClick={() => onSort(col.col)}
-                    className={[
-                      "inline-flex items-center cursor-pointer hover:text-foreground transition-colors",
-                      !isFirst ? "flex-row-reverse" : "",
-                    ].join(" ")}
-                  >
-                    {col.label}
-                    <SortArrow col={col.col} sort={sort} />
-                  </button>
+                  {isType ? (
+                    <span>{col.label}</span>
+                  ) : (
+                    <button
+                      onClick={() => onSort(col.col as TradeSortCol)}
+                      className={[
+                        "inline-flex items-center cursor-pointer hover:text-foreground transition-colors",
+                        !isFirst ? "flex-row-reverse" : "",
+                      ].join(" ")}
+                    >
+                      {col.label}
+                      <SortArrow col={col.col as TradeSortCol} sort={sort} />
+                    </button>
+                  )}
                 </th>
               );
             })}
@@ -303,6 +314,11 @@ export function TradeTable({ rows, currency, sort, onSort, density }: TradeTable
                 {/* Asset */}
                 <td className={`pl-5 pr-4 border-b border-border/40 text-left align-middle ${dc.td}`}>
                   <AssetCell trade={row} />
+                </td>
+
+                {/* Type */}
+                <td className={`border-b border-border/40 text-left align-middle ${dc.td}`}>
+                  <TypeBadge assetClass={row.assetClass} />
                 </td>
 
                 {/* Status */}

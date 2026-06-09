@@ -120,7 +120,7 @@ function sortRows(rows: EnrichedHolding[], sort: SortState): EnrichedHolding[] {
 // ---------------------------------------------------------------------------
 
 export function HoldingsPage() {
-  const [currency, setCurrency] = useState<Currency>("EUR");
+  const [currency, setCurrency] = useState<Currency>("Native");
   const [showSold, setShowSold] = useState(false);
   const [sort, setSort] = useState<SortState>({ col: "value", dir: "desc" });
 

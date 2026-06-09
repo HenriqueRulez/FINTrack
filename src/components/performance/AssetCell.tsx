@@ -25,9 +25,14 @@ export function AssetCell({ trade }: AssetCellProps) {
 
       {/* Text */}
       <div className="flex flex-col min-w-0">
-        <span className="text-[13px] font-semibold tracking-wide leading-[1.2]">
-          {trade.ticker}
-        </span>
+        <div className="flex items-baseline leading-[1.2]">
+          <span className="text-[13px] font-semibold tracking-wide leading-[1.2]">
+            {trade.ticker}
+          </span>
+          <span className="text-[10px] text-muted-foreground/60 ml-1.5">
+            | {trade.exchange}
+          </span>
+        </div>
         <span className="text-[12px] text-muted-foreground truncate max-w-[200px]">
           {trade.name}
         </span>
