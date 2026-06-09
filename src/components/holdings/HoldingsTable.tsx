@@ -1,6 +1,7 @@
 "use client";
 
-import { AllocPill } from "./AllocPill";
+import { CompanyCell } from "./CompanyCell";
+import { TypeBadge } from "./TypeBadge";
 import { GainLossCell } from "./GainLossCell";
 import type { HoldingItem, Currency } from "./mock-data";
 import { formatMoney, formatMoneyNative, convertAmount } from "./mock-data";
@@ -46,15 +47,16 @@ interface HoldingsTableProps {
   onSort: (col: SortCol) => void;
 }
 
-const COLUMNS: { label: string; col: SortCol; align: "left" | "right" }[] = [
-  { label: "Company", col: "ticker", align: "left" },
-  { label: "Portfolio%", col: "pct", align: "right" },
-  { label: "Shares", col: "shares", align: "right" },
-  { label: "Avg Cost", col: "avg", align: "right" },
-  { label: "Cost Basis", col: "cost", align: "right" },
-  { label: "Current Price", col: "price", align: "right" },
-  { label: "Market Value", col: "value", align: "right" },
-  { label: "Total Gain/Loss", col: "gain", align: "right" },
+const COLUMNS: { label: string; col: SortCol | "type"; align: "left" | "right"; sortable?: boolean }[] = [
+  { label: "Company", col: "ticker", align: "left", sortable: true },
+  { label: "Type", col: "type", align: "left", sortable: false },
+  { label: "Portfolio%", col: "pct", align: "right", sortable: true },
+  { label: "Shares", col: "shares", align: "right", sortable: true },
+  { label: "Avg Cost", col: "avg", align: "right", sortable: true },
+  { label: "Total Invested", col: "cost", align: "right", sortable: true },
+  { label: "Current Price", col: "price", align: "right", sortable: true },
+  { label: "Market Value", col: "value", align: "right", sortable: true },
+  { label: "Total Gain/Loss", col: "gain", align: "right", sortable: true },
 ];
 
 function SortArrow({ col, sort }: { col: SortCol; sort: SortState }) {
@@ -107,12 +109,13 @@ export function HoldingsTable({
   return (
     <div className="overflow-x-auto">
       <table className="w-full border-collapse">
-        <caption className="sr-only">Posições do portfólio</caption>
+        <caption className="sr-only">Holdings positions</caption>
 
         <thead>
           <tr>
             {COLUMNS.map((col) => {
-              const isActive = sort.col === col.col;
+              const isSortable = col.sortable !== false && col.col !== "type";
+              const isActive = isSortable && sort.col === (col.col as SortCol);
               const ariaSortVal =
                 isActive
                   ? sort.dir === "asc"
@@ -123,23 +126,27 @@ export function HoldingsTable({
               return (
                 <th
                   key={col.col}
-                  aria-sort={ariaSortVal}
+                  aria-sort={isSortable ? ariaSortVal : undefined}
                   className={[
                     "px-4 py-3 border-b border-border/40 text-[10px] font-medium uppercase tracking-wider text-muted-foreground whitespace-nowrap",
                     col.align === "left" ? "text-left pl-5" : "text-right",
                     col.col === "gain" ? "pr-5" : "",
                   ].join(" ")}
                 >
-                  <button
-                    onClick={() => handleSort(col.col)}
-                    className={[
-                      "inline-flex items-center cursor-pointer hover:text-foreground transition-colors",
-                      col.align === "right" ? "flex-row-reverse" : "",
-                    ].join(" ")}
-                  >
-                    {col.label}
-                    <SortArrow col={col.col} sort={sort} />
-                  </button>
+                  {isSortable ? (
+                    <button
+                      onClick={() => handleSort(col.col as SortCol)}
+                      className={[
+                        "inline-flex items-center cursor-pointer hover:text-foreground transition-colors",
+                        col.align === "right" ? "flex-row-reverse" : "",
+                      ].join(" ")}
+                    >
+                      {col.label}
+                      <SortArrow col={col.col as SortCol} sort={sort} />
+                    </button>
+                  ) : (
+                    <span>{col.label}</span>
+                  )}
                 </th>
               );
             })}
@@ -194,7 +201,12 @@ export function HoldingsTable({
               >
                 {/* Company */}
                 <td className="pl-5 pr-4 py-4 border-b border-border/40 text-left align-middle">
-                  <AllocPill holding={row} pct={row.pct} variant="fill" />
+                  <CompanyCell holding={row} pct={row.pct} />
+                </td>
+
+                {/* Type */}
+                <td className="pl-5 pr-4 py-4 border-b border-border/40 text-left align-middle">
+                  <TypeBadge assetClass={row.assetClass} />
                 </td>
 
                 {/* Portfolio% */}

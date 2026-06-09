@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ShowSoldToggle } from "./ShowSoldToggle";
 import { CurrencySelector } from "./CurrencySelector";
 import { HoldingsTable } from "./HoldingsTable";
+import { AddPositionModal } from "./AddPositionModal";
 import type { EnrichedHolding, SortState, SortCol } from "./HoldingsTable";
 import type { Currency } from "./mock-data";
 
@@ -54,6 +55,7 @@ export function HoldingsCard({
   const { enabled: animationsEnabled } = useAnimations();
   const rise = animationsEnabled ? "rise" : "";
   const [spinning, setSpinning] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
 
   async function handleRefresh() {
     setSpinning(true);
@@ -101,8 +103,22 @@ export function HoldingsCard({
 
           {/* Currency selector */}
           <CurrencySelector value={currency} onChange={onCurrencyChange} />
+
+          {/* Add position */}
+          <Button
+            variant="default"
+            size="sm"
+            className="h-7 text-xs gap-1.5 hover:neon-primary"
+            aria-label="Add a new position"
+            onClick={() => setAddOpen(true)}
+          >
+            + Add position
+          </Button>
         </div>
       </div>
+
+      {/* Add position modal (visual mock — no persistence) */}
+      <AddPositionModal open={addOpen} onOpenChange={setAddOpen} />
 
       {/* Table body */}
       <HoldingsTable

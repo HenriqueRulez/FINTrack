@@ -12,6 +12,7 @@ export interface HoldingItem {
   name: string;
   assetClass: AssetClass;
   chartVar: ChartVar;
+  exchange: string;
   shares: number;
   native: NativeCurrency;
   avgCost: number; // in native currency
@@ -26,6 +27,7 @@ export const HOLDINGS: HoldingItem[] = [
     name: "Applied Materials, Inc.",
     assetClass: "Stocks",
     chartVar: "chart-1",
+    exchange: "NASDAQ",
     shares: 12,
     native: "USD",
     avgCost: 556,
@@ -38,6 +40,7 @@ export const HOLDINGS: HoldingItem[] = [
     name: "Vanguard FTSE All-World UCITS ETF",
     assetClass: "ETFs",
     chartVar: "chart-2",
+    exchange: "XETRA",
     shares: 60,
     native: "EUR",
     avgCost: 108.6,
@@ -50,6 +53,7 @@ export const HOLDINGS: HoldingItem[] = [
     name: "iShares Core S&P 500 UCITS ETF",
     assetClass: "ETFs",
     chartVar: "chart-2",
+    exchange: "LSE",
     shares: 14,
     native: "EUR",
     avgCost: 480.2,
@@ -62,6 +66,7 @@ export const HOLDINGS: HoldingItem[] = [
     name: "Apple Inc.",
     assetClass: "Stocks",
     chartVar: "chart-1",
+    exchange: "NASDAQ",
     shares: 8,
     native: "USD",
     avgCost: 180,
@@ -74,6 +79,7 @@ export const HOLDINGS: HoldingItem[] = [
     name: "Microsoft Corp.",
     assetClass: "Stocks",
     chartVar: "chart-1",
+    exchange: "NASDAQ",
     shares: 5,
     native: "USD",
     avgCost: 320,
@@ -86,6 +92,7 @@ export const HOLDINGS: HoldingItem[] = [
     name: "Bitcoin",
     assetClass: "Crypto",
     chartVar: "chart-4",
+    exchange: "CRYPTO",
     shares: 0.045,
     native: "USD",
     avgCost: 42000,
@@ -98,6 +105,7 @@ export const HOLDINGS: HoldingItem[] = [
     name: "Tesla Inc.",
     assetClass: "Stocks",
     chartVar: "chart-1",
+    exchange: "NASDAQ",
     shares: 4,
     native: "USD",
     avgCost: 245,
@@ -110,6 +118,7 @@ export const HOLDINGS: HoldingItem[] = [
     name: "SPDR Gold Shares",
     assetClass: "Other",
     chartVar: "chart-5",
+    exchange: "NYSE ARCA",
     shares: 6,
     native: "USD",
     avgCost: 195,

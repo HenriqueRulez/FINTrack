@@ -23,15 +23,12 @@ Ao fechar um achado, adicionar: `→ Resolvido em: [nome da feature] (YYYY-MM-DD
 | ID | Arquivo | Problema | Feature de origem | Data |
 |----|---------|----------|-------------------|------|
 | M-01 | `src/app/(auth)/passphrase/page.tsx:21` | Email `owner@fintrack.local` hardcoded no bundle do browser — reduz o ataque à só a password | Dark Mode Visual Fix | 2026-05-23 |
-| M-02 | `src/components/portfolio/portfolio-client.tsx:45` | `body.error` da API logado em `console.error` — pode expor mensagens internas se API enriquecer erros | Ticker Validation | 2026-05-23 |
-| M-03 | `src/components/portfolio/portfolio-client.tsx:37,56` | `id` de posição nas URLs de PATCH/DELETE sem `encodeURIComponent` — falta defesa em profundidade (mitigado pelo Zod UUID no backend) | Ticker Validation | 2026-05-23 |
 
 ### BAIXO / INFORMACIONAL
 
 | ID | Arquivo | Problema | Feature de origem | Data |
 |----|---------|----------|-------------------|------|
 | B-01 | `next` (dependência transitiva) | `postcss@8.4.31` interno do Next.js — GHSA-qx2v-qp2m-jg93 (XSS build-time). Sem acção viável — aguardar patch do Next.js | Dark Mode Visual Fix | 2026-05-23 |
-| B-02 | `src/components/portfolio/portfolio-client.tsx:27` | `console.error` expõe objecto de erro completo (stack trace) na consola do browser | Ticker Validation | 2026-05-23 |
 | B-03 | `src/lib/rate-limit.ts:14` | Rate limiter em memória sem purge de entradas expiradas — potencial memory leak (negligível para app pessoal) | Ticker Validation | 2026-05-23 |
 | B-04 | `src/lib/yahoo-finance/client.ts:27` | Cache do Yahoo Finance sem limite de tamanho de entradas (mitigado pelo rate limit de 20 req/min no verify-ticker) | Ticker Validation | 2026-05-23 |
 | B-05 | `src/lib/yahoo-finance/client.ts:45` | `historyCache` (Map) para dados históricos sem limite de entradas — memory leak potencial idêntico ao B-04. Negligível para app pessoal com <100 tickers | Portfolio Aggregated View | 2026-05-23 |
@@ -55,7 +52,11 @@ Ao fechar um achado, adicionar: `→ Resolvido em: [nome da feature] (YYYY-MM-DD
 
 ## Achados Resolvidos
 
-_Nenhum ainda._
+| ID | Arquivo (original) | Problema | Resolvido por | Data |
+|----|--------------------|----------|---------------|------|
+| M-02 | `src/components/portfolio/portfolio-client.tsx:45` | `body.error` da API logado em `console.error` | Delete da página `/portfolio` — ficheiro removido (commit `4873021`) na sessão da feature Reformular Holdings (Fase 1) | 2026-06-09 |
+| M-03 | `src/components/portfolio/portfolio-client.tsx:37,56` | `id` em URLs de PATCH/DELETE sem `encodeURIComponent` | Delete da página `/portfolio` — componente e rotas PATCH/DELETE removidos (commit `4873021`) | 2026-06-09 |
+| B-02 | `src/components/portfolio/portfolio-client.tsx:27` | `console.error` expõe stack trace na consola do browser | Delete da página `/portfolio` — ficheiro removido (commit `4873021`) | 2026-06-09 |
 
 ---
 
@@ -76,6 +77,6 @@ A cada ciclo de desenvolvimento, após a auditoria:
 |-----------|---------|------------|---------|
 | Crítico   | 0       | 0          | 0       |
 | Alto      | 0       | 0          | 0       |
-| Médio     | 3       | 0          | 0       |
-| Baixo     | 12      | 0          | 1       |
-| **Total** | **15**  | **0**      | **1**   |
+| Médio     | 1       | 2          | 0       |
+| Baixo     | 11      | 1          | 1       |
+| **Total** | **12**  | **3**      | **1**   |

@@ -52,8 +52,6 @@
 >   - **Severity:** critical / high / medium / low
 > ```
 
-_Sem bugs abertos._
-
 ## Done
 
 - [x] **[BUG resolvido]** Botão aninhado dentro de botão no "Select All" do modo de edição — transactions-redesign (CA-07)
