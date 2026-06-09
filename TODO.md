@@ -9,7 +9,7 @@
 
 - [x] **Holdings** — `Holdings.html` → nova página `/holdings` com 7 KPIs + tabela ordenável com alocação visual por ticker e logo colorido por classe de activo
 - [x] **Performance** — `Performance.html` → nova página `/performance` com KPI strip com micro-visualizações (gauge, barra split, tick rows) + tabela de trade analysis com sparklines de 30 dias
-- [ ] **Transactions** — `Transactions.html` → nova página `/transactions` com filtros, tabs por tipo (BUY/SELL/CASH/DIV/etc.), tabela com badges coloridos e modo de edição
+- [x] **Transactions** — `Transactions.html` → nova página `/transactions` com filtros, tabs por tipo (BUY/SELL/CASH/DIV/etc.), tabela com badges coloridos e modo de edição
 - [x] **Tax Calculator** — `Tax Calculator.html` → nova página `/tax-calculator` com 3 KPIs (Total Tax Liability, Capital Gains Tax, Dividend Tax) + painel Capital Gains + painel Dividend Tax
 
 ## Manutenção (manual — fazer EU, não pela pipeline)
@@ -25,22 +25,13 @@
 
 - [x] Feedback de erro ao adicionar ticker inválido — mostrar mensagem clara quando o ticker não existe no Yahoo Finance (actualmente silencioso)
 - [x] Validação/busca de ticker — mecanismo para verificar o ticker correcto antes de salvar (ex: botão "Verificar" que mostra nome + preço antes de confirmar)
-- [ ] Reformular página de "Holdings"
-  - Deverá ter os campos **Ticker**, **Nome completo**, **Tipo**, **Quantidade total**, **Preço médio pago**, **valor atual**, **Ganho/perda**, **Total investido**, e um **gráfico sparkline**
-    - Descrição dos campos:
-      - **Ticker**: mostrar o ticker do item, além disso deve ser adicionado o mercado do ticker em especifico e o ícone do ticker E.g.: "´[icone]´ WEBN.DE | XETRA", "´[icone]´AAPL | NASDAQ" , etc,
-      - **Nome** completo: Nome completo do ticker
-      - **Tipo**: ETF, Stock, Cripto, etc
-      - **Quantidade total**: A quantidade total deve ser a SOMA de todas as entradas do mesmo ticker com base na segunda tabela. O valor deve poder retornar números quebrados até 5 casas decimais. Caso seja um número redondo, omitir tudo após a virgula.
-      - **Preço médio**: O preço médio deve levar em consideração a soma de todas as entradas de mesmo ticker da segunda tabela, fazendo o calculo correto para definir o preço médio pago pelas posições.
-      - **valor atual**: valor atual do item
-      - **Ganho/perda**: Valor mostrando o montante total e % (como está atualmente) com base no valor agregado da segunda tabela
-      - **Total investido**: Valor mostrando o total investido com base no valor agregado da segunda tabela
-      - **gráfico sparkline**: sparkline graph, dos últimos 30 dias mostrando o desempenho do ticker. Funcionalidades adicionais ainda por definir.
-  - Segunda tabela: **Ticker**, **Nome completo**, **Broker**, **Tipo**, **Quantidade total**, **Preço médio pago**, **valor atual**, **data de compra**
+- [ ] Reformular página de "Holdings", algumas coisas irão se manter, outras alterar ou remover por completo.
+  - Deverá ter os campos **Company**, **Tipo**, **Portifolio%**, **Shares**, **Preço médio pago**, **current price**, **Ganho/perda**, **Total investido**
+    - Descrição dos campos: - **Company**: mostrar o ticker do item, além disso deve ser adicionado o mercado do ticker em especifico e o ícone do ticker E.g.: "´[icone]´ WEBN.DE | XETRA", "´[icone]´AAPL | NASDAQ" , etc. Basicamente, o jeito que está agora está ótimo, será apenas adicionar o ícone da respectiva company no lugar da letra escrita - **Tipo**: ETF, Stock, Cripto, etc - **Portifolio%**: Do mesmo jeito que está agora, mostra a % total do que eu detenho, baseado na carteira inteira - **Total investido**: Valor mostrando o total investido - **Shares**: Quantidade total que possuo - **Preço médio**: O preço médio deve levar em consideração a soma de todas as entradas de mesmo ticker da segunda tabela, fazendo o calculo correto para definir o preço médio pago pelas posições. DO mesmo jeito que está atualmente - **current price**: valor atual do item - **Ganho/perda**: Valor mostrando o montante total e % (como está atualmente) com base no valor agregado da segunda tabela
+    <!--[TBD] - Segunda tabela: **Ticker**, **Nome completo**, **Broker**, **Tipo**, **Quantidade total**, **Preço médio pago**, **valor atual**, **data de compra**
     - Descrição dos campos: (Os omitidos serão como os da tabela 1)
       - **Broker**: Dropdown contendo a lista de possiveis broker (Degiro, Trading212 e Mirae)
-      - **data de compra**: Data no padrão DD/MM/YYYY
+      - **data de compra**: Data no padrão DD/MM/YYYY -->
   - Ao clicar no botão "**+ Adicionar posição**", os campos devem corresponder ao necessário das tabelas, com excessão dos campos que serão preenchidos por calculos com base na entrada do utilizador.
   - O campo **MOEDA** deve estar preenchdo com EUR, por padrão
 - [ ] Botão de logout na página de Configurações
