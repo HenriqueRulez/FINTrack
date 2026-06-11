@@ -67,36 +67,6 @@ export type Database = {
         }
         Relationships: []
       }
-      categories: {
-        Row: {
-          color: string
-          created_at: string
-          icon: string | null
-          id: string
-          name: string
-          type: string
-          user_id: string | null
-        }
-        Insert: {
-          color?: string
-          created_at?: string
-          icon?: string | null
-          id?: string
-          name: string
-          type: string
-          user_id?: string | null
-        }
-        Update: {
-          color?: string
-          created_at?: string
-          icon?: string | null
-          id?: string
-          name?: string
-          type?: string
-          user_id?: string | null
-        }
-        Relationships: []
-      }
       portfolio_positions: {
         Row: {
           asset_type: string
@@ -183,53 +153,54 @@ export type Database = {
       }
       transactions: {
         Row: {
-          amount: number
-          category_id: string | null
           created_at: string
           currency: string
           date: string
-          description: string
+          fee: number
+          fx: number
           id: string
-          notes: string | null
+          label: string | null
+          price: number | null
+          qty: number | null
+          ticker: string | null
+          total: number
           type: string
           updated_at: string
           user_id: string
         }
         Insert: {
-          amount: number
-          category_id?: string | null
           created_at?: string
-          currency?: string
+          currency: string
           date: string
-          description: string
+          fee?: number
+          fx?: number
           id?: string
-          notes?: string | null
+          label?: string | null
+          price?: number | null
+          qty?: number | null
+          ticker?: string | null
+          total: number
           type: string
           updated_at?: string
           user_id: string
         }
         Update: {
-          amount?: number
-          category_id?: string | null
           created_at?: string
           currency?: string
           date?: string
-          description?: string
+          fee?: number
+          fx?: number
           id?: string
-          notes?: string | null
+          label?: string | null
+          price?: number | null
+          qty?: number | null
+          ticker?: string | null
+          total?: number
           type?: string
           updated_at?: string
           user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "transactions_category_id_fkey"
-            columns: ["category_id"]
-            isOneToOne: false
-            referencedRelation: "categories"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
     }
     Views: {

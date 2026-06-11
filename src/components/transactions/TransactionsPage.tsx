@@ -1,20 +1,52 @@
 "use client";
 
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useEffect } from "react";
 import { TxPageHead } from "./TxPageHead";
 import { TxCard } from "./TxCard";
 import { TxTweaksPanel } from "./TxTweaksPanel";
-import {
-  TRANSACTIONS,
-  TYPE_TABS,
-} from "./mock-data";
+import { TYPE_TABS } from "./mock-data";
 import type {
   TabKey,
   SortCol,
   SortState,
   Density,
   Transaction,
+  TransactionType,
 } from "./mock-data";
+
+// ---------------------------------------------------------------------------
+// API row shape (GET /api/transactions) → UI Transaction
+// ---------------------------------------------------------------------------
+
+interface ApiTransactionRow {
+  id: string;
+  date: string;
+  ticker: string | null;
+  type: string;
+  qty: number | null;
+  price: number | null;
+  currency: string;
+  fx: number;
+  fee: number;
+  total: number;
+  label: string | null;
+}
+
+function mapRow(row: ApiTransactionRow): Transaction {
+  return {
+    id: row.id,
+    date: row.date,
+    ticker: row.ticker ?? "—",
+    type: row.type as TransactionType,
+    qty: row.qty,
+    price: row.price,
+    cur: row.currency,
+    fx: row.fx,
+    fee: row.fee,
+    total: row.total,
+    label: row.label ?? undefined,
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Global filter helper
@@ -100,6 +132,11 @@ function sortTransactions(rows: Transaction[], sort: SortState): Transaction[] {
 // ---------------------------------------------------------------------------
 
 export function TransactionsPage() {
+  // -- Data (fetched from GET /api/transactions)
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
   // -- Filters
   const [activeTab, setActiveTab] = useState<TabKey>("bs");
   const [fromDate, setFromDate] = useState("");
@@ -119,6 +156,32 @@ export function TransactionsPage() {
   const [density, setDensity] = useState<Density>("comfortable");
   const [showFx, setShowFx] = useState(true);
   const [showFees, setShowFees] = useState(true);
+
+  // -- Fetch transactions on mount
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      setLoadError(null);
+      try {
+        const res = await fetch("/api/transactions");
+        if (!res.ok) {
+          throw new Error(`Request failed (${res.status})`);
+        }
+        const json = (await res.json()) as { data?: ApiTransactionRow[] };
+        if (cancelled) return;
+        setTransactions((json.data ?? []).map(mapRow));
+      } catch {
+        if (!cancelled) setLoadError("Failed to load transactions.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // -- Sort handler
   function handleSort(col: SortCol) {
@@ -140,26 +203,26 @@ export function TransactionsPage() {
   const counts = useMemo(() => {
     const out = {} as Record<TabKey, number>;
     TYPE_TABS.forEach((tab) => {
-      out[tab.key] = TRANSACTIONS.filter(
+      out[tab.key] = transactions.filter(
         (tx) =>
           tab.match(tx) &&
           passGlobalFilters(tx, fromDate, toDate, tickerQuery, typeFilter)
       ).length;
     });
     return out;
-  }, [fromDate, toDate, tickerQuery, typeFilter]);
+  }, [transactions, fromDate, toDate, tickerQuery, typeFilter]);
 
   // -- Filtered + sorted rows (global filters + active tab)
   const activeTabDef = TYPE_TABS.find((t) => t.key === activeTab)!;
 
   const filtered = useMemo(() => {
-    const base = TRANSACTIONS.filter(
+    const base = transactions.filter(
       (tx) =>
         activeTabDef.match(tx) &&
         passGlobalFilters(tx, fromDate, toDate, tickerQuery, typeFilter)
     );
     return sortTransactions(base, sort);
-  }, [activeTabDef, fromDate, toDate, tickerQuery, typeFilter, sort]);
+  }, [transactions, activeTabDef, fromDate, toDate, tickerQuery, typeFilter, sort]);
 
   // -- Paged rows
   const paged = useMemo(
@@ -206,6 +269,18 @@ export function TransactionsPage() {
     <div className="flex flex-col gap-5">
       {/* Page header */}
       <TxPageHead />
+
+      {/* Load states */}
+      {loading && (
+        <div className="rounded-lg border border-border bg-card px-4 py-6 text-sm text-muted-foreground">
+          Loading transactions…
+        </div>
+      )}
+      {!loading && loadError && (
+        <div className="rounded-lg border border-loss/40 bg-card px-4 py-6 text-sm text-loss">
+          {loadError}
+        </div>
+      )}
 
       {/* Main card */}
       <TxCard
