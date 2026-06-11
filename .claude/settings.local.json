@@ -64,7 +64,8 @@
       "PowerShell(try { $r = Invoke-WebRequest -Uri \"http://localhost:3000/passphrase\" -UseBasicParsing -TimeoutSec 15; \"HTTP:\" + $r.StatusCode } catch { \"ERR:\" + $_.Exception.Message })",
       "Bash(git check-ignore *)",
       "PowerShell(git -C *)",
-      "PowerShell(npm run typecheck)"
+      "PowerShell(npm run typecheck)",
+      "PowerShell(git check-ignore *)"
     ]
   },
   "outputStyle": "default",

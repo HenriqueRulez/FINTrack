@@ -217,3 +217,59 @@ CREATE POLICY "insert_own" ON my_table FOR INSERT WITH CHECK ((SELECT auth.uid()
 CREATE POLICY "update_own" ON my_table FOR UPDATE USING ((SELECT auth.uid()) = user_id);
 CREATE POLICY "delete_own" ON my_table FOR DELETE USING ((SELECT auth.uid()) = user_id);
 ```
+
+# Instruções para Fable 5
+
+## Como fazer?
+
+A ideia dessa instruÇão é testar as capacidades do Fable 5. Por isso, deve-se ser feito em um novo path para não influenciar no que já foi feito. Deve utilizar o caminho, algo como `/projeto-fable-5`.
+
+## O que é este projeto
+
+App web pessoal de acompanhamento de portfólio de investimentos: portfólio de stocks/ETFs/Criptos com preços automáticos com base no Yahoo Finance, visão geral do patrimônio e configurações. App de uso pessoal — sem login tradicional. O projeto deve ser totalmente funcional, utilizando supabase local como banco de dados. O App deve ser totalmente funcional, com chamada a APIs reais, apresentação de dados reais. Foco em otimização de performance na UI e nas chamadas a APIs externas, para não termos problemas com billing e restrições por chamadas continuas no projeto.
+
+Qualquer outra duvida de desenvolvimento quanto a ferramentas, pacotes e plugins, pode-se verificar no projeto raiz. Não há necessidade para baixar mais nada além do que já possui no projeto raiz.
+
+## Design System
+
+- **Documento de referência**: `DESIGN.md` na raiz — fonte única de verdade para identidade visual. Podes adicionar algo que julgues necessario, sem perder o foco do app ou esquema de design.
+- **Tema**: dark mode apenas — classe `dark` forçada no `<html>` em `layout.tsx`
+- **Fonte**: IBM Plex Mono (todas as variantes — heading, body, mono)
+- **Acento**: Teal (`oklch(0.72 0.17 185)`) — botões, links, ring, glow
+- **Semântica financeira**: `--gain` (verde) / `--loss` (vermelho) para variações de valor
+- **Efeitos neon**: classes `.neon-primary`, `.neon-gain`, `.neon-loss`, `.neon-border-primary`, `.neon-divider`, `.neon-dot`
+- **Paleta editável**: variáveis oklch no bloco `.dark` de `globals.css` — hot reload imediato
+
+# Fase 2 - /projeto-fable-5
+
+## Design geral
+
+Quero que o top nav seja removido e quero uma barra lateral na esquerda, assim como no projeto raiz.
+
+## /dashboard
+
+Com base no projeto raiz, adicione a sessão "Portifolio over time", esse gráfico é muito importante e deve utilizar os dados do meu portifolio. Alem disso, quero que o "patrimonio" siga o mesmo visual que no meu projeto raiz, fonte um pouco maior, cor neon.
+
+## /portifolio
+
+Deve-se chamar "/transactions". Aqui é onde eu vou adicionar as entradas das posições que eu comprar e vender, similar com a página "/transactions" do projeto raiz. Quero que tenha uma nova coluna para saber se é uma entrada de SELL ou BUY. Devo poder entrar com mais de uma transação, por exemplo, no dia 23/10/2026 eu comprei 1 ação AAPL e no dia 25/11/2026 comprei 6 aÇões AAPL. Devo poder adicionar o dia em que adquiri/vendi minha posição.
+
+Além disso, quero os filtos que tem no projeto raíz.
+
+## /performance
+
+Quero uma página nova de performance, assim como no projeto raiz.
+
+Quero que adicone os 5 status que tem no projeto raíz, "Win rate", "Profit split", "overwall avg hold", "avg winner hold", "avg loser hold". O design se mantem como está no projeto raiz, pois é um ótimo design de graficos.
+
+Alem disso, todos as entradas dessa página são o total das posições que entramos na página `/portifolio`, ou seja, se tiver 2 AAPL em datas diferentes no `/portifolio`, aqui aparecerá apenas uma entrada AAPL com as informações agregadas das duas entradas (como está no projeto raiz).
+
+## /holdings
+
+Quero que adicione a página `/holdings`, como está no app raiz.
+
+## Direções reais
+
+Quero que verifique inconsistencias no projeto ou ambiguidades. Quero que cada pagina seja responsavem por seu foco principal. Esteja livre para propor mudanças nas páginas quanto a dados e onde mostrar o que.
+
+Os dados (source of truth) apenas serão adicionados pela página `/transactions`.
