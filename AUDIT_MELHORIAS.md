@@ -21,7 +21,7 @@
 |---|---|---|---|
 | C-02, C-01, A-04 | F-03, F-01, A-01*, F-05‡ | M-01 | F-02, F-04†, A-02, A-03, M-02, M-03, M-04 |
 
-‡ F-05: API + UI completas (POST/PATCH/DELETE + validação A-01 + modal/delete/edit em `/transactions`). Falta só a verificação e2e no browser.
+‡ F-05: COMPLETO — API + UI + verificação e2e no browser (2026-08-05). Bug de GRANT descoberto no e2e e corrigido (`0011`, aplicada ao Cloud).
 
 \* A-01: a migration `0010_transactions_integrity.sql` está **aplicada ao Supabase Cloud** (2026-08-05, `supabase db push`; confirmada em `migration list`). Falta a camada de API: validação Zod/oversell — Etapa 2 (F-05).
 † F-04 tem o seed mock já removido; ligar `/holdings` e `/performance` é a Etapa 3.
@@ -35,13 +35,11 @@ Entregue e verificado (typecheck + lint a zero; 20/20 testes unitários):
 - **F-03** — `src/lib/portfolio/derive.ts` (puro, fonte única: ledger→holdings/sumário em EUR, preços injectáveis) + `src/lib/portfolio/prices.ts` (provider Yahoo+fx) + `tests/unit/derive.spec.ts` (9 testes).
 
 ### 👉 PRÓXIMO PASSO
-Etapa 2 — **API + UI FEITAS** (`POST/PATCH/DELETE /api/transactions[/id]` + modal/delete/edit em `/transactions`; migration `0010` no Cloud; 30/30 testes; typecheck/lint a zero). **Falta:**
-1. **Verificação e2e** no browser: login + criar/editar/apagar transação real + CHECKs do `0010` + captura de fx (opção: smoke test com login manual do dono).
-2. Depois, **Etapa 3** — ligar `dashboard`/`holdings`/`performance`/`chart` ao `derive.ts` (F-04+F-02+A-02), matar mocks e dropar `portfolio_positions`.
+Etapa 2 **CONCLUÍDA** (F-05 API + UI + e2e verificado; migrations `0010`/`0011` no Cloud; 30/30 testes; typecheck/lint a zero). Segue a **Etapa 3** — ligar `dashboard`/`holdings`/`performance`/`chart` ao `derive.ts` (F-04 + F-02 + A-02), matar os mocks e dropar `portfolio_positions`. Nota: o bug de GRANT do `0011` já cobre todas as tabelas, portanto os reads da Etapa 3 não voltam a bater no `42501`.
 
 ### O plano completo (4 etapas)
 1. **Fundação** — `F-03` + `A-01` + `F-01` ✅ *feito; migration `0010` aplicada ao Cloud*
-2. **Entrada de dados** — `F-05` (CRUD de transações) — **API + UI feitas** ✅; falta só **verificação e2e** ⭐
+2. **Entrada de dados** — `F-05` (CRUD de transações) — **API + UI + e2e verificado** ✅ *app funcional* ⭐
 3. **Ligar páginas aos dados reais** — `F-04` + `F-02` + `A-02` (mock desaparece; drop de `portfolio_positions`)
 4. **Robustez e afinação** — `A-03` + `M-02` + `M-03` + `M-04`
 
@@ -119,7 +117,9 @@ Mesmo "ignorando" o `/projeto-fable-5`, o código está **deployado junto com o 
 
 ### F-05 · O app principal não tem caminho de escrita — não é funcional
 
-> **Status 2026-08-05: API + UI FEITAS (falta só QA e2e).** API: `POST /api/transactions` e `PATCH`/`DELETE /api/transactions/[id]` no pattern canónico (auth→rate limit→Zod→user_id da sessão). A-01 na API: `total` recomputado no servidor (`computeTotal`), `fx` capturado à data (`getFxOnDate`; 502 se indisponível), limites Zod (qty/price/fee ≤ 1e9), e `validateLedger` a rejeitar oversell — incluindo apagar uma compra que suporta uma venda (`src/lib/portfolio/write-guard.ts`). UI (agente frontend): `TxModal` (criar/editar buy/sell, valida com o mesmo `TransactionCreateSchema`, nunca envia fx/total, mostra erros do servidor verbatim em PT), delete em massa ligado ao `DELETE` com banner de falhas 422, coluna de edição só para buy/sell; `AddPositionModal` confirmado como dead code (não renderizado) e marcado como tal. **Falta:** verificação e2e no browser (login + insert real + CHECKs do `0010` + captura de fx). typecheck/lint a zero; 30/30 testes unitários.
+> **Status 2026-08-05: API + UI FEITAS (falta só QA e2e).** API: `POST /api/transactions` e `PATCH`/`DELETE /api/transactions/[id]` no pattern canónico (auth→rate limit→Zod→user_id da sessão). A-01 na API: `total` recomputado no servidor (`computeTotal`), `fx` capturado à data (`getFxOnDate`; 502 se indisponível), limites Zod (qty/price/fee ≤ 1e9), e `validateLedger` a rejeitar oversell — incluindo apagar uma compra que suporta uma venda (`src/lib/portfolio/write-guard.ts`). UI (agente frontend): `TxModal` (criar/editar buy/sell, valida com o mesmo `TransactionCreateSchema`, nunca envia fx/total, mostra erros do servidor verbatim em PT), delete em massa ligado ao `DELETE` com banner de falhas 422, coluna de edição só para buy/sell; `AddPositionModal` confirmado como dead code (não renderizado) e marcado como tal. **VERIFICADO e2e no browser 2026-08-05** contra o Cloud real: POST 201 (com fx USD→EUR capturado 0.8660 + total recomputado), oversell POST 422 (mensagem PT), PATCH 200 (total recomputado, fx preservado), DELETE 200; transação de teste limpa no fim. typecheck/lint a zero; 30/30 testes unitários.
+>
+> **Bug de infra descoberto e corrigido no e2e:** todas as queries às tabelas devolviam `42501 permission denied` — as migrations SQL puras (0001/0009) criaram as tabelas sem `GRANT` às roles da API do Supabase (o RLS estava certo, mas o privilégio de tabela por baixo dele faltava). Corrigido pela migration **`0011_grant_authenticated.sql`** (GRANT SELECT/INSERT/UPDATE/DELETE a `authenticated` nas 4 tabelas de utilizador; nada a `anon`), aplicada ao Cloud.
 
 - **Prova:** todas as rotas em `src/app/api/` são `GET` (grep confirmado); `AddPositionModal.tsx:25` — "TODO: wire to POST /api/holdings when Engineer implements the API route". Não há como registrar uma compra/venda pela UI.
 - **O que fazer:** implementar CRUD de transações (`POST/PATCH/DELETE /api/transactions[/id]`) seguindo o pattern canónico do CLAUDE.md (auth → rate limit → Zod → user_id da sessão), com **validação de ledger** antes de persistir (venda não pode exceder posição — reusar `validateLedger`), e wiring da UI (form de transação em `/transactions`; o `AddPositionModal` de holdings deve morrer ou criar transações, não posições).
