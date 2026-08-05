@@ -12,7 +12,7 @@
 **Se estás a retomar numa sessão nova (terminal ou web), começa por aqui.**
 
 ### Onde estamos
-- ✅ **Infraestrutura pronta.** O banco foi migrado do Supabase local (Docker) para o **Supabase Cloud**. Schema limpo (4 tabelas: `profiles`, `transactions`, `portfolio_positions`, `ai_insights`), RLS ativo e confirmado, app a arrancar e login a funcionar. Guia: `MIGRACAO_SUPABASE_CLOUD.md`.
+- ✅ **Infraestrutura pronta.** O banco foi migrado do Supabase local (Docker) para o **Supabase Cloud**. Schema limpo — **3 tabelas de utilizador** (`profiles`, `transactions`, `ai_insights`); `portfolio_positions` foi **dropada** na Etapa 3 (migration `0012`). RLS ativo e confirmado, app a arrancar e login a funcionar. Guia: `MIGRACAO_SUPABASE_CLOUD.md`.
 - ✅ **Sandbox fable5 removido** por completo (C-02) — o motor de cálculo foi preservado em `src/lib/portfolio/ledger.ts` com testes em `tests/unit/ledger.spec.ts` (correr: `npx playwright test -c playwright.unit.config.ts`).
 - ✅ **Etapas 1 e 2 CONCLUÍDAS (2026-08-05):** o ledger `transactions` é a fonte única com moeda base EUR (F-03/F-01), integridade no schema + API (A-01), e CRUD completo em `/transactions` verificado e2e no browser (F-05). Migrations `0010` (CHECKs) e `0011` (GRANTs) aplicadas ao Cloud. 30/30 testes unitários, typecheck/lint a zero.
 - ✅ **Etapa 3 CONCLUÍDA e com TODOS os gates passados (2026-08-05):** commit `973bcc0`. Todos os leitores (`dashboard`, `summary`, `holdings`, `movers`, `chart` + nova rota `performance`) derivam agora do ledger via `derivePortfolio` — **mocks e placeholders falsos eliminados** (F-04), realized P&L real do ledger (F-02), gráfico "Portfolio over time" reconstruído com carry-forward de closes e invested só a partir da 1ª compra (A-02). Tabela `portfolio_positions` **dropada** (migration `0012`, aplicada ao Cloud). UI **EUR em tudo** (toggle de moeda + FX mock removidos). A-03 coberto em dashboard/holdings/performance (banner de erro vs carteira vazia, aviso de preço indisponível). Bug apanhado no QA e corrigido: `PortfolioChart` deixou de cair para dados fabricados quando vazio. **Gates:** 36/36 unitários + typecheck/lint a zero; **QA** verificou o wire real no browser e reescreveu os specs e2e; **Security Review APROVADO** (0 crítico/alto/médio novos; fechou B-07/B-08/B-10/B-11; abriu B-13/B-14 higiene).
@@ -37,14 +37,21 @@ Entregue e verificado (typecheck + lint a zero):
 - **F-01** — `getFxToEur()` em `src/lib/yahoo-finance/client.ts`: câmbio live moeda→EUR com cache 15 min.
 - **F-03** — `src/lib/portfolio/derive.ts` (puro, fonte única: ledger→holdings/sumário em EUR, preços injectáveis) + `src/lib/portfolio/prices.ts` (provider Yahoo+fx) + `tests/unit/derive.spec.ts` (9 testes).
 
-### 👉 PRÓXIMO PASSO
-Etapas 1-3 **CONCLUÍDAS e fechadas** (QA + Security Review passados). Segue a **Etapa 4 — Robustez e afinação**:
-- **M-02** (higiene, sem decisão de schema): remover double-casts `as unknown as` residuais (B-13) regenerando/tipando `database.ts`; middleware por fronteira de segmento (B-12); purge/LRU nos caches em memória (rate-limiter B-03, caches Yahoo B-04/B-05, novo `historyRangeCache` B-14); logar `err.message` não o objecto (B-06/B-14). Limpar as rotas `/chart` e `/movers` (sem consumidor client-side) e a badge `TX_COUNT=13` hardcoded do `sidebar.tsx`.
-- **M-03** (⚠️ DECISÃO DE SCHEMA — precisa de OK explícito do dono): cache persistente de preços em tabela `price_cache` + `getPricesFor(tickers)` partilhado. Se avançar, a migration TEM de incluir `GRANT ... authenticated` (senão volta o 42501). O `db-schema-designer` só corre por decisão consciente do dono.
-- **M-04**: documentar o CSP `style-src 'unsafe-inline'` como aceite no `SECURITY_FINDINGS.md`.
-- **A-03 (resto)**: varrer superfícies fora do portfólio, se existirem.
+### 👉 PRÓXIMO PASSO (sessão parada aqui por decisão do dono — 2026-08-05)
 
-Nota independente: desbloquear o E2E (passphrase) é pré-requisito para voltar a ter prova de execução Playwright em qualquer spec.
+**O AUDIT está essencialmente encerrado: 13 dos 15 pontos fechados.** Etapas 1-4 concluídas (Etapa 4 = M-02 + M-04; M-03 adiado; M-01 em expansão contínua). Últimos commits na branch `claude/security-audit-finance-1i4vns`: `973bcc0` (Etapa 3), `7413266` (M-02+M-04), `ef1798d` (docs). **Só sobram 3 tarefas, e DUAS delas precisam de decisão/input do dono — não arrancar sem isso:**
+
+1. **M-03 — cache persistente de preços** ⚠️ *precisa de OK explícito do dono (é schema novo)*. Objetivo: tabela `price_cache (ticker, price, currency, fetched_at)` + uma única `getPricesFor(tickers)` partilhada por todas as rotas — reduz billing/risco de ban do Yahoo. **Se o dono autorizar:** correr `db-schema-designer` → `engineer`; a migration (próximo nº livre: `0013`) **TEM obrigatoriamente `GRANT SELECT/INSERT/UPDATE/DELETE ... authenticated`** na tabela nova, senão volta o erro `42501 permission denied` (lição das migrations 0001/0009 → corrigida no `0011`). Aplicar com `npx supabase db push`.
+
+2. **Desbloquear o E2E** ⚠️ *precisa da passphrase real do dono*. `E2E_PASSPHRASE=fintrack` em `.env.local` está desatualizada (a passphrase do Cloud foi rodada no C-01). Bloqueia TODOS os specs Playwright (`auth.setup.ts` falha com "Palavra-passe incorrecta"). **Não adivinhar o segredo.** Desbloquear: o dono põe o valor real em `.env.local`, OU cria um utilizador de teste dedicado no Dashboard do Supabase e usa essas credenciais no setup. Os specs de `/holdings` e `/performance` já foram reescritos contra a UI nova (EUR-fixo, data-driven) e passam `tsc`+`eslint` — só falta poder correr para ter prova de execução.
+
+3. **A-03 (resto)** — pode arrancar sem input: o banner de erro / aviso de preço-indisponível está feito em `/dashboard`, `/holdings`, `/performance`. Varrer as restantes superfícies (`/settings`, `/tax-calculator`, `/transactions`) e aplicar o mesmo padrão onde uma falha silenciosa possa mostrar um valor falso.
+
+**Lembretes operacionais (inalterados):**
+- Migrations → `npx supabase db push` (Cloud ligado); **não existe `db:backup`**. `database.ts` é mantido **à mão** (sem `gen types` contra o Cloud).
+- Testes unitários (a fonte de verdade da matemática financeira): `npx playwright test -c playwright.unit.config.ts` → **36 verdes**.
+- Toda rota nova segue o pattern canónico do `CLAUDE.md` (auth `getUser` → rate limit → Zod → `user_id` da sessão) e **toda tabela nova precisa de GRANT a `authenticated`**.
+- `npm run typecheck` e `npm run lint` a zero em cada passo; atualizar os status **neste ficheiro** ao fechar cada item.
 
 ### O plano completo (4 etapas)
 1. **Fundação** — `F-03` + `A-01` + `F-01` ✅ *feito; migration `0010` aplicada ao Cloud*
