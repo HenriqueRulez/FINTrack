@@ -7,6 +7,37 @@
 
 ---
 
+## 🧭 PONTO DE PARTIDA — lê isto primeiro (atualizado 2026-08-05)
+
+**Se estás a retomar numa sessão nova (terminal ou web), começa por aqui.**
+
+### Onde estamos
+- ✅ **Infraestrutura pronta.** O banco foi migrado do Supabase local (Docker) para o **Supabase Cloud**. Schema limpo (4 tabelas: `profiles`, `transactions`, `portfolio_positions`, `ai_insights`), RLS ativo e confirmado, app a arrancar e login a funcionar. Guia: `MIGRACAO_SUPABASE_CLOUD.md`.
+- ✅ **Sandbox fable5 removido** por completo (C-02) — o motor de cálculo foi preservado em `src/lib/portfolio/ledger.ts` com testes em `tests/unit/ledger.spec.ts` (correr: `npx playwright test -c playwright.unit.config.ts`).
+- ✅ **Já resolvidos:** C-02, C-01, A-04. **Parcial:** F-04 (seed mock removido; falta ligar páginas). **Adiado:** M-01 (rastreado em `TODO.md`).
+
+### Estado dos 15 pontos
+| Resolvido | Adiado | Em aberto |
+|---|---|---|
+| C-02, C-01, A-04 | M-01 | F-01, F-02, F-03, F-04*, F-05, A-01, A-02, A-03, M-02, M-03, M-04 |
+
+\* F-04 está parcialmente feito (seed removido); a parte restante completa-se na Etapa 3 abaixo.
+
+### 👉 PRÓXIMO PASSO: Etapa 1 do plano — Fundação (F-03 + A-01 + F-01)
+Fazer tudo derivar do **ledger de transações** como fonte única, usando o motor já pronto em `src/lib/portfolio/ledger.ts`. Inclui travas de integridade no banco (A-01) e moeda base + conversão de câmbio (F-01).
+
+**Antes de escrever código:** produzir um plano detalhado (que ficheiros mexer, que decisões: nova migration? `portfolio_positions` vira cache derivado ou é eliminada? onde entra a conversão fx?) e validar com o dono.
+
+### O plano completo (4 etapas)
+1. **Fundação** — `F-03` + `A-01` + `F-01` ← *estamos aqui*
+2. **Entrada de dados** — `F-05` (CRUD de transações na UI com validação) ⭐ *app fica funcional*
+3. **Ligar páginas aos dados reais** — `F-04` + `F-02` + `A-02` (mock desaparece)
+4. **Robustez e afinação** — `A-03` + `M-02` + `M-03` + `M-04`
+
+> Regras transversais: seguir o pattern canónico de API route do `CLAUDE.md`; `npm run typecheck` e `npm run lint` a zero em cada passo; atualizar os status **neste ficheiro** ao fechar cada item.
+
+---
+
 ## CRÍTICOS — Segurança
 
 ### C-01 · Passphrase default `fintrack` semeada na migration, sem forma de trocar
