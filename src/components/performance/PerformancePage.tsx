@@ -1,28 +1,21 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAnimations } from "@/hooks/useAnimations";
+import { Skeleton } from "@/components/ui/skeleton";
 import { PerformancePageHead } from "./PerformancePageHead";
 import type { Period } from "./PerformancePageHead";
 import { KPIStrip } from "./KPIStrip";
 import type { TickState } from "./KPIStrip";
 import { TradeAnalysisCard } from "./TradeAnalysisCard";
-import type { EnrichedTrade, TradeSortState, TradeSortCol, Density } from "./TradeTable";
-import {
-  TRADES,
-  convertTrade,
-  generateSparkSeed,
-} from "./mock-data";
-import type { Currency } from "./mock-data";
+import type { TradeSortState, TradeSortCol, Density } from "./TradeTable";
+import type { TradeRow, PerformanceStats, PerformanceApiResponse } from "./types";
 
 // ---------------------------------------------------------------------------
 // PerformancePage — root client component
 // ---------------------------------------------------------------------------
 
-function sortEnrichedTrades(
-  rows: EnrichedTrade[],
-  sort: TradeSortState
-): EnrichedTrade[] {
+function sortTrades(rows: TradeRow[], sort: TradeSortState): TradeRow[] {
   return [...rows].sort((a, b) => {
     let valA: number | string = 0;
     let valB: number | string = 0;
@@ -41,28 +34,28 @@ function sortEnrichedTrades(
         valB = b.holdDays;
         break;
       case "invested":
-        valA = a._investedEUR;
-        valB = b._investedEUR;
+        valA = a.investedEur;
+        valB = b.investedEur;
         break;
       case "realized":
-        valA = a._realizedEUR;
-        valB = b._realizedEUR;
+        valA = a.realizedEur;
+        valB = b.realizedEur;
         break;
       case "unrealized":
-        valA = a._unrealizedEUR;
-        valB = b._unrealizedEUR;
+        valA = a.unrealizedEur;
+        valB = b.unrealizedEur;
         break;
-      case "totalEUR":
-        valA = a._totalEUR;
-        valB = b._totalEUR;
+      case "totalEur":
+        valA = a.totalEur;
+        valB = b.totalEur;
         break;
       case "roi":
-        valA = a._roi;
-        valB = b._roi;
+        valA = a.roi;
+        valB = b.roi;
         break;
       default:
-        valA = a._totalEUR;
-        valB = b._totalEUR;
+        valA = a.totalEur;
+        valB = b.totalEur;
     }
 
     if (typeof valA === "string" && typeof valB === "string") {
@@ -77,10 +70,7 @@ function sortEnrichedTrades(
   });
 }
 
-function buildTickDistribution(
-  set: EnrichedTrade[],
-  tone: TickState
-): TickState[] {
+function buildTickDistribution(set: TradeRow[], tone: TickState): TickState[] {
   const ticks: TickState[] = Array(10).fill("off") as TickState[];
   const sortedByHold = [...set].sort((a, b) => a.holdDays - b.holdDays);
   sortedByHold.forEach((_, i) => {
@@ -93,14 +83,40 @@ export function PerformancePage() {
   const { enabled: animationsEnabled } = useAnimations();
   const rise = animationsEnabled ? "rise" : "";
 
-  const [currency, setCurrency] = useState<Currency>("EUR");
   const [showClosed, setShowClosed] = useState(false);
   const [density] = useState<Density>("comfortable");
   const [period, setPeriod] = useState<Period>("YTD");
   const [sort, setSort] = useState<TradeSortState>({
-    col: "totalEUR",
+    col: "totalEur",
     dir: "desc",
   });
+
+  const [trades, setTrades] = useState<TradeRow[] | null>(null);
+  const [stats, setStats] = useState<PerformanceStats | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/portfolio/performance");
+      if (!res.ok) {
+        throw new Error(`Request failed (${res.status})`);
+      }
+      const json = (await res.json()) as PerformanceApiResponse;
+      setTrades(json.data.trades);
+      setStats(json.data.stats);
+    } catch {
+      setError("Não foi possível carregar o desempenho.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   function handleSort(col: TradeSortCol) {
     setSort((prev) => ({
@@ -110,124 +126,75 @@ export function PerformancePage() {
   }
 
   // ---------------------------------------------------------------------------
-  // Computed data
+  // Computed data — tick distributions are purely visual, derived from real
+  // trades; all aggregate stats (win rate, avg hold, etc.) come from the API
   // ---------------------------------------------------------------------------
 
-  const {
-    activeRows,
-    closedRows,
-    winRate,
-    realizedPct,
-    unrealizedPct,
-    avgHoldAll,
-    avgHoldWin,
-    avgHoldLose,
-    activeTicks,
-    winTicks,
-    loseTicks,
-    activeCount,
-    closedCount,
-    tableRows,
-  } = useMemo(() => {
-    // Enrich all trades
-    const all: EnrichedTrade[] = TRADES.map((tr) => {
-      const invE = convertTrade(tr.invested, tr.native, "EUR");
-      const reaE = convertTrade(tr.realized, tr.native, "EUR");
-      const unrE = convertTrade(tr.unrealized, tr.native, "EUR");
-      const totE = reaE + unrE;
-      const roi = invE > 0 ? (totE / invE) * 100 : 0;
-      const dir30 = totE === 0 ? 0 : totE > 0 ? 1 : -1;
-      const pct30 = Math.max(-12, Math.min(12, roi * 0.18 + dir30 * 0.6));
-      const seed = generateSparkSeed(tr.ticker);
-
-      return {
-        ...tr,
-        _investedEUR: invE,
-        _realizedEUR: reaE,
-        _unrealizedEUR: unrE,
-        _totalEUR: totE,
-        _roi: roi,
-        _dir30: dir30,
-        _pct30: pct30,
-        _seed: seed,
-      };
-    });
-
+  const { activeTicks, winTicks, loseTicks, tableRows } = useMemo(() => {
+    const all = trades ?? [];
     const activeRows = all.filter((x) => x.status === "active");
     const closedRows = all.filter((x) => x.status === "closed");
+    const winners = all.filter((x) => x.totalEur > 0);
+    const losers = all.filter((x) => x.totalEur < 0);
 
-    // KPI: Winners = totalEUR > 0 across ALL trades
-    const winners = all.filter((x) => x._totalEUR > 0);
-    const losers = all.filter((x) => x._totalEUR < 0);
-
-    const winRate =
-      all.length > 0 ? (winners.length / all.length) * 100 : 0;
-
-    const totalRealized = all.reduce((s, x) => s + x._realizedEUR, 0);
-    const totalUnrealized = all.reduce((s, x) => s + x._unrealizedEUR, 0);
-    const absRea = Math.abs(totalRealized);
-    const absUnr = Math.abs(totalUnrealized);
-    const splitDenom = absRea + absUnr || 1;
-    const realizedPct = (absRea / splitDenom) * 100;
-    const unrealizedPct = (absUnr / splitDenom) * 100;
-
-    // Avg hold — active positions only
-    const avgHoldAll =
-      activeRows.length > 0
-        ? Math.round(
-            activeRows.reduce((s, x) => s + x.holdDays, 0) / activeRows.length
-          )
-        : 0;
-
-    // Winners/losers for hold averages: only active positions
-    const activeWinners = activeRows.filter((x) => x._totalEUR > 0);
-    const activeLosers = activeRows.filter((x) => x._totalEUR < 0);
-
-    const avgHoldWin =
-      activeWinners.length > 0
-        ? Math.round(
-            activeWinners.reduce((s, x) => s + x.holdDays, 0) /
-              activeWinners.length
-          )
-        : 0;
-
-    const avgHoldLose =
-      activeLosers.length > 0
-        ? Math.round(
-            activeLosers.reduce((s, x) => s + x.holdDays, 0) /
-              activeLosers.length
-          )
-        : 0;
-
-    // Tick distributions
     const activeTicks = buildTickDistribution(activeRows, "active");
     const winTicks = buildTickDistribution(winners, "gain");
     const loseTicks = buildTickDistribution(losers, "loss");
 
-    // Table rows: active sorted + closed at bottom (if showClosed)
-    const sortedActive = sortEnrichedTrades(activeRows, sort);
-    const sortedClosed = sortEnrichedTrades(closedRows, sort);
-    const tableRows = showClosed
-      ? [...sortedActive, ...sortedClosed]
-      : sortedActive;
+    const sortedActive = sortTrades(activeRows, sort);
+    const sortedClosed = sortTrades(closedRows, sort);
+    const tableRows = showClosed ? [...sortedActive, ...sortedClosed] : sortedActive;
 
-    return {
-      activeRows,
-      closedRows,
-      winRate,
-      realizedPct,
-      unrealizedPct,
-      avgHoldAll,
-      avgHoldWin,
-      avgHoldLose,
-      activeTicks,
-      winTicks,
-      loseTicks,
-      activeCount: activeRows.length,
-      closedCount: closedRows.length,
-      tableRows,
-    };
-  }, [sort, showClosed]);
+    return { activeTicks, winTicks, loseTicks, tableRows };
+  }, [trades, sort, showClosed]);
+
+  // -- First load, still fetching: full-page skeleton
+  if (trades === null && loading) {
+    return (
+      <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-3">
+          <h1 className="text-2xl font-medium tracking-tight leading-none text-foreground">
+            Performance
+          </h1>
+          <Skeleton className="h-4 w-40" />
+        </div>
+        <div className="bg-card border border-border/50 rounded-lg overflow-hidden grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="p-5 flex flex-col gap-3">
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="h-7 w-20" />
+              <Skeleton className="h-3 w-28" />
+            </div>
+          ))}
+        </div>
+        <div className="bg-card border border-border/50 rounded-lg p-5 flex flex-col gap-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-10 w-full" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // -- First load failed, no data to show at all
+  if (trades === null && error) {
+    return (
+      <div className="flex flex-col gap-5">
+        <h1 className="text-2xl font-medium tracking-tight leading-none text-foreground">
+          Performance
+        </h1>
+        <div
+          role="alert"
+          className="rounded-lg border border-[var(--loss)]/40 bg-[var(--loss)]/10 px-4 py-6 text-sm text-[var(--loss)]"
+        >
+          {error}
+        </div>
+      </div>
+    );
+  }
+
+  const activeCount = stats?.activeCount ?? 0;
+  const closedCount = stats?.closedCount ?? 0;
 
   return (
     <div className="flex flex-col gap-5">
@@ -240,15 +207,25 @@ export function PerformancePage() {
         animClass={rise}
       />
 
+      {/* Stale refresh error — keep last good data visible */}
+      {error && (
+        <div
+          role="alert"
+          className="rounded-lg border border-[var(--loss)]/40 bg-[var(--loss)]/10 px-4 py-3 text-sm text-[var(--loss)]"
+        >
+          {error} A mostrar os últimos dados carregados.
+        </div>
+      )}
+
       {/* KPI strip */}
       <div className={`${rise} d2`}>
         <KPIStrip
-          winRate={winRate}
-          realizedPct={realizedPct}
-          unrealizedPct={unrealizedPct}
-          avgHoldAll={avgHoldAll}
-          avgHoldWin={avgHoldWin}
-          avgHoldLose={avgHoldLose}
+          winRate={stats?.winRate ?? 0}
+          realizedPct={stats?.realizedPct ?? 0}
+          unrealizedPct={stats?.unrealizedPct ?? 0}
+          avgHoldAll={stats?.avgHoldAll ?? 0}
+          avgHoldWin={stats?.avgHoldWin ?? 0}
+          avgHoldLose={stats?.avgHoldLose ?? 0}
           activeTicks={activeTicks}
           winTicks={winTicks}
           loseTicks={loseTicks}
@@ -258,18 +235,13 @@ export function PerformancePage() {
       {/* Trade Analysis card */}
       <TradeAnalysisCard
         rows={tableRows}
-        currency={currency}
         showClosed={showClosed}
         sort={sort}
         density={density}
         onSort={handleSort}
-        onCurrencyChange={setCurrency}
         onShowClosedChange={setShowClosed}
         animClass={rise}
       />
-
-      {/* Suppress unused variable warnings for closed rows reference */}
-      {activeRows.length === 0 && closedRows.length === 0 && null}
     </div>
   );
 }

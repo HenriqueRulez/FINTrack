@@ -1,36 +1,28 @@
 "use client";
 
+import { formatMoneyEur } from "./format";
+
 // ---------------------------------------------------------------------------
-// GainLossCell — displays absolute + percentage gain/loss
+// GainLossCell — displays absolute (EUR) + percentage gain/loss
 // ---------------------------------------------------------------------------
 
 interface GainLossCellProps {
-  absoluteValue: number;
+  absoluteValueEur: number;
   pctValue: number;
-  currency: "EUR" | "USD";
 }
 
-export function GainLossCell({
-  absoluteValue,
-  pctValue,
-  currency,
-}: GainLossCellProps) {
-  const isGain = absoluteValue >= 0;
+export function GainLossCell({ absoluteValueEur, pctValue }: GainLossCellProps) {
+  const isGain = absoluteValueEur >= 0;
   const colorClass = isGain ? "text-[var(--gain)]" : "text-[var(--loss)]";
   const badgeBg = isGain
     ? "bg-[var(--gain)]/15 text-[var(--gain)]"
     : "bg-[var(--loss)]/15 text-[var(--loss)]";
 
   const sign = isGain ? "+" : "−";
-  const absVal = Math.abs(absoluteValue);
+  const absVal = Math.abs(absoluteValueEur);
   const absPct = Math.abs(pctValue);
 
-  const formatted = new Intl.NumberFormat("pt-PT", {
-    style: "currency",
-    currency,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(absVal);
+  const formatted = formatMoneyEur(absVal);
 
   return (
     <span className="inline-flex flex-col items-end gap-1 leading-[1.2]">

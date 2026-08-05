@@ -30,36 +30,6 @@ export interface PortfolioChartProps {
 }
 
 // ---------------------------------------------------------------------------
-// Mock data — 90 daily points
-// ---------------------------------------------------------------------------
-
-function generateMockData(): ChartPoint[] {
-  const points: ChartPoint[] = [];
-  const today = new Date(2026, 4, 26); // 2026-05-26
-  let portfolio = 18000;
-  const invested = 15000;
-
-  for (let i = 89; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(d.getDate() - i);
-    const drift = (Math.random() - 0.46) * 300;
-    portfolio = Math.max(invested * 0.8, portfolio + drift);
-    const dateStr = d.toLocaleDateString("pt-PT", {
-      day: "2-digit",
-      month: "short",
-    });
-    points.push({
-      date: dateStr,
-      portfolio: Math.round(portfolio * 100) / 100,
-      invested: invested + i * 20,
-    });
-  }
-  return points;
-}
-
-const MOCK_DATA = generateMockData();
-
-// ---------------------------------------------------------------------------
 // Timeframe selector
 // ---------------------------------------------------------------------------
 
@@ -125,7 +95,8 @@ export function PortfolioChart({ data = null, isLoading = false }: PortfolioChar
   const { enabled: animationsEnabled } = useAnimations();
   const riseClass = animationsEnabled ? "rise" : "";
 
-  const rawData = data ?? MOCK_DATA;
+  const rawData = data ?? [];
+  const isEmpty = rawData.length === 0;
   const days = TIMEFRAME_DAYS[timeframe];
 
   const filteredData = useMemo(
@@ -133,10 +104,10 @@ export function PortfolioChart({ data = null, isLoading = false }: PortfolioChar
     [rawData, days]
   );
 
-  // Determine Y axis domain
+  // Determine Y axis domain (only meaningful with data — empty state skips the chart)
   const allValues = filteredData.flatMap((d) => [d.portfolio, d.invested]);
-  const minVal = Math.min(...allValues) * 0.97;
-  const maxVal = Math.max(...allValues) * 1.03;
+  const minVal = allValues.length > 0 ? Math.min(...allValues) * 0.97 : 0;
+  const maxVal = allValues.length > 0 ? Math.max(...allValues) * 1.03 : 0;
 
   // Show every Nth label to avoid crowding
   const tickInterval = Math.ceil(filteredData.length / 6);
@@ -202,6 +173,16 @@ export function PortfolioChart({ data = null, isLoading = false }: PortfolioChar
       {/* Chart */}
       {isLoading ? (
         <Skeleton className="h-[320px] w-full animate-pulse rounded-md bg-muted" />
+      ) : isEmpty ? (
+        <div
+          className="h-[320px] w-full flex flex-col items-center justify-center gap-1 text-center"
+          role="status"
+        >
+          <p className="text-sm text-muted-foreground">No portfolio history yet</p>
+          <p className="text-[11px] text-muted-foreground/60">
+            Add a transaction to start tracking your portfolio over time
+          </p>
+        </div>
       ) : (
         <ResponsiveContainer width="100%" height={320}>
           <ComposedChart

@@ -1,16 +1,15 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import type { EnrichedHolding } from "./HoldingsTable";
+import type { HoldingRow } from "./types";
 
 // ---------------------------------------------------------------------------
-// CompanyCell — replaces AllocPill in the Holdings table Company column
-// Shows: 32×32 neutral placeholder icon + ticker | exchange + full name
-// with colored allocation fill bar (same visual as AllocPill)
+// CompanyCell — Company column: logo + ticker | currency + full name
+// with colored allocation fill bar
 // ---------------------------------------------------------------------------
 
 interface CompanyCellProps {
-  holding: EnrichedHolding;
+  holding: HoldingRow;
   pct: number; // 0–100
 }
 
@@ -47,13 +46,13 @@ export function CompanyCell({ holding, pct }: CompanyCellProps) {
         {/* Content */}
         <div className="relative flex items-center w-full h-full px-3">
           <div className="flex flex-col min-w-0 flex-1">
-            {/* Ticker | Exchange line */}
+            {/* Ticker | Currency line */}
             <div className="flex items-baseline leading-none mb-[3px]">
               <span className="text-sm font-semibold tracking-wide leading-none">
                 {holding.ticker}
               </span>
               <span className="text-[10px] text-muted-foreground/60 ml-1.5">
-                | {holding.exchange}
+                | {holding.currency}
               </span>
             </div>
             {/* Full name */}

@@ -3,8 +3,8 @@
 import { CompanyCell } from "./CompanyCell";
 import { TypeBadge } from "./TypeBadge";
 import { GainLossCell } from "./GainLossCell";
-import type { HoldingItem, Currency } from "./mock-data";
-import { formatMoney, formatMoneyNative, convertAmount } from "./mock-data";
+import type { HoldingRow } from "./types";
+import { formatMoneyEur } from "./format";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -25,15 +25,40 @@ export interface SortState {
   dir: SortDir;
 }
 
-export interface EnrichedHolding extends HoldingItem {
-  /** Market value in EUR */
-  marketValueEUR: number;
-  /** Portfolio % (0–100) — only for active positions */
-  pct: number;
-  /** Unrealized gain/loss in EUR */
-  gainLossEUR: number;
-  /** Gain/loss as a percentage of cost basis */
-  gainLossPct: number;
+// ---------------------------------------------------------------------------
+// Display gain/loss helper — active positions show unrealized P/L,
+// closed positions show realized P/L (unrealized is 0 once a position closes)
+// ---------------------------------------------------------------------------
+
+export function displayGain(row: HoldingRow): { amountEur: number; pct: number } {
+  if (row.status === "closed") {
+    const pct = row.costBasisEur !== 0 ? (row.realizedEur / row.costBasisEur) * 100 : 0;
+    return { amountEur: row.realizedEur, pct };
+  }
+  return { amountEur: row.unrealizedEur, pct: row.unrealizedPct };
+}
+
+// ---------------------------------------------------------------------------
+// WarningIcon — inline stale-price indicator
+// ---------------------------------------------------------------------------
+
+function WarningIcon() {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      aria-hidden="true"
+      className="text-[var(--loss)] shrink-0"
+    >
+      <path d="M8 1.5 14.5 13a1 1 0 0 1-.87 1.5H2.37a1 1 0 0 1-.87-1.5L8 1.5Z" />
+      <path d="M8 6v3.5" strokeLinecap="round" />
+      <circle cx="8" cy="11.5" r="0.6" fill="currentColor" stroke="none" />
+    </svg>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -41,8 +66,7 @@ export interface EnrichedHolding extends HoldingItem {
 // ---------------------------------------------------------------------------
 
 interface HoldingsTableProps {
-  rows: EnrichedHolding[];
-  currency: Currency;
+  rows: HoldingRow[];
   sort: SortState;
   onSort: (col: SortCol) => void;
 }
@@ -72,36 +96,7 @@ function SortArrow({ col, sort }: { col: SortCol; sort: SortState }) {
   );
 }
 
-function getDisplayCurrency(row: EnrichedHolding, currency: Currency): "EUR" | "USD" {
-  if (currency === "EUR") return "EUR";
-  if (currency === "USD") return "USD";
-  return row.native;
-}
-
-function formatCellMoney(
-  amount: number,
-  fromCur: "EUR" | "USD",
-  currency: Currency,
-  nativeCur: "EUR" | "USD"
-): string {
-  if (currency === "EUR") {
-    const val = convertAmount(amount, fromCur, "EUR");
-    return formatMoney(val, "EUR");
-  }
-  if (currency === "USD") {
-    const val = convertAmount(amount, fromCur, "USD");
-    return formatMoney(val, "USD");
-  }
-  // Native
-  return formatMoneyNative(amount, nativeCur);
-}
-
-export function HoldingsTable({
-  rows,
-  currency,
-  sort,
-  onSort,
-}: HoldingsTableProps) {
+export function HoldingsTable({ rows, sort, onSort }: HoldingsTableProps) {
   function handleSort(col: SortCol) {
     onSort(col);
   }
@@ -155,63 +150,29 @@ export function HoldingsTable({
 
         <tbody>
           {rows.map((row) => {
-            const displayCur = getDisplayCurrency(row, currency);
-
-            // Convert values for display
-            const avgCostDisplay = formatCellMoney(
-              row.avgCost,
-              row.native,
-              currency,
-              row.native
-            );
-            const costBasisDisplay = formatCellMoney(
-              row.costBasis,
-              row.native,
-              currency,
-              row.native
-            );
-            const currentPriceDisplay = formatCellMoney(
-              row.currentPrice,
-              row.native,
-              currency,
-              row.native
-            );
-            const marketValueDisplay = formatCellMoney(
-              row.shares * row.currentPrice,
-              row.native,
-              currency,
-              row.native
-            );
-
-            // Gain/loss in display currency
-            const gainLossDisplay =
-              currency === "EUR"
-                ? row.gainLossEUR
-                : currency === "USD"
-                  ? convertAmount(row.gainLossEUR, "EUR", "USD")
-                  : (row.currentPrice - row.avgCost) * row.shares;
+            const gain = displayGain(row);
 
             return (
               <tr
                 key={row.ticker}
                 className={[
                   "transition-colors hover:bg-muted/40",
-                  row.sold ? "opacity-[0.55]" : "",
+                  row.status === "closed" ? "opacity-[0.55]" : "",
                 ].join(" ")}
               >
                 {/* Company */}
                 <td className="pl-5 pr-4 py-4 border-b border-border/40 text-left align-middle">
-                  <CompanyCell holding={row} pct={row.pct} />
+                  <CompanyCell holding={row} pct={row.pctOfPortfolio} />
                 </td>
 
                 {/* Type */}
                 <td className="pl-5 pr-4 py-4 border-b border-border/40 text-left align-middle">
-                  <TypeBadge assetClass={row.assetClass} />
+                  <TypeBadge assetType={row.assetType} />
                 </td>
 
                 {/* Portfolio% */}
                 <td className="px-4 py-4 border-b border-border/40 text-right tabular-nums text-sm align-middle">
-                  {row.sold ? "—" : `${row.pct.toFixed(1)}%`}
+                  {row.status === "closed" ? "—" : `${row.pctOfPortfolio.toFixed(1)}%`}
                 </td>
 
                 {/* Shares */}
@@ -223,36 +184,41 @@ export function HoldingsTable({
 
                 {/* Avg Cost */}
                 <td className="px-4 py-4 border-b border-border/40 text-right tabular-nums text-sm align-middle">
-                  {avgCostDisplay}
-                  {currency === "Native" && row.native !== "EUR" && (
-                    <span className="block text-[0.85em] text-muted-foreground">
-                      ({formatMoney(convertAmount(row.avgCost, row.native, "EUR"), "EUR")})
-                    </span>
-                  )}
+                  {formatMoneyEur(row.avgCostEur)}
                 </td>
 
                 {/* Cost Basis */}
                 <td className="px-4 py-4 border-b border-border/40 text-right tabular-nums text-sm align-middle">
-                  {costBasisDisplay}
+                  {formatMoneyEur(row.costBasisEur)}
                 </td>
 
                 {/* Current Price */}
                 <td className="px-4 py-4 border-b border-border/40 text-right tabular-nums text-sm align-middle">
-                  {currentPriceDisplay}
+                  <span className="inline-flex items-center justify-end gap-1.5">
+                    {row.priceMissing && (
+                      <span title="Preço indisponível — valor desatualizado" aria-label="Preço indisponível — valor desatualizado">
+                        <WarningIcon />
+                      </span>
+                    )}
+                    {row.currentPriceEur !== null ? formatMoneyEur(row.currentPriceEur) : "—"}
+                  </span>
                 </td>
 
                 {/* Market Value */}
                 <td className="px-4 py-4 border-b border-border/40 text-right tabular-nums text-sm align-middle">
-                  {marketValueDisplay}
+                  <span className="inline-flex items-center justify-end gap-1.5">
+                    {row.priceMissing && (
+                      <span title="Valor desatualizado — preço indisponível" aria-label="Valor desatualizado — preço indisponível">
+                        <WarningIcon />
+                      </span>
+                    )}
+                    {formatMoneyEur(row.marketValueEur)}
+                  </span>
                 </td>
 
                 {/* Total Gain/Loss */}
                 <td className="pr-5 pl-4 py-4 border-b border-border/40 text-right align-middle">
-                  <GainLossCell
-                    absoluteValue={gainLossDisplay}
-                    pctValue={row.gainLossPct}
-                    currency={displayCur}
-                  />
+                  <GainLossCell absoluteValueEur={gain.amountEur} pctValue={gain.pct} />
                 </td>
               </tr>
             );

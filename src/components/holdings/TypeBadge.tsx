@@ -1,42 +1,42 @@
 "use client";
 
-import type { AssetClass } from "./mock-data";
+import type { AssetType } from "./types";
 
 // ---------------------------------------------------------------------------
 // TypeBadge — asset class badge with colour-coded style per DESIGN.md
-// Mapping: Stocks → chart-1 (teal), ETFs → chart-2 (violet),
-//          Crypto → chart-4 (rose), Other → chart-5 (sky blue)
+// Mapping: stock → chart-1 (teal), etf → chart-2 (violet),
+//          crypto → chart-4 (rose), other → chart-5 (sky blue)
 // ---------------------------------------------------------------------------
 
 interface TypeBadgeProps {
-  assetClass: AssetClass;
+  assetType: AssetType;
 }
 
-const BADGE_STYLES: Record<AssetClass, { bg: string; text: string; label: string }> = {
-  Stocks: {
+const BADGE_STYLES: Record<AssetType, { bg: string; text: string; label: string }> = {
+  stock: {
     bg: "bg-chart-1/15",
     text: "text-chart-1",
     label: "Stock",
   },
-  ETFs: {
+  etf: {
     bg: "bg-chart-2/15",
     text: "text-chart-2",
     label: "ETF",
   },
-  Crypto: {
+  crypto: {
     bg: "bg-chart-4/15",
     text: "text-chart-4",
     label: "Crypto",
   },
-  Other: {
+  other: {
     bg: "bg-chart-5/15",
     text: "text-chart-5",
     label: "Other",
   },
 };
 
-export function TypeBadge({ assetClass }: TypeBadgeProps) {
-  const styles = BADGE_STYLES[assetClass];
+export function TypeBadge({ assetType }: TypeBadgeProps) {
+  const styles = BADGE_STYLES[assetType];
 
   return (
     <span

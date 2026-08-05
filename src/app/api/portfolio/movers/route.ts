@@ -1,19 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { rateLimit } from "@/lib/rate-limit";
-import { getQuote, getHistory } from "@/lib/yahoo-finance/client";
-import type { Tables } from "@/types/database";
+import { getHistory } from "@/lib/yahoo-finance/client";
+import { derivePortfolio, type TransactionRow } from "@/lib/portfolio/derive";
+import { yahooPriceProvider } from "@/lib/portfolio/prices";
 import type { MoverItem } from "@/components/dashboard/TopMoversSection";
 
+// Colunas do ledger (selecção explícita, não select("*")).
+const LEDGER_COLUMNS = "id, date, ticker, type, qty, price, fx, fee, created_at";
+
 // ---------------------------------------------------------------------------
-// GET /api/portfolio/movers
+// GET /api/portfolio/movers — top 5 posições ACTIVAS por |variação|
 // ---------------------------------------------------------------------------
 
 export async function GET(request: NextRequest) {
   void request;
   const supabase = await createClient();
 
-  // 1. Auth — always first
+  // 1. Auth — sempre primeiro
   const {
     data: { user },
     error: authError,
@@ -22,62 +26,54 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // 2. Rate limit — separate key as specified
+  // 2. Rate limit
   const rl = rateLimit(`portfolio:movers:${user.id}`, 30, 60_000);
   if (!rl.success) {
     return NextResponse.json({ error: "Too many requests" }, { status: 429 });
   }
 
-  // 3. Fetch positions
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: positions, error: dbError } = await (supabase as any)
-    .from("portfolio_positions")
-    .select("*")
-    .eq("user_id", user.id) as {
-      data: Tables<"portfolio_positions">[] | null;
-      error: { message: string } | null;
-    };
+  // 3. Ledger do utilizador (user_id da sessão)
+  const { data, error: dbError } = await supabase
+    .from("transactions")
+    .select(LEDGER_COLUMNS)
+    .eq("user_id", user.id);
 
   if (dbError) {
     return NextResponse.json({ error: "Database error" }, { status: 500 });
   }
+  const rows = (data ?? []) as unknown as TransactionRow[];
 
-  if (!positions || positions.length === 0) {
+  // 4. Deriva holdings (preços live convertidos a EUR)
+  let holdings;
+  try {
+    holdings = (await derivePortfolio(rows, yahooPriceProvider)).holdings;
+  } catch {
+    return NextResponse.json({ error: "Price provider error" }, { status: 502 });
+  }
+
+  const active = holdings.filter(
+    (h) => h.status === "active" && h.currentPriceEur !== null
+  );
+  if (active.length === 0) {
     return NextResponse.json({ data: [] }, { status: 200 });
   }
 
-  // 4. Fetch current quotes and history for each position in parallel
-  const enriched = await Promise.all(
-    positions.map(async (p) => {
-      const [quote, history] = await Promise.all([
-        getQuote(p.ticker),
-        getHistory(p.ticker),
-      ]);
-
-      const currentPrice = quote?.price ?? p.current_price ?? p.avg_price;
-      const changePercent =
-        p.avg_price > 0
-          ? ((currentPrice - p.avg_price) / p.avg_price) * 100
-          : 0;
-
-      // Last 7 close prices for the sparkline
-      const sparkline = history
-        .slice(-7)
-        .map((h) => h.close);
-
-      const mover: MoverItem = {
-        ticker: p.ticker,
-        name: quote?.name ?? p.name,
-        price: Math.round(currentPrice * 100) / 100,
-        changePercent: Math.round(changePercent * 100) / 100,
+  // 5. Enriquece com sparkline (últimos 7 closes — só forma visual)
+  const enriched: MoverItem[] = await Promise.all(
+    active.map(async (h) => {
+      const history = await getHistory(h.ticker);
+      const sparkline = history.slice(-7).map((p) => p.close);
+      return {
+        ticker: h.ticker,
+        name: h.name,
+        price: h.currentPriceEur as number,
+        changePercent: Math.round(h.unrealizedPct * 100) / 100,
         sparkline: sparkline.length >= 2 ? sparkline : undefined,
       };
-
-      return mover;
     })
   );
 
-  // 5. Sort by absolute changePercent descending — largest movers first
+  // 6. Top 5 por |variação|
   const sorted = enriched
     .sort((a, b) => Math.abs(b.changePercent) - Math.abs(a.changePercent))
     .slice(0, 5);

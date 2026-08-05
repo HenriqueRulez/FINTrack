@@ -15,17 +15,15 @@
 - ✅ **Infraestrutura pronta.** O banco foi migrado do Supabase local (Docker) para o **Supabase Cloud**. Schema limpo (4 tabelas: `profiles`, `transactions`, `portfolio_positions`, `ai_insights`), RLS ativo e confirmado, app a arrancar e login a funcionar. Guia: `MIGRACAO_SUPABASE_CLOUD.md`.
 - ✅ **Sandbox fable5 removido** por completo (C-02) — o motor de cálculo foi preservado em `src/lib/portfolio/ledger.ts` com testes em `tests/unit/ledger.spec.ts` (correr: `npx playwright test -c playwright.unit.config.ts`).
 - ✅ **Etapas 1 e 2 CONCLUÍDAS (2026-08-05):** o ledger `transactions` é a fonte única com moeda base EUR (F-03/F-01), integridade no schema + API (A-01), e CRUD completo em `/transactions` verificado e2e no browser (F-05). Migrations `0010` (CHECKs) e `0011` (GRANTs) aplicadas ao Cloud. 30/30 testes unitários, typecheck/lint a zero.
-- ✅ **Já resolvidos:** C-02, C-01, A-04, F-03, F-01, A-01, F-05. **Parcial:** F-04 (seed mock removido; falta ligar páginas — Etapa 3). **Adiado:** M-01 (em expansão, 30 testes).
+- ✅ **Etapa 3 CONCLUÍDA (2026-08-05):** todos os leitores (`dashboard`, `summary`, `holdings`, `movers`, `chart` + nova rota `performance`) derivam agora do ledger via `derivePortfolio` — **mocks e placeholders falsos eliminados** (F-04), realized P&L real do ledger (F-02), gráfico "Portfolio over time" reconstruído com carry-forward de closes e invested só a partir da 1ª compra (A-02). Tabela `portfolio_positions` **dropada** (migration `0012`, aplicada ao Cloud). UI **EUR em tudo** (toggle de moeda + FX mock removidos). A-03 coberto em dashboard/holdings/performance (banner de erro vs carteira vazia, aviso de preço indisponível). 36/36 testes unitários (30 + 6 de `chart-series`), typecheck/lint a zero.
+- ✅ **Já resolvidos:** C-02, C-01, A-04, F-03, F-01, A-01, F-05, **F-04, F-02, A-02**. **Parcial:** A-03 (feito nas páginas do portfólio; falta varrer o resto). **Adiado:** M-01 (em expansão, 36 testes).
 
 ### Estado dos 15 pontos
-| Resolvido | Fundação/API feita (falta ligar UI) | Adiado | Em aberto |
-|---|---|---|---|
-| C-02, C-01, A-04 | F-03, F-01, A-01*, F-05‡ | M-01 | F-02, F-04†, A-02, A-03, M-02, M-03, M-04 |
+| Resolvido | Adiado | Em aberto |
+|---|---|---|
+| C-02, C-01, A-04, F-03, F-01, A-01, F-05, F-04, F-02, A-02 | M-01 | A-03*, M-02, M-03, M-04 |
 
-‡ F-05: COMPLETO — API + UI + verificação e2e no browser (2026-08-05). Bug de GRANT descoberto no e2e e corrigido (`0011`, aplicada ao Cloud).
-
-\* A-01: a migration `0010_transactions_integrity.sql` está **aplicada ao Supabase Cloud** (2026-08-05, `supabase db push`; confirmada em `migration list`). Falta a camada de API: validação Zod/oversell — Etapa 2 (F-05).
-† F-04 tem o seed mock já removido; ligar `/holdings` e `/performance` é a Etapa 3.
+\* A-03: banner de erro/preço-indisponível implementado em `/dashboard`, `/holdings`, `/performance` (Etapa 3). Falta só varrer outras superfícies se existirem.
 
 ### Etapa 1 — Fundação: FEITA em código (2026-08-05)
 Decisões do dono (registadas): moeda base **EUR fixo**; `portfolio_positions` **é eliminada** (drop físico na Etapa 3, quando os leitores forem religados); metadata do ticker (name/asset_type/chart_var) **derivada** do Yahoo + determinística, sem tabela nova; âmbito da etapa = **só fundação** (sem mudança visível — o ledger está vazio até a Etapa 2).
@@ -36,13 +34,13 @@ Entregue e verificado (typecheck + lint a zero):
 - **F-03** — `src/lib/portfolio/derive.ts` (puro, fonte única: ledger→holdings/sumário em EUR, preços injectáveis) + `src/lib/portfolio/prices.ts` (provider Yahoo+fx) + `tests/unit/derive.spec.ts` (9 testes).
 
 ### 👉 PRÓXIMO PASSO
-Etapa 2 **CONCLUÍDA** (F-05 API + UI + e2e verificado; migrations `0010`/`0011` no Cloud; 30/30 testes; typecheck/lint a zero). Segue a **Etapa 3** — ligar `dashboard`/`holdings`/`performance`/`chart` ao `derive.ts` (F-04 + F-02 + A-02), matar os mocks e dropar `portfolio_positions`. Nota: o bug de GRANT do `0011` já cobre todas as tabelas, portanto os reads da Etapa 3 não voltam a bater no `42501`.
+Etapas 1-3 **CONCLUÍDAS**. Faltam dois gates de pipeline sobre a Etapa 3 antes de a dar por fechada em definitivo: **QA** (os specs e2e antigos `holdings-redesign`/`performance-redesign` asseveram sobre o mock antigo e vão falhar em runtime — precisam de reescrita contra a UI nova + verificação do wire real dos endpoints no browser) e **Security Review**. Depois segue a **Etapa 4** — `M-02` (higiene: casts `as any` residuais, middleware por segmento, purge de caches) + `M-03` (cache persistente de preços; se criar tabela `price_cache`, incluir `GRANT authenticated` na migration) + `M-04` (documentar CSP) + varrer o resto do A-03.
 
 ### O plano completo (4 etapas)
 1. **Fundação** — `F-03` + `A-01` + `F-01` ✅ *feito; migration `0010` aplicada ao Cloud*
 2. **Entrada de dados** — `F-05` (CRUD de transações) — **API + UI + e2e verificado** ✅ *app funcional* ⭐
-3. **Ligar páginas aos dados reais** — `F-04` + `F-02` + `A-02` (mock desaparece; drop de `portfolio_positions`)
-4. **Robustez e afinação** — `A-03` + `M-02` + `M-03` + `M-04`
+3. **Ligar páginas aos dados reais** — `F-04` + `F-02` + `A-02` ✅ *mocks eliminados; `portfolio_positions` dropada (`0012`); EUR em tudo; 36 testes* (falta gate QA + Security)
+4. **Robustez e afinação** — `A-03` (resto) + `M-02` + `M-03` + `M-04`
 
 > Regras transversais: seguir o pattern canónico de API route do `CLAUDE.md`; `npm run typecheck` e `npm run lint` a zero em cada passo; atualizar os status **neste ficheiro** ao fechar cada item.
 
@@ -97,6 +95,8 @@ Mesmo "ignorando" o `/projeto-fable-5`, o código está **deployado junto com o 
 
 ### F-02 · Realized P&L é inventado
 
+> **Status 2026-08-05: RESOLVIDO (Etapa 3).** O `holdings/route.ts` já não usa `current_price` como proxy de venda — deriva de `derivePortfolio`, e o realized P&L vem do motor de custo médio do ledger (`buildLedger` → `TickerAggregate.realizedEur`: proceeds − custo médio na data − fees). A rota `/performance` (nova) e o dashboard usam a mesma fonte. Coberto por testes (`derive.spec.ts`, `financial-edge.spec.ts`).
+
 - **Prova:** `src/app/api/portfolio/holdings/route.ts:142-150` — comentário admite: usa `current_price` como *proxy* do preço de venda para posições `sold`. O P&L realizado exibido não corresponde a nenhuma venda real.
 - **O que fazer:** calcular realized P&L a partir do ledger de transações (proceeds da venda − custo médio na data − fees), como o motor `lib/fable5/ledger.ts` (`applyTx`, método de custo médio) já faz correctamente. Depende de F-03.
 
@@ -108,6 +108,8 @@ Mesmo "ignorando" o `/projeto-fable-5`, o código está **deployado junto com o 
 - **O que fazer:** eleger o ledger `transactions` como única fonte de verdade. Derivar holdings/performance/dashboard dele em runtime (o motor puro `lib/fable5/ledger.ts` — `buildLedger`, `buildTimeline`, `validateLedger` — já implementa exactamente isto e deve ser portado para `src/lib/portfolio/ledger.ts` com testes unitários). `portfolio_positions` passa a cache derivado ou é eliminado.
 
 ### F-04 · Páginas mostram dados MOCK como se fossem reais
+
+> **Status 2026-08-05: RESOLVIDO (Etapa 3).** `/holdings` e `/performance` fazem fetch das APIs reais derivadas do ledger; `HoldingsPage`/`PerformancePage` são agora data-driven. `mock-data.ts` (holdings + performance) e componentes órfãos (`CurrencySelector`, `AllocPill`, `Sparkline`) apagados. O `HoldingsCard.refresh` já não chama a rota morta a descartar a resposta. KPIs falsos removidos: "Cash reserve"=0 e "Day P&L"=0 fora; Day P&L agora é real (close anterior vs preço live, **null → "—"** se indisponível, nunca 0 falso). Os seeds mock do `0009` não são reintroduzidos (a tabela lida é o ledger real do utilizador).
 
 - **Prova:**
   - `/holdings`: `src/components/holdings/HoldingsPage.tsx` renderiza `mock-data.ts`; `HoldingsCard.tsx:61-64` chama `fetch("/api/portfolio")` e **descarta a resposta** ("Data is not used here yet"). A API real `/api/portfolio/holdings` existe e não é usada por ninguém.
@@ -138,12 +140,16 @@ Mesmo "ignorando" o `/projeto-fable-5`, o código está **deployado junto com o 
 
 ### A-02 · Gráfico "Portfolio over time" com matemática errada
 
+> **Status 2026-08-05: RESOLVIDO (Etapa 3).** Série reconstruída a partir do ledger: `buildTimeline` dá qty por ticker por data; `getHistoryRange` (novo, no cliente Yahoo, cache 1h) traz closes no range; `buildChartSeries` (puro, em `src/lib/portfolio/chart-series.ts`) faz **carry-forward** do último close conhecido (mata os dips falsos em dias sem candle) e só aplica invested a partir da 1ª compra de cada ticker. Conversão a EUR com fx live por moeda (simplificação documentada; o invested usa fx-por-data via ledger). 6 testes unitários em `chart-series.spec.ts`. Rota e dashboard partilham `chart-data.ts` (sem duplicar o algoritmo).
+
 - **Prova:** `chart/route.ts:98-107` e `dashboard/page.tsx:131-146`:
   1. A linha "invested" aplica `avg_price × quantity` a **todas** as datas do histórico, incluindo antes da compra existir (o schema de positions nem tem data de compra).
   2. Em datas onde um ticker não tem candle (feriados de mercados diferentes, cripto vs. bolsa), esse ticker simplesmente não soma — o gráfico mostra dips falsos no patrimônio.
 - **O que fazer:** resolver via F-03 — construir a série a partir do ledger (`buildTimeline` dá qty por ticker por data) × preço histórico com carry-forward do último close conhecido; invested só a partir da data de cada compra. Converter moedas (F-01).
 
 ### A-03 · Falhas silenciosas mostram 0,00 € em vez de erro
+
+> **Status 2026-08-05: RESOLVIDO nas páginas do portfólio (Etapa 3).** `/dashboard`, `/holdings` e `/performance` distinguem agora três estados: erro (banner `role="alert"`, Hero recebe `null` — nunca €0 falso), carteira vazia (0 posições, zeros legítimos) e preços indisponíveis (`role="status"` / aviso por linha com `priceMissing`/`hasPriceGaps`). Falta apenas varrer outras superfícies fora do portfólio, se existirem.
 
 - **Prova:** `dashboard/page.tsx` — `catch { return empty }` engole qualquer erro (DB fora, Yahoo fora) e renderiza patrimônio 0,00 €, indistinguível de uma carteira real a zero. `getQuote`/`getHistory` (`src/lib/yahoo-finance/client.ts:69,103`) devolvem `null`/`[]` em erro, e os callers usam fallback `avg_price` sem sinalizar.
 - **O que fazer:** distinguir "sem dados" de "erro": estado de erro na UI (banner "preços indisponíveis, valores desactualizados"), e nos KPIs marcar quando o preço usado é fallback (`price_updated_at` antigo). Num app financeiro, número silenciosamente errado é pior que erro visível.

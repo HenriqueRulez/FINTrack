@@ -2,37 +2,44 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { rateLimit } from "@/lib/rate-limit";
 import { HoldingsQuerySchema } from "@/lib/validations/portfolio";
-import type { Tables } from "@/types/database";
+import { derivePortfolio, type TransactionRow } from "@/lib/portfolio/derive";
+import { yahooPriceProvider } from "@/lib/portfolio/prices";
+
+// Colunas do ledger necessárias à derivação (selecção explícita, não select("*")).
+const LEDGER_COLUMNS = "id, date, ticker, type, qty, price, fx, fee, created_at";
 
 // ---------------------------------------------------------------------------
-// Types
+// Types — contrato de resposta (todos os campos monetários em EUR)
 // ---------------------------------------------------------------------------
 
 export interface HoldingRow {
-  id: string;
   ticker: string;
   name: string;
-  asset_type: string;
-  chart_var: string | null;
+  assetType: "stock" | "etf" | "crypto" | "other";
+  chartVar: string;
   shares: number;
   currency: string;
-  avg_price: number;
-  cost_basis: number;
-  current_price: number;
-  market_value: number;
-  gain_loss: number;
-  gain_loss_pct: number;
-  pct: number; // % of total active holdings value
-  sold: boolean;
+  avgCostEur: number;
+  costBasisEur: number;
+  currentPriceEur: number | null;
+  marketValueEur: number;
+  unrealizedEur: number;
+  unrealizedPct: number;
+  realizedEur: number;
+  pctOfPortfolio: number;
+  status: "active" | "closed";
+  priceMissing: boolean;
 }
 
 export interface HoldingKpis {
-  total_holdings_value: number;
-  unrealized_pl: number;
-  realized_pl: number;
-  total_pl: number;
-  active_count: number;
-  sold_count: number;
+  totalValueEur: number;
+  holdingsValueEur: number;
+  unrealizedEur: number;
+  realizedEur: number;
+  totalPlEur: number;
+  activeCount: number;
+  soldCount: number;
+  hasPriceGaps: boolean;
 }
 
 export interface HoldingsResponse {
@@ -43,13 +50,13 @@ export interface HoldingsResponse {
 }
 
 // ---------------------------------------------------------------------------
-// GET /api/portfolio/holdings
+// GET /api/portfolio/holdings?showSold=true|false
 // ---------------------------------------------------------------------------
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
 
-  // 1. Auth — always first
+  // 1. Auth — sempre primeiro
   const {
     data: { user },
     error: authError,
@@ -64,137 +71,77 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Too many requests" }, { status: 429 });
   }
 
-  // 3. Validate query params with Zod
+  // 3. Validação Zod (só showSold é relevante; currency/sort eram do mock antigo)
   const { searchParams } = new URL(request.url);
-  const rawParams = {
-    currency: searchParams.get("currency") ?? undefined,
+  const parsed = HoldingsQuerySchema.safeParse({
     showSold: searchParams.get("showSold") ?? undefined,
-    sortCol: searchParams.get("sortCol") ?? undefined,
-    sortDir: searchParams.get("sortDir") ?? undefined,
-  };
-
-  const parsed = HoldingsQuerySchema.safeParse(rawParams);
+  });
   if (!parsed.success) {
     return NextResponse.json(
       { error: "Validation failed", details: parsed.error.flatten() },
       { status: 422 }
     );
   }
-
   const { showSold } = parsed.data;
 
-  // 4. Query DB — user_id always from session (RLS enforces it too)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const query = (supabase as any)
-    .from("portfolio_positions")
-    .select("*")
+  // 4. Ledger do utilizador — fonte única de verdade (user_id da sessão)
+  const { data, error: dbError } = await supabase
+    .from("transactions")
+    .select(LEDGER_COLUMNS)
     .eq("user_id", user.id);
-
-  // Filter sold positions unless showSold is requested
-  if (!showSold) {
-    query.eq("sold", false);
-  }
-
-  const { data: positions, error: dbError } = await query as {
-    data: Tables<"portfolio_positions">[] | null;
-    error: { message: string } | null;
-  };
 
   if (dbError) {
     return NextResponse.json({ error: "Database error" }, { status: 500 });
   }
+  const rows = (data ?? []) as unknown as TransactionRow[];
 
-  if (!positions || positions.length === 0) {
-    const emptyResponse: HoldingsResponse = {
-      data: {
-        positions: [],
-        kpis: {
-          total_holdings_value: 0,
-          unrealized_pl: 0,
-          realized_pl: 0,
-          total_pl: 0,
-          active_count: 0,
-          sold_count: 0,
-        },
-      },
-    };
-    return NextResponse.json(emptyResponse, { status: 200 });
+  // 5. Deriva holdings + sumário (preços live convertidos a EUR)
+  let portfolio;
+  try {
+    portfolio = await derivePortfolio(rows, yahooPriceProvider);
+  } catch {
+    return NextResponse.json({ error: "Price provider error" }, { status: 502 });
   }
+  const { holdings, summary } = portfolio;
 
-  // 5. Separate active from sold positions for KPI calculation
-  const activePositions = positions.filter((p) => !p.sold);
-  const soldPositions = positions.filter((p) => p.sold);
+  // 6. Mapeia DerivedHolding → HoldingRow (subconjunto directo)
+  const allRows: HoldingRow[] = holdings.map((h) => ({
+    ticker: h.ticker,
+    name: h.name,
+    assetType: h.assetType,
+    chartVar: h.chartVar,
+    shares: h.shares,
+    currency: h.currency,
+    avgCostEur: h.avgCostEur,
+    costBasisEur: h.costBasisEur,
+    currentPriceEur: h.currentPriceEur,
+    marketValueEur: h.marketValueEur,
+    unrealizedEur: h.unrealizedEur,
+    unrealizedPct: h.unrealizedPct,
+    realizedEur: h.realizedEur,
+    pctOfPortfolio: h.pctOfPortfolio,
+    status: h.status,
+    priceMissing: h.priceMissing,
+  }));
 
-  // Total market value of active positions (for Portfolio % calculation)
-  const totalActiveValue = activePositions.reduce((sum, p) => {
-    const price = p.current_price ?? p.avg_price;
-    return sum + p.quantity * price;
-  }, 0);
+  // showSold=false ⇒ lista só activas; KPIs reflectem SEMPRE o conjunto todo.
+  const positions = showSold
+    ? allRows
+    : allRows.filter((h) => h.status === "active");
 
-  // Unrealized P&L — active positions only
-  const unrealizedPl = activePositions.reduce((sum, p) => {
-    const price = p.current_price ?? p.avg_price;
-    const marketValue = p.quantity * price;
-    const costBasis = p.quantity * p.avg_price;
-    return sum + (marketValue - costBasis);
-  }, 0);
+  const soldCount = allRows.filter((h) => h.status === "closed").length;
 
-  // Realized P&L — sold positions (difference at their recorded avg_price and current_price)
-  // In Phase 1 schema, sold positions don't have a separate "sell price" field.
-  // We use current_price as a proxy for the sell price (or avg_price if null).
-  const realizedPl = soldPositions.reduce((sum, p) => {
-    const sellPrice = p.current_price ?? p.avg_price;
-    const costBasis = p.quantity * p.avg_price;
-    const saleValue = p.quantity * sellPrice;
-    return sum + (saleValue - costBasis);
-  }, 0);
-
-  // 6. Build HoldingRow for each position
-  const holdingRows: HoldingRow[] = positions.map((p) => {
-    const price = p.current_price ?? p.avg_price;
-    const marketValue = p.quantity * price;
-    const costBasis = p.quantity * p.avg_price;
-    const gainLoss = marketValue - costBasis;
-    const gainLossPct = costBasis > 0 ? (gainLoss / costBasis) * 100 : 0;
-    const pct = totalActiveValue > 0 && !p.sold
-      ? (marketValue / totalActiveValue) * 100
-      : 0;
-
-    return {
-      id: p.id,
-      ticker: p.ticker,
-      name: p.name,
-      asset_type: p.asset_type,
-      chart_var: p.chart_var,
-      shares: p.quantity,
-      currency: p.currency,
-      avg_price: p.avg_price,
-      cost_basis: costBasis,
-      current_price: price,
-      market_value: marketValue,
-      gain_loss: gainLoss,
-      gain_loss_pct: gainLossPct,
-      pct,
-      sold: p.sold,
-    };
-  });
-
-  // 7. KPIs
   const kpis: HoldingKpis = {
-    total_holdings_value: totalActiveValue,
-    unrealized_pl: unrealizedPl,
-    realized_pl: realizedPl,
-    total_pl: unrealizedPl + realizedPl,
-    active_count: activePositions.length,
-    sold_count: soldPositions.length,
+    totalValueEur: summary.totalValueEur,
+    holdingsValueEur: summary.totalValueEur,
+    unrealizedEur: summary.unrealizedEur,
+    realizedEur: summary.realizedEur,
+    totalPlEur: summary.unrealizedEur + summary.realizedEur,
+    activeCount: summary.openPositions,
+    soldCount,
+    hasPriceGaps: summary.hasPriceGaps,
   };
 
-  const response: HoldingsResponse = {
-    data: {
-      positions: holdingRows,
-      kpis,
-    },
-  };
-
+  const response: HoldingsResponse = { data: { positions, kpis } };
   return NextResponse.json(response, { status: 200 });
 }

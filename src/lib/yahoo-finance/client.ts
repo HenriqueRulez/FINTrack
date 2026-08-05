@@ -49,6 +49,10 @@ const CACHE_TTL_MS = 15 * 60 * 1000;
 const historyCache = new Map<string, HistoryCacheEntry>();
 const HISTORY_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hora
 
+// 1-hour in-memory cache for arbitrary-range historical data (chart A-02),
+// keyed por ticker:period1:period2 — o passado é imutável dentro do TTL.
+const historyRangeCache = new Map<string, HistoryCacheEntry>();
+
 // 15-minute in-memory cache for FX rates (moeda→EUR)
 const fxCache = new Map<string, { rate: number; fetchedAt: number }>();
 const FX_CACHE_TTL_MS = 15 * 60 * 1000;
@@ -157,6 +161,45 @@ export async function getQuotes(
   );
 
   return Object.fromEntries(results.map(({ ticker, quote }) => [ticker, quote]));
+}
+
+// Histórico de closes num intervalo arbitrário [period1, period2] (interval 1d).
+// Usado pelo gráfico "Portfolio over time" (A-02) — o getHistory fixo de 30 dias
+// é insuficiente para timeframes 3M/1Y/ALL. Usa chart() directamente porque
+// historical() está deprecado no yahoo-finance2 v3 (mesmo padrão de getFxOnDate).
+// Cache de 1h keyed por ticker:period1:period2. Devolve [] em erro.
+export async function getHistoryRange(
+  ticker: string,
+  period1: Date,
+  period2?: Date
+): Promise<HistoryPoint[]> {
+  const key = `${ticker}:${period1.getTime()}:${period2 ? period2.getTime() : ""}`;
+  const cached = historyRangeCache.get(key);
+  if (cached && Date.now() - cached.fetchedAt < HISTORY_CACHE_TTL_MS) {
+    return cached.data;
+  }
+
+  try {
+    const { quotes } = await yahooFinance.chart(ticker, {
+      period1,
+      period2,
+      interval: "1d",
+    });
+
+    const data: HistoryPoint[] = quotes
+      .filter((q) => q.close != null && !Number.isNaN(q.close))
+      .map((q) => ({
+        date: q.date.toISOString().split("T")[0],
+        close: q.close as number,
+      }));
+
+    historyRangeCache.set(key, { data, fetchedAt: Date.now() });
+    return data;
+  } catch (err) {
+    console.error(`[yahoo-finance] getHistoryRange error for ${ticker}:`, err);
+    historyRangeCache.set(key, { data: [], fetchedAt: Date.now() });
+    return [];
+  }
 }
 
 export async function getHistory(ticker: string): Promise<HistoryPoint[]> {

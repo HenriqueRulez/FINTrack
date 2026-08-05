@@ -1,11 +1,11 @@
-import type { TradeItem } from "./mock-data";
+import type { TradeRow } from "./types";
 
 // ---------------------------------------------------------------------------
 // AssetCell — logo + ticker + full name for Trade Analysis table
 // ---------------------------------------------------------------------------
 
 interface AssetCellProps {
-  trade: TradeItem;
+  trade: TradeRow;
 }
 
 export function AssetCell({ trade }: AssetCellProps) {
@@ -15,7 +15,7 @@ export function AssetCell({ trade }: AssetCellProps) {
       <div
         className="w-9 h-9 rounded-[4px] flex items-center justify-center text-[11px] font-bold shrink-0 border border-border/50"
         style={{
-          background: `var(--${trade.chart})`,
+          background: `var(--${trade.chartVar})`,
           color: "rgba(11,13,24,0.85)",
         }}
         aria-hidden="true"
@@ -25,14 +25,9 @@ export function AssetCell({ trade }: AssetCellProps) {
 
       {/* Text */}
       <div className="flex flex-col min-w-0">
-        <div className="flex items-baseline leading-[1.2]">
-          <span className="text-[13px] font-semibold tracking-wide leading-[1.2]">
-            {trade.ticker}
-          </span>
-          <span className="text-[10px] text-muted-foreground/60 ml-1.5">
-            | {trade.exchange}
-          </span>
-        </div>
+        <span className="text-[13px] font-semibold tracking-wide leading-[1.2]">
+          {trade.ticker}
+        </span>
         <span className="text-[12px] text-muted-foreground truncate max-w-[200px]">
           {trade.name}
         </span>

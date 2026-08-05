@@ -1,11 +1,11 @@
 "use client";
 
 import { TradeTable } from "./TradeTable";
-import type { EnrichedTrade, TradeSortState, TradeSortCol, Density } from "./TradeTable";
-import type { Currency } from "./mock-data";
+import type { TradeSortState, TradeSortCol, Density } from "./TradeTable";
+import type { TradeRow } from "./types";
 
 // ---------------------------------------------------------------------------
-// ShowClosedToggle — trades version (mirrors ShowSoldToggle)
+// ShowClosedToggle
 // ---------------------------------------------------------------------------
 
 interface ShowClosedToggleProps {
@@ -43,71 +43,25 @@ function ShowClosedToggle({ value, onChange }: ShowClosedToggleProps) {
 }
 
 // ---------------------------------------------------------------------------
-// CurrencySelector (inline copy — avoids cross-component type dependency)
-// ---------------------------------------------------------------------------
-
-const CURRENCY_OPTIONS: Currency[] = ["EUR", "USD", "Native"];
-
-interface CurrencySelectorProps {
-  value: Currency;
-  onChange: (v: Currency) => void;
-}
-
-function CurrencySelector({ value, onChange }: CurrencySelectorProps) {
-  return (
-    <div
-      role="group"
-      aria-label="Seleccionar moeda de exibição"
-      className="inline-flex items-center border border-border/50 rounded-md overflow-hidden"
-    >
-      {CURRENCY_OPTIONS.map((opt, i) => {
-        const isActive = value === opt;
-        const isLast = i === CURRENCY_OPTIONS.length - 1;
-        return (
-          <button
-            key={opt}
-            onClick={() => onChange(opt)}
-            aria-pressed={isActive}
-            className={[
-              "px-3 py-1 text-xs transition-colors",
-              !isLast ? "border-r border-border/50" : "",
-              isActive
-                ? "text-primary bg-primary/10 font-medium"
-                : "text-muted-foreground bg-transparent hover:bg-muted/60",
-            ].join(" ")}
-          >
-            {opt}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // TradeAnalysisCard
 // ---------------------------------------------------------------------------
 
 interface TradeAnalysisCardProps {
-  rows: EnrichedTrade[];
-  currency: Currency;
+  rows: TradeRow[];
   showClosed: boolean;
   sort: TradeSortState;
   density: Density;
   onSort: (col: TradeSortCol) => void;
-  onCurrencyChange: (v: Currency) => void;
   onShowClosedChange: (v: boolean) => void;
   animClass: string;
 }
 
 export function TradeAnalysisCard({
   rows,
-  currency,
   showClosed,
   sort,
   density,
   onSort,
-  onCurrencyChange,
   onShowClosedChange,
   animClass,
 }: TradeAnalysisCardProps) {
@@ -122,18 +76,35 @@ export function TradeAnalysisCard({
         </h2>
         <div className="flex items-center gap-3 flex-wrap">
           <ShowClosedToggle value={showClosed} onChange={onShowClosedChange} />
-          <CurrencySelector value={currency} onChange={onCurrencyChange} />
         </div>
       </div>
 
-      {/* Table */}
-      <TradeTable
-        rows={rows}
-        currency={currency}
-        sort={sort}
-        onSort={onSort}
-        density={density}
-      />
+      {/* Table / empty state */}
+      {rows.length === 0 ? (
+        <div className="py-16 text-center text-muted-foreground flex flex-col items-center gap-3">
+          <svg
+            width="32"
+            height="32"
+            viewBox="0 0 32 32"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            className="text-muted-foreground/40"
+            aria-hidden="true"
+          >
+            <rect x="4" y="6" width="24" height="20" rx="2" />
+            <path d="M10 12h12M10 17h8M10 22h5" />
+          </svg>
+          <p className="text-base font-medium text-foreground">
+            Ainda não há trades
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Regista a primeira compra em /transactions
+          </p>
+        </div>
+      ) : (
+        <TradeTable rows={rows} sort={sort} onSort={onSort} density={density} />
+      )}
     </div>
   );
 }

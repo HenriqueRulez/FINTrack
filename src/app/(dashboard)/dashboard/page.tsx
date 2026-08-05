@@ -3,11 +3,20 @@ import { KpiGrid } from "@/components/dashboard/KpiGrid";
 import { TopMoversSection } from "@/components/dashboard/TopMoversSection";
 import { PortfolioChartClient } from "@/components/dashboard/PortfolioChartClient";
 import { createClient } from "@/lib/supabase/server";
-import { getQuote, getHistory } from "@/lib/yahoo-finance/client";
-import type { Tables } from "@/types/database";
+import { getHistory } from "@/lib/yahoo-finance/client";
+import {
+  derivePortfolio,
+  type DerivedPortfolio,
+  type TransactionRow,
+} from "@/lib/portfolio/derive";
+import { yahooPriceProvider } from "@/lib/portfolio/prices";
+import { buildPortfolioChart } from "@/lib/portfolio/chart-data";
+import { computeDayPnlEur } from "@/lib/portfolio/day-pnl";
 import type { KpiItem } from "@/components/dashboard/KpiGrid";
 import type { MoverItem } from "@/components/dashboard/TopMoversSection";
 import type { ChartPoint } from "@/components/dashboard/PortfolioChart";
+
+const LEDGER_COLUMNS = "id, date, ticker, type, qty, price, fx, fee, created_at";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -21,23 +30,27 @@ function formatEur(value: number): string {
   }).format(value);
 }
 
+// KPIs reais (F-04): removidos os placeholders falsos "Cash reserve"=0 e
+// "Day P&L"=0. Day P&L usa dado real; quando indisponível mostra "—" (neutral).
 function buildKpis(
-  investedCapital: number,
+  investedCapitalEur: number,
+  unrealizedEur: number,
   openPositions: number,
-  dayPnl: number
+  dayPnlEur: number | null
 ): KpiItem[] {
   return [
     {
       label: "Invested capital",
-      value: formatEur(investedCapital),
+      value: formatEur(investedCapitalEur),
       sub: "cost basis",
       sentiment: "neutral",
     },
     {
-      label: "Cash reserve",
-      value: formatEur(0),
-      sub: "available",
-      sentiment: "neutral",
+      label: "Unrealized P&L",
+      value: formatEur(unrealizedEur),
+      sub: "open positions",
+      sentiment:
+        unrealizedEur > 0 ? "gain" : unrealizedEur < 0 ? "loss" : "neutral",
     },
     {
       label: "Open positions",
@@ -47,18 +60,29 @@ function buildKpis(
     },
     {
       label: "Day P&L",
-      value: formatEur(dayPnl),
+      value: dayPnlEur === null ? "—" : formatEur(dayPnlEur),
       sub: "today vs yesterday",
-      sentiment: dayPnl > 0 ? "gain" : dayPnl < 0 ? "loss" : "neutral",
+      sentiment:
+        dayPnlEur === null
+          ? "neutral"
+          : dayPnlEur > 0
+            ? "gain"
+            : dayPnlEur < 0
+              ? "loss"
+              : "neutral",
     },
   ];
 }
 
 // ---------------------------------------------------------------------------
-// Data fetching — direct Supabase + Yahoo Finance (no internal HTTP round-trip)
+// Data fetching — leitura directa (ledger → derivePortfolio), sem HTTP interno
 // ---------------------------------------------------------------------------
 
+type DashboardState = "ok" | "empty" | "error";
+
 interface DashboardData {
+  state: DashboardState;
+  hasPriceGaps: boolean;
   totalValue: number;
   deltaAbsolute: number;
   deltaPercent: number;
@@ -68,137 +92,86 @@ interface DashboardData {
 }
 
 async function getDashboardData(): Promise<DashboardData> {
-  const empty: DashboardData = {
+  const emptyKpis = buildKpis(0, 0, 0, null);
+  const base: Omit<DashboardData, "state"> = {
+    hasPriceGaps: false,
     totalValue: 0,
     deltaAbsolute: 0,
     deltaPercent: 0,
-    kpis: buildKpis(0, 0, 0),
+    kpis: emptyKpis,
     chartData: [],
     movers: [],
   };
 
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ...base, state: "empty" };
+
+  const { data, error } = await supabase
+    .from("transactions")
+    .select(LEDGER_COLUMNS)
+    .eq("user_id", user.id);
+
+  // A-03: erro de leitura NÃO devolve patrimônio 0 silencioso — sinaliza erro.
+  if (error) return { ...base, state: "error" };
+  const rows = (data ?? []) as unknown as TransactionRow[];
+
+  // Carteira genuinamente vazia (0 transacções) — zeros são reais, não erro.
+  if (rows.length === 0) return { ...base, state: "empty" };
+
+  // Deriva o portfólio; falha de preços/DB → estado de erro (banner na UI).
+  let derived: DerivedPortfolio;
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) return empty;
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: positions, error } = await (supabase as any)
-      .from("portfolio_positions")
-      .select("*")
-      .eq("user_id", user.id) as {
-        data: Tables<"portfolio_positions">[] | null;
-        error: { message: string } | null;
-      };
-
-    if (error || !positions || positions.length === 0) return empty;
-
-    // ---- Summary ----
-    let totalValue = 0;
-    let totalCost = 0;
-    for (const p of positions) {
-      const price = p.current_price ?? p.avg_price;
-      totalValue += p.quantity * price;
-      totalCost += p.quantity * p.avg_price;
-    }
-    const deltaAbsolute = totalValue - totalCost;
-    const deltaPercent = totalCost > 0 ? (deltaAbsolute / totalCost) * 100 : 0;
-    const kpis = buildKpis(totalCost, positions.length, 0);
-
-    // ---- Chart + Movers (parallel) ----
-    const [historiesResult, quotesResult] = await Promise.all([
-      // Chart: histories for all positions
-      Promise.all(
-        positions.map(async (p) => ({
-          position: p,
-          history: await getHistory(p.ticker),
-        }))
-      ),
-      // Movers: current quotes for all positions
-      Promise.all(
-        positions.map(async (p) => ({
-          position: p,
-          quote: await getQuote(p.ticker),
-        }))
-      ),
-    ]);
-
-    // Build chart data (default 3M = 90 days)
-    const dateMap = new Map<string, { portfolio: number; invested: number }>();
-    const cutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
-
-    for (const { position, history } of historiesResult) {
-      const investedContrib = position.avg_price * position.quantity;
-      for (const point of history) {
-        if (new Date(point.date) < cutoff) continue;
-        const existing = dateMap.get(point.date) ?? {
-          portfolio: 0,
-          invested: 0,
-        };
-        existing.portfolio += point.close * position.quantity;
-        existing.invested += investedContrib;
-        dateMap.set(point.date, existing);
-      }
-    }
-
-    const chartData: ChartPoint[] = Array.from(dateMap.entries())
-      .map(([date, values]) => ({
-        date,
-        portfolio: Math.round(values.portfolio * 100) / 100,
-        invested: Math.round(values.invested * 100) / 100,
-      }))
-      .sort((a, b) => a.date.localeCompare(b.date));
-
-    // Build movers
-    const enriched = quotesResult.map(({ position, quote }) => {
-      const currentPrice =
-        quote?.price ?? position.current_price ?? position.avg_price;
-      const changePercent =
-        position.avg_price > 0
-          ? ((currentPrice - position.avg_price) / position.avg_price) * 100
-          : 0;
-      return {
-        ticker: position.ticker,
-        name: quote?.name ?? position.name,
-        price: Math.round(currentPrice * 100) / 100,
-        changePercent: Math.round(changePercent * 100) / 100,
-        sparkline: undefined as number[] | undefined,
-      };
-    });
-
-    // Add sparklines from histories (last 7 points)
-    const movers: MoverItem[] = enriched
-      .sort(
-        (a, b) =>
-          Math.abs(b.changePercent) - Math.abs(a.changePercent)
-      )
-      .slice(0, 5)
-      .map((m) => {
-        const histEntry = historiesResult.find(
-          (h) => h.position.ticker === m.ticker
-        );
-        const sparkline = histEntry?.history.slice(-7).map((h) => h.close);
-        return {
-          ...m,
-          sparkline:
-            sparkline && sparkline.length >= 2 ? sparkline : undefined,
-        };
-      });
-
-    return {
-      totalValue,
-      deltaAbsolute,
-      deltaPercent,
-      kpis,
-      chartData,
-      movers,
-    };
+    derived = await derivePortfolio(rows, yahooPriceProvider);
   } catch {
-    return empty;
+    return { ...base, state: "error" };
   }
+  const { holdings, summary } = derived;
+
+  // Chart (3M por defeito) + Day P&L em paralelo — algoritmo importado, não duplicado.
+  const [chartData, dayPnlEur] = await Promise.all([
+    buildPortfolioChart(rows, "3M").catch(() => [] as ChartPoint[]),
+    computeDayPnlEur(holdings).catch(() => null),
+  ]);
+
+  // Movers — top 5 activas por |variação|, sparkline dos últimos 7 closes.
+  const active = holdings.filter(
+    (h) => h.status === "active" && h.currentPriceEur !== null
+  );
+  const enrichedMovers: MoverItem[] = await Promise.all(
+    active.map(async (h) => {
+      const history = await getHistory(h.ticker).catch(() => []);
+      const sparkline = history.slice(-7).map((p) => p.close);
+      return {
+        ticker: h.ticker,
+        name: h.name,
+        price: h.currentPriceEur as number,
+        changePercent: Math.round(h.unrealizedPct * 100) / 100,
+        sparkline: sparkline.length >= 2 ? sparkline : undefined,
+      };
+    })
+  );
+  const movers = enrichedMovers
+    .sort((a, b) => Math.abs(b.changePercent) - Math.abs(a.changePercent))
+    .slice(0, 5);
+
+  return {
+    state: "ok",
+    hasPriceGaps: summary.hasPriceGaps,
+    totalValue: summary.totalValueEur,
+    deltaAbsolute: summary.unrealizedEur,
+    deltaPercent: summary.unrealizedPct,
+    kpis: buildKpis(
+      summary.totalCostEur,
+      summary.unrealizedEur,
+      summary.openPositions,
+      dayPnlEur
+    ),
+    chartData,
+    movers,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -207,19 +180,41 @@ async function getDashboardData(): Promise<DashboardData> {
 
 export default async function DashboardPage() {
   const data = await getDashboardData();
+  const isError = data.state === "error";
 
   return (
     <>
-      {/* Hero — patrimônio + KPI grid */}
+      {isError && (
+        <div
+          role="alert"
+          className="rounded-lg border border-loss/40 bg-loss/10 px-4 py-3 text-sm text-loss"
+        >
+          Não foi possível carregar o teu portfólio agora (falha de dados ou de
+          preços). Os valores não estão a ser mostrados para não te induzir em
+          erro. Tenta novamente dentro de momentos.
+        </div>
+      )}
+
+      {!isError && data.hasPriceGaps && (
+        <div
+          role="status"
+          className="rounded-lg border border-primary/30 bg-primary/10 px-4 py-3 text-sm text-muted-foreground"
+        >
+          Algumas posições estão sem preço live neste momento — o patrimônio
+          apresentado pode estar incompleto.
+        </div>
+      )}
+
+      {/* Hero — patrimônio + KPI grid. Em erro, totalValue=null (sem €0 falso). */}
       <HeroSection
-        totalValue={data.totalValue}
-        deltaPercent={data.deltaPercent}
-        deltaAbsolute={data.deltaAbsolute}
+        totalValue={isError ? null : data.totalValue}
+        deltaPercent={isError ? null : data.deltaPercent}
+        deltaAbsolute={isError ? null : data.deltaAbsolute}
         isLoading={false}
         kpiSlot={<KpiGrid items={data.kpis} isLoading={false} />}
       />
 
-      {/* Portfolio evolution chart — rendered via Client Component wrapper (ssr: false) */}
+      {/* Portfolio evolution chart */}
       <PortfolioChartClient
         data={data.chartData.length > 0 ? data.chartData : null}
         isLoading={false}

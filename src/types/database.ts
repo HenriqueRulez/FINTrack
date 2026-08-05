@@ -67,63 +67,6 @@ export type Database = {
         }
         Relationships: []
       }
-      portfolio_positions: {
-        Row: {
-          asset_type: string
-          avg_price: number
-          chart_var: string | null
-          created_at: string
-          currency: string
-          current_price: number | null
-          exchange: string | null
-          id: string
-          name: string
-          notes: string | null
-          price_updated_at: string | null
-          quantity: number
-          sold: boolean
-          ticker: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          asset_type: string
-          avg_price: number
-          chart_var?: string | null
-          created_at?: string
-          currency?: string
-          current_price?: number | null
-          exchange?: string | null
-          id?: string
-          name: string
-          notes?: string | null
-          price_updated_at?: string | null
-          quantity: number
-          sold?: boolean
-          ticker: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          asset_type?: string
-          avg_price?: number
-          chart_var?: string | null
-          created_at?: string
-          currency?: string
-          current_price?: number | null
-          exchange?: string | null
-          id?: string
-          name?: string
-          notes?: string | null
-          price_updated_at?: string | null
-          quantity?: number
-          sold?: boolean
-          ticker?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       profiles: {
         Row: {
           created_at: string

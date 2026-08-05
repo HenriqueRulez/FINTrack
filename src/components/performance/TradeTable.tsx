@@ -2,9 +2,8 @@
 
 import { AssetCell } from "./AssetCell";
 import { TypeBadge } from "./TypeBadge";
-import { Sparkline } from "./Sparkline";
-import type { AssetClass, Currency, NativeCurrency } from "./mock-data";
-import { formatTradeAmount, formatTradeNative, convertTrade, formatHoldDays } from "./mock-data";
+import type { TradeRow } from "./types";
+import { formatMoneyEur, formatHoldDays } from "./format";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -17,7 +16,7 @@ export type TradeSortCol =
   | "invested"
   | "realized"
   | "unrealized"
-  | "totalEUR"
+  | "totalEur"
   | "roi";
 
 export type TradeSortDir = "asc" | "desc";
@@ -25,28 +24,6 @@ export type TradeSortDir = "asc" | "desc";
 export interface TradeSortState {
   col: TradeSortCol;
   dir: TradeSortDir;
-}
-
-export interface EnrichedTrade {
-  ticker: string;
-  name: string;
-  chart: "chart-1" | "chart-2" | "chart-5";
-  assetClass: AssetClass;
-  exchange: string;
-  status: "active" | "closed";
-  holdDays: number;
-  invested: number;
-  realized: number;
-  unrealized: number;
-  native: NativeCurrency;
-  _investedEUR: number;
-  _realizedEUR: number;
-  _unrealizedEUR: number;
-  _totalEUR: number;
-  _roi: number;
-  _dir30: number;
-  _pct30: number;
-  _seed: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -130,8 +107,7 @@ function numToneClass(n: number): string {
 // ---------------------------------------------------------------------------
 
 interface TradeTableProps {
-  rows: EnrichedTrade[];
-  currency: Currency;
+  rows: TradeRow[];
   sort: TradeSortState;
   onSort: (col: TradeSortCol) => void;
   density: Density;
@@ -145,7 +121,7 @@ const SORTABLE_COLS: { label: string; col: TradeSortCol | "type"; minWidth: stri
   { label: "Invested", col: "invested", minWidth: "min-w-[100px]" },
   { label: "Realized", col: "realized", minWidth: "min-w-[100px]" },
   { label: "Unrealized", col: "unrealized", minWidth: "min-w-[110px]" },
-  { label: "Total Profit", col: "totalEUR", minWidth: "min-w-[110px]" },
+  { label: "Total Profit", col: "totalEur", minWidth: "min-w-[110px]" },
 ];
 
 function getDensityClasses(density: Density): { td: string; th: string } {
@@ -159,34 +135,11 @@ function getDensityClasses(density: Density): { td: string; th: string } {
   }
 }
 
-function formatCellMoney(
-  amount: number,
-  fromCur: NativeCurrency,
-  currency: Currency,
-  nativeCur: NativeCurrency,
-  signed?: boolean
-): string {
-  const signDisplay = signed ? "always" : "auto";
-  if (currency === "EUR") {
-    const val = convertTrade(amount, fromCur, "EUR");
-    return formatTradeAmount(val, "EUR", { signDisplay });
-  }
-  if (currency === "USD") {
-    const val = convertTrade(amount, fromCur, "USD");
-    return formatTradeAmount(val, "USD", { signDisplay });
-  }
-  // Native
-  if (signed) {
-    // Replicate sign display for native
-    const formatted = formatTradeNative(Math.abs(amount), nativeCur);
-    if (amount > 0) return `+${formatted}`;
-    if (amount < 0) return `−${formatted.replace("-", "")}`;
-    return formatted;
-  }
-  return formatTradeNative(amount, nativeCur);
+function formatSigned(n: number): string {
+  return n === 0 ? formatMoneyEur(0) : formatMoneyEur(n, { signDisplay: "always" });
 }
 
-export function TradeTable({ rows, currency, sort, onSort, density }: TradeTableProps) {
+export function TradeTable({ rows, sort, onSort, density }: TradeTableProps) {
   const dc = getDensityClasses(density);
 
   function getAriaSortValue(col: TradeSortCol): "ascending" | "descending" | "none" {
@@ -235,16 +188,6 @@ export function TradeTable({ rows, currency, sort, onSort, density }: TradeTable
               );
             })}
 
-            {/* Last 30 days — not sortable */}
-            <th
-              className={[
-                dc.th,
-                "border-b border-border/40 text-[10px] font-medium uppercase tracking-wider text-muted-foreground whitespace-nowrap text-right min-w-[160px]",
-              ].join(" ")}
-            >
-              Last 30 days
-            </th>
-
             {/* ROI — sortable */}
             <th
               aria-sort={getAriaSortValue("roi")}
@@ -265,118 +208,63 @@ export function TradeTable({ rows, currency, sort, onSort, density }: TradeTable
         </thead>
 
         <tbody>
-          {rows.map((row) => {
-            // Calculate display values for selected currency
-            const realizedVal =
-              currency === "EUR"
-                ? row._realizedEUR
-                : currency === "USD"
-                  ? convertTrade(row.realized, row.native, "USD")
-                  : row.realized;
+          {rows.map((row) => (
+            <tr
+              key={row.ticker}
+              className="transition-colors hover:bg-muted/40 duration-[140ms]"
+            >
+              {/* Asset */}
+              <td className={`pl-5 pr-4 border-b border-border/40 text-left align-middle ${dc.td}`}>
+                <AssetCell trade={row} />
+              </td>
 
-            const unrealizedVal =
-              currency === "EUR"
-                ? row._unrealizedEUR
-                : currency === "USD"
-                  ? convertTrade(row.unrealized, row.native, "USD")
-                  : row.unrealized;
+              {/* Type */}
+              <td className={`border-b border-border/40 text-left align-middle ${dc.td}`}>
+                <TypeBadge assetType={row.assetType} />
+              </td>
 
-            const totalVal = realizedVal + unrealizedVal;
+              {/* Status */}
+              <td className={`border-b border-border/40 text-center align-middle ${dc.td}`}>
+                <StatusPill status={row.status} />
+              </td>
 
-            const displayCur: "EUR" | "USD" =
-              currency === "Native" ? row.native : currency;
+              {/* Holding Period */}
+              <td className={`border-b border-border/40 text-right tabular-nums align-middle text-muted-foreground ${dc.td}`}>
+                {formatHoldDays(row.holdDays)}
+              </td>
 
-            const fmtInvested = formatCellMoney(row.invested, row.native, currency, row.native);
-            const fmtRealized = row.realized === 0
-              ? formatCellMoney(0, row.native, currency, row.native)
-              : formatCellMoney(row.realized, row.native, currency, row.native, true);
-            const fmtUnrealized = row.unrealized === 0
-              ? formatCellMoney(0, row.native, currency, row.native)
-              : formatCellMoney(row.unrealized, row.native, currency, row.native, true);
+              {/* Invested */}
+              <td className={`border-b border-border/40 text-right tabular-nums align-middle ${dc.td}`}>
+                {formatMoneyEur(row.investedEur)}
+              </td>
 
-            // Total profit in display currency
-            let fmtTotal: string;
-            if (totalVal === 0) {
-              fmtTotal = currency === "Native"
-                ? formatTradeNative(0, row.native)
-                : formatTradeAmount(0, displayCur);
-            } else {
-              fmtTotal = currency === "Native"
-                ? (totalVal > 0 ? "+" : "−") + formatTradeNative(Math.abs(totalVal), row.native).replace("-", "")
-                : formatTradeAmount(totalVal, displayCur, { signDisplay: "always" });
-            }
-
-            return (
-              <tr
-                key={row.ticker}
-                className="transition-colors hover:bg-muted/40 duration-[140ms]"
+              {/* Realized */}
+              <td
+                className={`border-b border-border/40 text-right tabular-nums align-middle ${dc.td} ${numToneClass(row.realizedEur)}`}
               >
-                {/* Asset */}
-                <td className={`pl-5 pr-4 border-b border-border/40 text-left align-middle ${dc.td}`}>
-                  <AssetCell trade={row} />
-                </td>
+                {formatSigned(row.realizedEur)}
+              </td>
 
-                {/* Type */}
-                <td className={`border-b border-border/40 text-left align-middle ${dc.td}`}>
-                  <TypeBadge assetClass={row.assetClass} />
-                </td>
+              {/* Unrealized */}
+              <td
+                className={`border-b border-border/40 text-right tabular-nums align-middle ${dc.td} ${numToneClass(row.unrealizedEur)}`}
+              >
+                {formatSigned(row.unrealizedEur)}
+              </td>
 
-                {/* Status */}
-                <td className={`border-b border-border/40 text-center align-middle ${dc.td}`}>
-                  <StatusPill status={row.status} />
-                </td>
+              {/* Total Profit */}
+              <td
+                className={`border-b border-border/40 text-right tabular-nums align-middle ${dc.td} ${numToneClass(row.totalEur)}`}
+              >
+                {formatSigned(row.totalEur)}
+              </td>
 
-                {/* Holding Period */}
-                <td className={`border-b border-border/40 text-right tabular-nums align-middle text-muted-foreground ${dc.td}`}>
-                  {formatHoldDays(row.holdDays)}
-                </td>
-
-                {/* Invested */}
-                <td className={`border-b border-border/40 text-right tabular-nums align-middle ${dc.td}`}>
-                  {fmtInvested}
-                </td>
-
-                {/* Realized */}
-                <td
-                  className={`border-b border-border/40 text-right tabular-nums align-middle ${dc.td} ${numToneClass(realizedVal)}`}
-                >
-                  {fmtRealized}
-                </td>
-
-                {/* Unrealized */}
-                <td
-                  className={`border-b border-border/40 text-right tabular-nums align-middle ${dc.td} ${numToneClass(unrealizedVal)}`}
-                >
-                  {fmtUnrealized}
-                </td>
-
-                {/* Total Profit */}
-                <td
-                  className={`border-b border-border/40 text-right tabular-nums align-middle ${dc.td} ${numToneClass(totalVal)}`}
-                >
-                  {fmtTotal}
-                </td>
-
-                {/* Last 30 days — sparkline or dash */}
-                <td className={`border-b border-border/40 text-right align-middle ${dc.td}`}>
-                  {row.status === "active" ? (
-                    <Sparkline
-                      seed={row._seed}
-                      dir30={row._dir30}
-                      pct30={row._pct30}
-                    />
-                  ) : (
-                    <span className="text-muted-foreground text-[13px]">—</span>
-                  )}
-                </td>
-
-                {/* ROI */}
-                <td className={`border-b border-border/40 text-right align-middle pr-5 ${dc.td}`}>
-                  <ROIBadge roi={row._roi} />
-                </td>
-              </tr>
-            );
-          })}
+              {/* ROI */}
+              <td className={`border-b border-border/40 text-right align-middle pr-5 ${dc.td}`}>
+                <ROIBadge roi={row.roi} />
+              </td>
+            </tr>
+          ))}
         </tbody>
       </table>
     </div>

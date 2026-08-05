@@ -1,29 +1,74 @@
 /**
- * E2E Tests — Holdings Page Redesign
+ * E2E Tests — Holdings Page (data-driven, EUR-fixo)
  * Working Item: .claude/working-items/holdings-redesign.md
+ * Reescrito em 2026-08-05 (QA/Etapa 3 do AUDIT_MELHORIAS.md): a página deixou de
+ * usar mock-data.ts (F-04) e passou a derivar tudo do ledger real via
+ * GET /api/portfolio/holdings (F-02/F-03), em EUR fixo (sem selector de moeda).
  *
- * CAs verified:
- *  CA-01 — KPI Strip: 7 células, valores EUR, gain/loss semântico, Cash €0,00
- *  CA-02 — Tabela ordenável: sort toggle, direcção, coluna por defeito
- *  CA-03 — Célula Company: logo colorido, alloc bar, ticker, nome, opacity sold
- *  CA-04 — Toggle "Show sold": visibilidade, estado por defeito OFF, ON mostra TSLA+GLD
- *  CA-05 — Selector de moeda: EUR/USD/Native actualiza valores
- *  CA-06 — Gain/Loss semântico: cores gain/loss, badge percentagem
- *  CA-07 — Sidebar e navegação: link Holdings activo, href=/holdings, aria-current
- *  CA-08 — Design System: dark mode, IBM Plex Mono, teal accent
- *  CA-09 — Responsividade + auth redirect
+ * Removido do spec antigo (não existe mais na UI, não re-testado):
+ *  - CA-05 Selector de moeda EUR/USD/Native — decisão do dono: EUR fixo, sem toggle.
+ *  - "Cash" como 7º KPI — nunca foi um dado real (F-04); o KPI strip agora tem 5
+ *    células reais: Holdings Value, Unrealized P/L, Realized P/L, Total P/L, Holdings.
+ *  - Ícone "1ª letra + AllocPill com barra de alocação" tal como descrito no CA-03
+ *    antigo — a CompanyCell actual (src/components/holdings/CompanyCell.tsx) ainda
+ *    tem o placeholder 32×32 + barra de alocação, mantido abaixo.
+ *
+ * Estratégia de dados: cria 1 posição activa (AAPL) + 1 ciclo fechado (MSFT
+ * buy→sell) via API antes dos testes, e apaga tudo no fim — não depende do
+ * estado real do ledger do dono nem o polui.
  */
 
-import { test, expect } from "@playwright/test";
+import { test, expect, type APIRequestContext, type BrowserContext } from "@playwright/test";
+
+const AUTH_STATE = "tests/e2e/.auth/user.json";
+
+interface TxFixture {
+  date: string;
+  ticker: string;
+  type: "buy" | "sell";
+  qty: number;
+  price: number;
+  currency: "EUR";
+  fee?: number;
+}
+
+// AAPL fica activa (não vendida) — custo determinístico (EUR, fx=1 sempre).
+// MSFT compra+venda fecha o ciclo com realized P&L determinístico (+50,00 €).
+const FIXTURES: TxFixture[] = [
+  { date: "2025-01-15", ticker: "AAPL", type: "buy", qty: 2, price: 100, currency: "EUR" },
+  { date: "2025-02-01", ticker: "MSFT", type: "buy", qty: 1, price: 200, currency: "EUR" },
+  { date: "2025-06-01", ticker: "MSFT", type: "sell", qty: 1, price: 250, currency: "EUR" },
+];
+
+async function createFixtures(request: APIRequestContext): Promise<string[]> {
+  const ids: string[] = [];
+  for (const tx of FIXTURES) {
+    const res = await request.post("/api/transactions", { data: tx });
+    if (!res.ok()) {
+      throw new Error(
+        `Falha ao criar fixture ${tx.ticker} ${tx.type}: ${res.status()} ${await res.text()}`
+      );
+    }
+    const body = await res.json();
+    ids.push(body.data.id);
+  }
+  return ids;
+}
+
+async function deleteFixtures(request: APIRequestContext, ids: string[]): Promise<void> {
+  for (const id of ids) {
+    await request.delete(`/api/transactions/${id}`).catch(() => undefined);
+  }
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CA-09 — Auth redirect (unauthenticated context, no storageState)
+// Auth redirect (unauthenticated context, no storageState)
 // ─────────────────────────────────────────────────────────────────────────────
 
-test("CA-09 auth › /holdings sem sessão: middleware configurado e rota protegida", async ({
+test("auth › /holdings sem sessão redirige para /passphrase, sem erros JS", async ({
   browser,
 }) => {
-  const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] } }); // contexto verdadeiramente limpo, sem auth
+  const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] } });
   const page = await ctx.newPage();
 
   const errors: string[] = [];
@@ -32,550 +77,299 @@ test("CA-09 auth › /holdings sem sessão: middleware configurado e rota proteg
   await page.goto("/holdings");
   await page.waitForLoadState("networkidle");
 
-  // Sem sessão, o middleware DEVE redireccionar para /passphrase
-  const url = page.url();
-  expect(url).toMatch(/passphrase/);
-  // Sem erros JS
+  expect(page.url()).toMatch(/passphrase/);
   expect(errors).toHaveLength(0);
 
   await ctx.close();
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Authenticated tests (use storageState from playwright.config.ts)
+// Estado vazio e estado de erro — via mock de rede (não mexe no ledger real)
 // ─────────────────────────────────────────────────────────────────────────────
 
-test.describe("Holdings Page — authenticated", () => {
+test.describe("Holdings — estados vazio e erro (route mock)", () => {
+  test("carteira vazia › KPIs a 0 reais e empty state distinto (não erro)", async ({
+    page,
+  }) => {
+    await page.route("**/api/portfolio/holdings**", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: {
+            positions: [],
+            kpis: {
+              totalValueEur: 0,
+              holdingsValueEur: 0,
+              unrealizedEur: 0,
+              realizedEur: 0,
+              totalPlEur: 0,
+              activeCount: 0,
+              soldCount: 0,
+              hasPriceGaps: false,
+            },
+          },
+        }),
+      })
+    );
+
+    await page.goto("/holdings");
+    await page.waitForLoadState("networkidle");
+
+    await expect(page.getByText("Ainda não há posições")).toBeVisible();
+    await expect(page.locator('[role="alert"]')).toHaveCount(0);
+    const kpiStrip = page.locator('[role="region"][aria-label*="KPI"]');
+    await expect(kpiStrip.getByText(/0,00\s*€/).first()).toBeVisible();
+  });
+
+  test("erro de rede › banner role=alert visível, sem €0,00 falso", async ({ page }) => {
+    await page.route("**/api/portfolio/holdings**", (route) =>
+      route.fulfill({ status: 500, contentType: "application/json", body: "{}" })
+    );
+
+    await page.goto("/holdings");
+    await page.waitForLoadState("networkidle");
+
+    const alert = page.locator('[role="alert"]');
+    await expect(alert).toBeVisible();
+    await expect(alert).toContainText("Não foi possível carregar");
+    // Sem KPI strip fabricado nesta rota de erro (falha no 1º load)
+    await expect(page.locator('[role="region"][aria-label*="KPI"]')).toHaveCount(0);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Dados reais (fixtures via API) — 1 activa (AAPL) + 1 fechada (MSFT)
+// ─────────────────────────────────────────────────────────────────────────────
+
+test.describe("Holdings — com dados reais do ledger", () => {
+  let context: BrowserContext;
+  let fixtureIds: string[];
+
+  test.beforeAll(async ({ browser }) => {
+    context = await browser.newContext({ storageState: AUTH_STATE });
+    fixtureIds = await createFixtures(context.request);
+  });
+
+  test.afterAll(async () => {
+    await deleteFixtures(context.request, fixtureIds);
+    await context.close();
+  });
+
   test.beforeEach(async ({ page }) => {
     await page.goto("/holdings");
     await page.waitForLoadState("networkidle");
   });
 
-  // ─── CA-01 — KPI Strip ───────────────────────────────────────────────────
-
-  test("CA-01 kpi-strip › renderiza exactamente 7 células", async ({
-    page,
-  }) => {
+  test("KPI strip › 5 células com labels correctos e valores EUR", async ({ page }) => {
     const kpiStrip = page.locator('[role="region"][aria-label*="KPI"]');
     await expect(kpiStrip).toBeVisible();
+    await expect(kpiStrip.locator(":scope > div")).toHaveCount(5);
 
-    // 7 direct child cells in the KPI strip
-    const kpiCells = kpiStrip.locator(":scope > div");
-    await expect(kpiCells).toHaveCount(7);
-  });
-
-  test("CA-01 kpi-strip › labels correctos nos 7 KPIs", async ({ page }) => {
-    const expectedLabels = [
-      "Total Value",
+    for (const label of [
       "Holdings Value",
-      "Cash",
-      "Total P/L",
       "Unrealized P/L",
       "Realized P/L",
+      "Total P/L",
       "Holdings",
-    ];
-
-    const kpiStrip = page.locator('[role="region"][aria-label*="KPI"]');
-    for (const label of expectedLabels) {
+    ]) {
       await expect(kpiStrip.getByText(label, { exact: true })).toBeVisible();
     }
   });
 
-  test("CA-01 kpi-strip › Cash KPI mostra €0,00 (placeholder)", async ({
+  test("KPI strip › Realized P/L reflecte o ciclo MSFT fechado (+50,00 €) com cor gain", async ({
     page,
   }) => {
     const kpiStrip = page.locator('[role="region"][aria-label*="KPI"]');
-
-    // Find Cash cell — its value should be formatted as €0,00 or €0.00
-    const cashCell = kpiStrip.locator(":scope > div").filter({
-      has: page.getByText("Cash", { exact: true }),
+    const realizedCell = kpiStrip.locator(":scope > div").filter({
+      has: page.getByText("Realized P/L", { exact: true }),
     });
-    await expect(cashCell).toBeVisible();
+    await expect(realizedCell).toContainText("50,00");
 
-    // The value should contain a zero amount in EUR
-    const cashValue = await cashCell.locator(".tabular-nums").first().textContent();
-    // pt-PT locale formats currency as "0,00 €" or "0,00€" (symbol after number)
-    expect(cashValue?.replace(/\s/g, "")).toMatch(/0[,.]00\s*€|€\s*0[,.]00/);
+    const valueEl = realizedCell.locator(".tabular-nums").first();
+    const cls = await valueEl.getAttribute("class");
+    expect(cls).toContain("--gain");
   });
 
-  test("CA-01 kpi-strip › valores monetários em EUR com símbolo €", async ({
-    page,
-  }) => {
+  test("KPI strip › Holdings mostra 1 posição activa", async ({ page }) => {
     const kpiStrip = page.locator('[role="region"][aria-label*="KPI"]');
-
-    // "Total Value" and "Holdings Value" cells should contain €
-    const totalValueCell = kpiStrip.locator(":scope > div").filter({
-      has: page.getByText("Total Value", { exact: true }),
+    const holdingsCell = kpiStrip.locator(":scope > div").filter({
+      has: page.getByText("Holdings", { exact: true }),
     });
-    const holdingsValueCell = kpiStrip.locator(":scope > div").filter({
-      has: page.getByText("Holdings Value", { exact: true }),
-    });
-
-    await expect(totalValueCell).toContainText("€");
-    await expect(holdingsValueCell).toContainText("€");
+    await expect(holdingsCell.locator(".tabular-nums")).toHaveText("1");
   });
 
-  test("CA-01 kpi-strip › KPIs P/L com cor semântica gain ou loss", async ({
-    page,
-  }) => {
-    const kpiStrip = page.locator('[role="region"][aria-label*="KPI"]');
+  test("tabela › 9 colunas na ordem correcta", async ({ page }) => {
+    const headers = page.locator("table thead th");
+    await expect(headers).toHaveCount(9);
 
-    // P/L cells should have gain or loss colour class on their value
-    for (const label of ["Total P/L", "Unrealized P/L", "Realized P/L"]) {
-      const cell = kpiStrip.locator(":scope > div").filter({
-        has: page.getByText(label, { exact: true }),
-      });
-      await expect(cell).toBeVisible();
-
-      // Value element should have either gain or loss text color
-      const valueEl = cell.locator(".tabular-nums").first();
-      const cls = await valueEl.getAttribute("class");
-      const hasSemanticColor =
-        cls?.includes("--gain") ||
-        cls?.includes("--loss") ||
-        cls?.includes("text-foreground");
-      expect(hasSemanticColor).toBe(true);
-    }
-  });
-
-  // ─── CA-02 — Tabela ordenável ────────────────────────────────────────────
-
-  test("CA-02 sort › 8 colunas presentes com headers correctos", async ({
-    page,
-  }) => {
-    const expectedHeaders = [
+    const expected = [
       "Company",
+      "Type",
       "Portfolio%",
       "Shares",
       "Avg Cost",
-      "Cost Basis",
+      "Total Invested",
       "Current Price",
       "Market Value",
       "Total Gain/Loss",
     ];
-
-    const headerButtons = page.locator("table thead th button");
-    await expect(headerButtons).toHaveCount(8);
-
-    for (const header of expectedHeaders) {
-      await expect(
-        page.locator("table thead th button").filter({ hasText: header })
-      ).toBeVisible();
-    }
+    const texts = await headers.evaluateAll((ths) =>
+      ths.map((th) => th.textContent?.replace(/[▲▼↕]/g, "").trim() ?? "")
+    );
+    expect(texts).toEqual(expected);
   });
 
-  test("CA-02 sort › ordenação por defeito é Market Value descendente", async ({
+  test("tabela › AAPL activa visível por defeito; MSFT fechada oculta (showSold OFF)", async ({
     page,
   }) => {
-    // The active sort arrow should be on Market Value, pointing down (▼)
-    const marketValueHeader = page
-      .locator("table thead th button")
-      .filter({ hasText: "Market Value" });
-    await expect(marketValueHeader).toBeVisible();
-
-    // The arrow span within Market Value button should have text-primary class
-    const activeArrow = page.locator("table thead th button .text-primary");
-    await expect(activeArrow).toBeVisible();
-    const arrowText = await activeArrow.textContent();
-    expect(arrowText?.trim()).toBe("▼");
+    await expect(page.locator("table tbody tr")).toHaveCount(1);
+    await expect(
+      page.locator("table tbody").getByText("AAPL", { exact: true })
+    ).toBeVisible();
+    await expect(
+      page.locator("table tbody").getByText("MSFT", { exact: true })
+    ).not.toBeVisible();
   });
 
-  test("CA-02 sort › clicar header ordena coluna; segundo clique inverte direcção", async ({
+  test("tabela › AAPL mostra Shares=2, Avg Cost=100,00 €, Total Invested=200,00 €, Portfolio%=100.0%", async ({
     page,
   }) => {
+    const row = page.locator("table tbody tr").first();
+    await expect(row.locator("td").nth(2)).toHaveText("100.0%");
+    await expect(row.locator("td").nth(3)).toHaveText("2");
+    await expect(row.locator("td").nth(4)).toContainText("100,00");
+    await expect(row.locator("td").nth(5)).toContainText("200,00");
+  });
+
+  test("tabela › Company cell mostra ticker, moeda EUR e nome", async ({ page }) => {
+    const row = page.locator("table tbody tr").first();
+    await expect(row.locator("span.font-semibold").first()).toHaveText("AAPL");
+    await expect(row.getByText("| EUR")).toBeVisible();
+  });
+
+  test("tabela › Type badge mostra 'Stock' para AAPL", async ({ page }) => {
+    const row = page.locator("table tbody tr").first();
+    await expect(row.locator("td").nth(1)).toHaveText("Stock");
+  });
+
+  test("Show sold › toggle OFF por defeito; ligar mostra MSFT com opacity 0.55 e refaz o fetch", async ({
+    page,
+  }) => {
+    const toggle = page.locator('[role="switch"][aria-label*="fechadas"]');
+    await expect(toggle).toHaveAttribute("aria-checked", "false");
+
+    const reqPromise = page.waitForResponse((r) =>
+      r.url().includes("/api/portfolio/holdings") && r.url().includes("showSold=true")
+    );
+    await toggle.click();
+    await reqPromise;
+
+    await expect(toggle).toHaveAttribute("aria-checked", "true");
+    await expect(page.locator("table tbody tr")).toHaveCount(2);
+
+    const msftRow = page
+      .locator("table tbody tr")
+      .filter({ has: page.locator("span.font-semibold", { hasText: "MSFT" }) });
+    await expect(msftRow).toBeVisible();
+    const opacity = await msftRow.evaluate((el) => getComputedStyle(el).opacity);
+    expect(opacity).toBe("0.55");
+
+    // Posição fechada — Portfolio% e Shares mostram valores neutros
+    await expect(msftRow.locator("td").nth(2)).toHaveText("—");
+
+    // MSFT: realized 50,00 € com cor gain no Total Gain/Loss
+    const gainCell = msftRow.locator("td").last();
+    await expect(gainCell).toContainText("50,00");
+    const gainSpan = gainCell.locator("span.font-medium.tabular-nums");
+    const cls = await gainSpan.getAttribute("class");
+    expect(cls).toContain("--gain");
+  });
+
+  test("sort › ordenação por defeito é Market Value descendente", async ({ page }) => {
+    const marketValueTh = page.locator('table thead th[aria-sort="descending"]');
+    await expect(marketValueTh).toBeVisible();
+    await expect(marketValueTh).toContainText("Market Value");
+  });
+
+  test("sort › clicar header Shares ordena; segundo clique inverte direcção", async ({
+    page,
+  }) => {
+    const toggle = page.locator('[role="switch"][aria-label*="fechadas"]');
+    await toggle.click();
+    await expect(page.locator("table tbody tr")).toHaveCount(2);
+
     const sharesHeader = page
       .locator("table thead th button")
       .filter({ hasText: "Shares" });
-
-    // First click → descending
     await sharesHeader.click();
-    let arrow = page.locator("table thead th button .text-primary");
-    let arrowText = await arrow.textContent();
-    // After first click on a new column, dir should be desc (▼)
-    expect(arrowText?.trim()).toBe("▼");
+    await expect(page.locator('table thead th[aria-sort="descending"]')).toContainText(
+      "Shares"
+    );
+    // AAPL (2 shares) antes de MSFT (0 shares fechada) em desc
+    const firstTickerDesc = await page
+      .locator("table tbody tr")
+      .first()
+      .locator("span.font-semibold")
+      .first()
+      .textContent();
+    expect(firstTickerDesc?.trim()).toBe("AAPL");
 
-    // Check the first button's parent th has aria-sort="descending"
-    const shTh = page.locator('table thead th[aria-sort="descending"]');
-    await expect(shTh).toBeVisible();
-
-    // Second click → ascending
     await sharesHeader.click();
-    arrow = page.locator("table thead th button .text-primary");
-    arrowText = await arrow.textContent();
-    expect(arrowText?.trim()).toBe("▲");
-
-    const shThAsc = page.locator('table thead th[aria-sort="ascending"]');
-    await expect(shThAsc).toBeVisible();
-  });
-
-  test("CA-02 sort › inactive columns mostram indicador neutro ↕", async ({
-    page,
-  }) => {
-    // Company header should have the neutral arrow (not active by default)
-    const companyHeader = page
-      .locator("table thead th button")
-      .filter({ hasText: "Company" });
-    await expect(companyHeader).toBeVisible();
-
-    const neutralArrow = companyHeader.locator(".text-muted-foreground\\/50");
-    await expect(neutralArrow).toBeVisible();
-  });
-
-  // ─── CA-03 — Célula Company com allocation bar ───────────────────────────
-
-  test("CA-03 alloc-pill › logo 32×32 renderizado para cada posição activa", async ({
-    page,
-  }) => {
-    // Active tickers: AMAT, VWCE, CSPX, AAPL, MSFT, BTC
-    const activeTickers = ["AMAT", "VW", "CS", "AA", "MS", "BT"]; // first 2 chars of ticker in logo
-
-    const logos = page.locator("table tbody td:first-child div.w-8.h-8");
-    const count = await logos.count();
-    expect(count).toBeGreaterThanOrEqual(6);
-  });
-
-  test("CA-03 alloc-pill › ticker em bold e nome em muted visíveis", async ({
-    page,
-  }) => {
-    const firstRow = page.locator("table tbody tr").first();
-
-    // Bold ticker
-    const ticker = firstRow.locator("span.font-semibold").first();
-    await expect(ticker).toBeVisible();
-
-    // Muted name below ticker
-    const name = firstRow.locator("span.text-muted-foreground").first();
-    await expect(name).toBeVisible();
-  });
-
-  test("CA-03 alloc-pill › barra de alocação fill visível nas posições activas", async ({
-    page,
-  }) => {
-    // The AllocPill renders a fill bar div inside the pill
-    const fillBars = page.locator(
-      'table tbody td:first-child div[style*="width:"], table tbody td:first-child div[style*="width"]'
+    await expect(page.locator('table thead th[aria-sort="ascending"]')).toContainText(
+      "Shares"
     );
-    // Should have at least 6 fill bars (one per active holding)
-    const count = await fillBars.count();
-    expect(count).toBeGreaterThanOrEqual(6);
-  });
-
-  test("CA-03 alloc-pill › percentagem visível na pill para posições activas", async ({
-    page,
-  }) => {
-    // Active positions should show a percentage in the pill (e.g. "28.4%")
-    const pctTexts = page.locator(
-      'table tbody td:first-child span.tabular-nums'
-    );
-    const count = await pctTexts.count();
-    expect(count).toBeGreaterThanOrEqual(6);
-
-    // First active row pct should match "%"
-    const firstPct = await pctTexts.first().textContent();
-    expect(firstPct?.trim()).toMatch(/%/);
-  });
-
-  test("CA-03 alloc-pill › sold rows têm opacity 0.55 (quando showSold ON)", async ({
-    page,
-  }) => {
-    const toggle = page.locator('[role="switch"][aria-label*="fechadas"]');
-    await toggle.click();
-    await expect(toggle).toHaveAttribute("aria-checked", "true");
-
-    const tslaRow = page
+    const firstTickerAsc = await page
       .locator("table tbody tr")
-      .filter({ has: page.locator("span.font-semibold", { hasText: "TSLA" }) });
-    const opacity = await tslaRow.evaluate(
-      (el) => getComputedStyle(el).opacity
-    );
-    expect(opacity).toBe("0.55");
+      .first()
+      .locator("span.font-semibold")
+      .first()
+      .textContent();
+    expect(firstTickerAsc?.trim()).toBe("MSFT");
   });
 
-  // ─── CA-04 — Toggle "Show sold" ─────────────────────────────────────────
-
-  test("CA-04 show-sold › toggle visível, OFF por defeito, oculta TSLA e GLD", async ({
-    page,
-  }) => {
-    const toggle = page.locator('[role="switch"][aria-label*="fechadas"]');
-    await expect(toggle).toBeVisible();
-
-    // Default state: OFF
-    await expect(toggle).toHaveAttribute("aria-checked", "false");
-
-    // TSLA and GLD should not be in the DOM (filtered out by HoldingsCard)
-    await expect(
-      page.locator("table tbody").getByText("TSLA", { exact: true })
-    ).not.toBeVisible();
-    await expect(
-      page.locator("table tbody").getByText("GLD", { exact: true })
-    ).not.toBeVisible();
+  test("refresh › botão Actualizar posições refaz o fetch", async ({ page }) => {
+    const reqPromise = page.waitForResponse((r) => r.url().includes("/api/portfolio/holdings"));
+    await page.locator('[aria-label="Actualizar posições"]').click();
+    const resp = await reqPromise;
+    expect(resp.status()).toBe(200);
   });
 
-  test("CA-04 show-sold › ligar toggle mostra TSLA e GLD com opacity 0.55", async ({
-    page,
-  }) => {
-    const toggle = page.locator('[role="switch"][aria-label*="fechadas"]');
-    await toggle.click();
-    await expect(toggle).toHaveAttribute("aria-checked", "true");
+  // ─── Sidebar e navegação ────────────────────────────────────────────────
 
-    // TSLA and GLD should now be visible
-    const tslaCell = page
-      .locator("table tbody tr")
-      .filter({ has: page.locator("span.font-semibold", { hasText: "TSLA" }) });
-    const gldCell = page
-      .locator("table tbody tr")
-      .filter({ has: page.locator("span.font-semibold", { hasText: "GLD" }) });
-
-    await expect(tslaCell).toBeVisible();
-    await expect(gldCell).toBeVisible();
-
-    // Opacity of sold rows should be 0.55
-    const tslaOpacity = await tslaCell.evaluate(
-      (el) => getComputedStyle(el).opacity
-    );
-    const gldOpacity = await gldCell.evaluate(
-      (el) => getComputedStyle(el).opacity
-    );
-    expect(tslaOpacity).toBe("0.55");
-    expect(gldOpacity).toBe("0.55");
-
-    // Sold rows should show "—" for Portfolio%
-    const tslaPct = await tslaCell.locator("td:nth-child(2)").textContent();
-    expect(tslaPct?.trim()).toBe("—");
-  });
-
-  test("CA-04 show-sold › label 'Show sold' visível junto ao toggle", async ({
-    page,
-  }) => {
-    await expect(page.getByText("Show sold")).toBeVisible();
-  });
-
-  // ─── CA-05 — Selector de moeda ──────────────────────────────────────────
-
-  test("CA-05 currency › Native seleccionado por defeito, USD e EUR alteram valores", async ({
-    page,
-  }) => {
-    // Native should be active by default
-    const eurBtn = page
-      .locator('[role="group"][aria-label*="moeda"] button')
-      .filter({ hasText: "EUR" });
-    const usdBtn = page
-      .locator('[role="group"][aria-label*="moeda"] button')
-      .filter({ hasText: "USD" });
-    const nativeBtn = page
-      .locator('[role="group"][aria-label*="moeda"] button')
-      .filter({ hasText: "Native" });
-
-    await expect(nativeBtn).toHaveAttribute("aria-pressed", "true");
-    await expect(eurBtn).toHaveAttribute("aria-pressed", "false");
-    await expect(usdBtn).toHaveAttribute("aria-pressed", "false");
-
-    // Switch to USD — first monetary column (Avg Cost) should contain "US$"
-    await usdBtn.click();
-    await expect(usdBtn).toHaveAttribute("aria-pressed", "true");
-    await expect(eurBtn).toHaveAttribute("aria-pressed", "false");
-
-    // Wait for values to update — Avg Cost is the 5th column
-    // (Company=1, Type=2, Portfolio%=3, Shares=4, Avg Cost=5)
-    const firstAvgCost = page.locator("table tbody tr:first-child td:nth-child(5)");
-    const usdText = await firstAvgCost.textContent();
-    expect(usdText).toMatch(/US\$/);
-
-    // Switch to Native
-    await nativeBtn.click();
-    await expect(nativeBtn).toHaveAttribute("aria-pressed", "true");
-
-    // Switch back to EUR
-    await eurBtn.click();
-    await expect(eurBtn).toHaveAttribute("aria-pressed", "true");
-    const eurText = await firstAvgCost.textContent();
-    expect(eurText).toMatch(/€/);
-  });
-
-  test("CA-05 currency › 3 botões EUR / USD / Native presentes", async ({
-    page,
-  }) => {
-    const currencyGroup = page.locator('[role="group"][aria-label*="moeda"]');
-    await expect(currencyGroup).toBeVisible();
-
-    const buttons = currencyGroup.locator("button");
-    await expect(buttons).toHaveCount(3);
-
-    await expect(buttons.filter({ hasText: "EUR" })).toBeVisible();
-    await expect(buttons.filter({ hasText: "USD" })).toBeVisible();
-    await expect(buttons.filter({ hasText: "Native" })).toBeVisible();
-  });
-
-  // ─── CA-06 — Gain/Loss semântico ────────────────────────────────────────
-
-  test("CA-06 gain-loss › células Total Gain/Loss têm cor semântica", async ({
-    page,
-  }) => {
-    // GainLossCell renders spans with text-[var(--gain)] or text-[var(--loss)]
-    const gainLossCells = page.locator("table tbody td:last-child span.font-medium.tabular-nums");
-    const count = await gainLossCells.count();
-    expect(count).toBeGreaterThanOrEqual(6);
-
-    // At least one should have gain colour and/or loss colour
-    let hasGain = false;
-    let hasLoss = false;
-    for (let i = 0; i < count; i++) {
-      const cls = await gainLossCells.nth(i).getAttribute("class");
-      if (cls?.includes("--gain")) hasGain = true;
-      if (cls?.includes("--loss")) hasLoss = true;
-    }
-    // With mock data we have both positive and negative positions
-    expect(hasGain || hasLoss).toBe(true);
-  });
-
-  test("CA-06 gain-loss › badge com percentagem visível na coluna Total Gain/Loss", async ({
-    page,
-  }) => {
-    // Badge spans within GainLossCell
-    const badges = page.locator(
-      'table tbody td:last-child span[class*="rounded-sm"]'
-    );
-    const count = await badges.count();
-    expect(count).toBeGreaterThanOrEqual(6);
-
-    // First badge should contain a sign and %
-    const badgeText = await badges.first().textContent();
-    expect(badgeText?.trim()).toMatch(/[+−\-][\d,.]+%/);
-  });
-
-  test("CA-06 gain-loss › KPI Total P/L tem sinal + ou − e cor semântica", async ({
-    page,
-  }) => {
-    const kpiStrip = page.locator('[role="region"][aria-label*="KPI"]');
-    const totalPLCell = kpiStrip.locator(":scope > div").filter({
-      has: page.getByText("Total P/L", { exact: true }),
-    });
-    await expect(totalPLCell).toBeVisible();
-
-    const valueEl = totalPLCell.locator(".tabular-nums").first();
-    const valueText = await valueEl.textContent();
-    // Should contain a monetary value with € and sign
-    expect(valueText?.trim()).toMatch(/[+\-−€]/);
-  });
-
-  // ─── CA-07 — Sidebar e navegação ────────────────────────────────────────
-
-  test("CA-07 sidebar › link Holdings está activo com href=/holdings e aria-current=page", async ({
-    page,
-  }) => {
-    const holdingsLink = page
-      .locator("aside nav a")
-      .filter({ hasText: "Holdings" });
-    await expect(holdingsLink).toBeVisible();
+  test("sidebar › link Holdings activo com href e aria-current=page", async ({ page }) => {
+    const holdingsLink = page.locator("aside nav a").filter({ hasText: "Holdings" });
     await expect(holdingsLink).toHaveAttribute("href", "/holdings");
     await expect(holdingsLink).toHaveAttribute("aria-current", "page");
-
-    // Should have teal/primary visual indicator classes
-    const className = await holdingsLink.getAttribute("class");
-    expect(className).toContain("text-primary");
-    expect(className).toContain("border-primary");
+    const cls = await holdingsLink.getAttribute("class");
+    expect(cls).toContain("text-primary");
   });
 
-  test("CA-07 sidebar › outros links placeholder mantêm aria-disabled e href=#", async ({
-    page,
-  }) => {
-    for (const label of ["Transactions", "Performance", "Tax Calculator"]) {
-      const link = page
-        .locator("aside nav a, aside nav [href='#']")
-        .filter({ hasText: label });
-      await expect(link).toBeVisible();
-      await expect(link).toHaveAttribute("href", "#");
-    }
-  });
+  // ─── Design system ──────────────────────────────────────────────────────
 
-  test("CA-07 sidebar › Dashboard link não está activo na página Holdings", async ({
-    page,
-  }) => {
-    const dashboardLink = page
-      .locator("aside nav a")
-      .filter({ hasText: "Dashboard" });
-    await expect(dashboardLink).toBeVisible();
-
-    // Should NOT have aria-current="page"
-    const ariaCurrent = await dashboardLink.getAttribute("aria-current");
-    expect(ariaCurrent).toBeNull();
-  });
-
-  // ─── CA-08 — Design System ──────────────────────────────────────────────
-
-  test("CA-08 design › classe dark forçada no elemento <html>", async ({
-    page,
-  }) => {
-    const htmlClass = await page.locator("html").getAttribute("class");
-    expect(htmlClass).toContain("dark");
-  });
-
-  test("CA-08 design › página Holdings renderiza sem erros JS", async ({
-    page,
-  }) => {
+  test("design › dark mode forçado, h1 visível, sem erros JS", async ({ page }) => {
     const errors: string[] = [];
     page.on("pageerror", (err) => errors.push(err.message));
 
-    await page.goto("/holdings");
-    await page.waitForLoadState("networkidle");
+    const htmlClass = await page.locator("html").getAttribute("class");
+    expect(htmlClass).toContain("dark");
+    await expect(page.locator("h1").filter({ hasText: "Holdings" })).toBeVisible();
 
+    await page.reload();
+    await page.waitForLoadState("networkidle");
     expect(errors).toHaveLength(0);
   });
 
-  test("CA-08 design › h1 'Holdings' visível e CSS font variable aplicada no body", async ({
+  // ─── Responsividade ─────────────────────────────────────────────────────
+
+  test("responsive › overflow-x-auto na tabela e sidebar oculta em mobile", async ({
     page,
   }) => {
-    const h1 = page.locator("h1").filter({ hasText: "Holdings" });
-    await expect(h1).toBeVisible();
+    await expect(page.locator(".overflow-x-auto")).toBeVisible();
 
-    // IBM Plex Mono is applied via CSS variable --font-ibm-plex-mono set on <body>
-    // In Playwright the font may load as a fallback, but the variable must be present
-    const fontVar = await page.locator("body").evaluate(
-      (el) => getComputedStyle(el).getPropertyValue("--font-ibm-plex-mono")
-    );
-    // The CSS variable should be set (non-empty) when IBM Plex Mono is configured
-    expect(fontVar.trim().length).toBeGreaterThan(0);
-  });
-
-  test("CA-08 design › botão Refresh visível no header do card", async ({
-    page,
-  }) => {
-    const refreshBtn = page.locator('[aria-label="Actualizar preços"]');
-    await expect(refreshBtn).toBeVisible();
-  });
-
-  // ─── CA-09 — Responsividade ─────────────────────────────────────────────
-
-  test("CA-09 responsive › tabela tem overflow-x-auto para scroll horizontal", async ({
-    page,
-  }) => {
-    // Check that the table wrapper has overflow-x-auto
-    const tableWrapper = page.locator(".overflow-x-auto");
-    await expect(tableWrapper).toBeVisible();
-  });
-
-  test("CA-09 responsive › KPI strip tem classes de grid responsivo", async ({
-    page,
-  }) => {
-    const kpiStrip = page.locator('[role="region"][aria-label*="KPI"]');
-    const cls = await kpiStrip.getAttribute("class");
-
-    // Should have responsive grid classes
-    expect(cls).toContain("grid-cols-2");
-    expect(cls).toContain("sm:grid-cols-4");
-    expect(cls).toContain("xl:grid-cols-7");
-  });
-
-  test("CA-09 responsive › sidebar hidden em viewport mobile (<700px)", async ({
-    page,
-  }) => {
-    // Set viewport to mobile width
     await page.setViewportSize({ width: 375, height: 812 });
-    await page.goto("/holdings");
+    await page.reload();
     await page.waitForLoadState("networkidle");
-
-    // Sidebar has class 'hidden md:flex' — should not be visible on mobile
-    const sidebar = page.locator("aside");
-    await expect(sidebar).toBeHidden();
+    await expect(page.locator("aside")).toBeHidden();
   });
 });

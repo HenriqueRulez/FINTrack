@@ -1,43 +1,25 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { PageHead } from "./PageHead";
 import { KpiStrip } from "./KpiStrip";
 import type { KpiStripItem } from "./KpiStrip";
 import { HoldingsCard } from "./HoldingsCard";
-import type { EnrichedHolding, SortState, SortCol } from "./HoldingsTable";
-import {
-  HOLDINGS,
-  convertAmount,
-  formatMoney,
-} from "./mock-data";
-import type { Currency } from "./mock-data";
+import { displayGain } from "./HoldingsTable";
+import type { SortState, SortCol } from "./HoldingsTable";
+import { formatMoneyEur } from "./format";
+import type { HoldingRow, HoldingsKpis, HoldingsApiResponse } from "./types";
 
 // ---------------------------------------------------------------------------
 // KPI icons (inline SVG 13×13)
 // ---------------------------------------------------------------------------
 
-function IconTotalValue() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-      <rect x="2" y="3" width="12" height="10" rx="1" />
-      <path d="M5 8h6M8 6v4" />
-    </svg>
-  );
-}
 function IconHoldings() {
   return (
     <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
       <circle cx="8" cy="8" r="6" />
       <path d="M8 2v6l4 2" />
-    </svg>
-  );
-}
-function IconCash() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-      <rect x="1" y="4" width="14" height="9" rx="1" />
-      <circle cx="8" cy="8.5" r="2" />
     </svg>
   );
 }
@@ -63,7 +45,7 @@ function IconCount() {
 // Sorting helper
 // ---------------------------------------------------------------------------
 
-function sortRows(rows: EnrichedHolding[], sort: SortState): EnrichedHolding[] {
+function sortRows(rows: HoldingRow[], sort: SortState): HoldingRow[] {
   return [...rows].sort((a, b) => {
     let valA: number | string = 0;
     let valB: number | string = 0;
@@ -74,32 +56,32 @@ function sortRows(rows: EnrichedHolding[], sort: SortState): EnrichedHolding[] {
         valB = b.ticker;
         break;
       case "pct":
-        valA = a.pct;
-        valB = b.pct;
+        valA = a.pctOfPortfolio;
+        valB = b.pctOfPortfolio;
         break;
       case "shares":
         valA = a.shares;
         valB = b.shares;
         break;
       case "avg":
-        valA = convertAmount(a.avgCost, a.native, "EUR");
-        valB = convertAmount(b.avgCost, b.native, "EUR");
+        valA = a.avgCostEur;
+        valB = b.avgCostEur;
         break;
       case "cost":
-        valA = convertAmount(a.costBasis, a.native, "EUR");
-        valB = convertAmount(b.costBasis, b.native, "EUR");
+        valA = a.costBasisEur;
+        valB = b.costBasisEur;
         break;
       case "price":
-        valA = convertAmount(a.currentPrice, a.native, "EUR");
-        valB = convertAmount(b.currentPrice, b.native, "EUR");
+        valA = a.currentPriceEur ?? 0;
+        valB = b.currentPriceEur ?? 0;
         break;
       case "value":
-        valA = a.marketValueEUR;
-        valB = b.marketValueEUR;
+        valA = a.marketValueEur;
+        valB = b.marketValueEur;
         break;
       case "gain":
-        valA = a.gainLossEUR;
-        valB = b.gainLossEUR;
+        valA = displayGain(a).amountEur;
+        valB = displayGain(b).amountEur;
         break;
     }
 
@@ -115,14 +97,88 @@ function sortRows(rows: EnrichedHolding[], sort: SortState): EnrichedHolding[] {
   });
 }
 
+function buildKpis(kpis: HoldingsKpis): KpiStripItem[] {
+  const plSentiment = (n: number): KpiStripItem["sentiment"] =>
+    n > 0 ? "gain" : n < 0 ? "loss" : "neutral";
+
+  return [
+    {
+      label: "Holdings Value",
+      value: formatMoneyEur(kpis.holdingsValueEur),
+      sub: "Open positions",
+      icon: <IconHoldings />,
+      sentiment: "neutral",
+      neon: false,
+    },
+    {
+      label: "Unrealized P/L",
+      value: formatMoneyEur(kpis.unrealizedEur),
+      sub: "Open positions",
+      icon: <IconPL />,
+      sentiment: plSentiment(kpis.unrealizedEur),
+      neon: false,
+    },
+    {
+      label: "Realized P/L",
+      value: formatMoneyEur(kpis.realizedEur),
+      sub: "Closed trades",
+      icon: <IconPL />,
+      sentiment: plSentiment(kpis.realizedEur),
+      neon: false,
+    },
+    {
+      label: "Total P/L",
+      value: formatMoneyEur(kpis.totalPlEur),
+      sub: "Since inception",
+      icon: <IconPL />,
+      sentiment: plSentiment(kpis.totalPlEur),
+      neon: kpis.totalPlEur < 0,
+    },
+    {
+      label: "Holdings",
+      value: String(kpis.activeCount),
+      sub: "Active positions",
+      icon: <IconCount />,
+      sentiment: "neutral",
+      neon: false,
+    },
+  ];
+}
+
 // ---------------------------------------------------------------------------
 // HoldingsPage — root client component
 // ---------------------------------------------------------------------------
 
 export function HoldingsPage() {
-  const [currency, setCurrency] = useState<Currency>("Native");
   const [showSold, setShowSold] = useState(false);
   const [sort, setSort] = useState<SortState>({ col: "value", dir: "desc" });
+
+  const [rows, setRows] = useState<HoldingRow[] | null>(null);
+  const [kpis, setKpis] = useState<HoldingsKpis | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/portfolio/holdings?showSold=${showSold}`);
+      if (!res.ok) {
+        throw new Error(`Request failed (${res.status})`);
+      }
+      const json = (await res.json()) as HoldingsApiResponse;
+      setRows(json.data.positions);
+      setKpis(json.data.kpis);
+    } catch {
+      setError("Não foi possível carregar as posições.");
+    } finally {
+      setLoading(false);
+    }
+  }, [showSold]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   function handleSort(col: SortCol) {
     setSort((prev) => ({
@@ -131,157 +187,89 @@ export function HoldingsPage() {
     }));
   }
 
-  // ---------------------------------------------------------------------------
-  // Enriched holdings + KPI calculations
-  // ---------------------------------------------------------------------------
+  const sortedRows = useMemo(
+    () => (rows ? sortRows(rows, sort) : []),
+    [rows, sort]
+  );
 
-  const { enrichedRows, kpis, activeCount, soldCount } = useMemo(() => {
-    const activeHoldings = HOLDINGS.filter((h) => !h.sold);
-    const soldHoldings = HOLDINGS.filter((h) => h.sold);
+  const kpiItems = useMemo(() => (kpis ? buildKpis(kpis) : []), [kpis]);
 
-    // Total active market value in EUR
-    const totalActiveEUR = activeHoldings.reduce((sum, h) => {
-      const marketVal = h.shares * h.currentPrice;
-      return sum + convertAmount(marketVal, h.native, "EUR");
-    }, 0);
+  // -- First load, still fetching: full-page skeleton
+  if (rows === null && loading) {
+    return (
+      <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-3">
+          <h1 className="text-2xl font-medium tracking-tight leading-none text-foreground">
+            Holdings
+          </h1>
+          <Skeleton className="h-4 w-40" />
+        </div>
+        <div className="bg-card border border-border/50 rounded-lg overflow-hidden grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-5">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="p-4 flex flex-col gap-2">
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="h-6 w-24" />
+              <Skeleton className="h-3 w-16" />
+            </div>
+          ))}
+        </div>
+        <div className="bg-card border border-border/50 rounded-lg p-5 flex flex-col gap-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-10 w-full" />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
-    // Unrealized P/L (active positions) in EUR
-    const unrealizedEUR = activeHoldings.reduce((sum, h) => {
-      const gain = (h.currentPrice - h.avgCost) * h.shares;
-      return sum + convertAmount(gain, h.native, "EUR");
-    }, 0);
+  // -- First load failed, no data to show at all
+  if (rows === null && error) {
+    return (
+      <div className="flex flex-col gap-5">
+        <h1 className="text-2xl font-medium tracking-tight leading-none text-foreground">
+          Holdings
+        </h1>
+        <div
+          role="alert"
+          className="rounded-lg border border-[var(--loss)]/40 bg-[var(--loss)]/10 px-4 py-6 text-sm text-[var(--loss)]"
+        >
+          {error}
+        </div>
+      </div>
+    );
+  }
 
-    // Realized P/L (sold positions) in EUR
-    const realizedEUR = soldHoldings.reduce((sum, h) => {
-      const gain = (h.currentPrice - h.avgCost) * h.shares;
-      return sum + convertAmount(gain, h.native, "EUR");
-    }, 0);
-
-    const cashEUR = 0; // D2: placeholder €0,00 in this phase
-    const totalEUR = totalActiveEUR + cashEUR;
-    const totalPLEUR = unrealizedEUR + realizedEUR;
-
-    // Enrich rows
-    const allEnriched: EnrichedHolding[] = HOLDINGS.map((h) => {
-      const marketVal = h.shares * h.currentPrice;
-      const marketValueEUR = convertAmount(marketVal, h.native, "EUR");
-      const gainLoss = (h.currentPrice - h.avgCost) * h.shares;
-      const gainLossEUR = convertAmount(gainLoss, h.native, "EUR");
-      const costBasisEUR = convertAmount(h.costBasis, h.native, "EUR");
-      const gainLossPct =
-        costBasisEUR !== 0 ? (gainLossEUR / costBasisEUR) * 100 : 0;
-      const pct = !h.sold && totalActiveEUR > 0
-        ? (marketValueEUR / totalActiveEUR) * 100
-        : 0;
-
-      return {
-        ...h,
-        marketValueEUR,
-        pct,
-        gainLossEUR,
-        gainLossPct,
-      };
-    });
-
-    // Separate active from sold for sorting — sold always at bottom
-    const activeEnriched = allEnriched.filter((r) => !r.sold);
-    const soldEnriched = allEnriched.filter((r) => r.sold);
-
-    const sortedActive = sortRows(activeEnriched, sort);
-    const sortedSold = sortRows(soldEnriched, sort);
-    const enrichedRows = [...sortedActive, ...sortedSold];
-
-    // Build KPIs
-    const fmtEUR = (n: number) => formatMoney(n, "EUR");
-    const totalSentiment: KpiStripItem["sentiment"] =
-      totalEUR < 0 ? "loss" : "neutral";
-    const plSentiment = (n: number): KpiStripItem["sentiment"] =>
-      n > 0 ? "gain" : n < 0 ? "loss" : "neutral";
-
-    const kpis: KpiStripItem[] = [
-      {
-        label: "Total Value",
-        value: fmtEUR(totalEUR),
-        sub: "Investments + cash",
-        icon: <IconTotalValue />,
-        sentiment: totalSentiment,
-        neon: totalEUR < 0,
-      },
-      {
-        label: "Holdings Value",
-        value: fmtEUR(totalActiveEUR),
-        sub: "Open positions",
-        icon: <IconHoldings />,
-        sentiment: "neutral",
-        neon: false,
-      },
-      {
-        label: "Cash",
-        value: fmtEUR(cashEUR),
-        sub: "Uninvested cash balance",
-        icon: <IconCash />,
-        sentiment: cashEUR < 0 ? "loss" : "neutral",
-        neon: false,
-      },
-      {
-        label: "Total P/L",
-        value: fmtEUR(totalPLEUR),
-        sub: "Since inception",
-        icon: <IconPL />,
-        sentiment: plSentiment(totalPLEUR),
-        neon: false,
-      },
-      {
-        label: "Unrealized P/L",
-        value: fmtEUR(unrealizedEUR),
-        sub: "Open positions",
-        icon: <IconPL />,
-        sentiment: plSentiment(unrealizedEUR),
-        neon: false,
-      },
-      {
-        label: "Realized P/L",
-        value: fmtEUR(realizedEUR),
-        sub: "Closed trades",
-        icon: <IconPL />,
-        sentiment: plSentiment(realizedEUR),
-        neon: false,
-      },
-      {
-        label: "Holdings",
-        value: String(activeHoldings.length),
-        sub: "Active positions",
-        icon: <IconCount />,
-        sentiment: "neutral",
-        neon: false,
-      },
-    ];
-
-    return {
-      enrichedRows,
-      kpis,
-      activeCount: activeHoldings.length,
-      soldCount: soldHoldings.length,
-    };
-  }, [sort]);
+  const activeCount = kpis?.activeCount ?? 0;
+  const soldCount = kpis?.soldCount ?? 0;
 
   return (
     <div className="flex flex-col gap-5">
       {/* Page header */}
       <PageHead activeCount={activeCount} soldCount={soldCount} />
 
+      {/* Stale refresh error — keep last good data visible */}
+      {error && (
+        <div
+          role="alert"
+          className="rounded-lg border border-[var(--loss)]/40 bg-[var(--loss)]/10 px-4 py-3 text-sm text-[var(--loss)]"
+        >
+          {error} A mostrar os últimos dados carregados.
+        </div>
+      )}
+
       {/* KPI strip */}
-      <KpiStrip kpis={kpis} />
+      <KpiStrip kpis={kpiItems} />
 
       {/* Holdings card + table */}
       <HoldingsCard
-        rows={enrichedRows}
-        currency={currency}
+        rows={sortedRows}
         showSold={showSold}
         sort={sort}
+        hasPriceGaps={kpis?.hasPriceGaps ?? false}
+        refreshing={loading}
         onSort={handleSort}
-        onCurrencyChange={setCurrency}
         onShowSoldChange={setShowSold}
+        onRefresh={load}
       />
     </div>
   );
