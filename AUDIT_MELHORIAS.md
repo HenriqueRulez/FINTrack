@@ -19,12 +19,15 @@
 - ⚠️ **Bloqueio de infra (não-código):** a suite e2e Playwright não corre — `E2E_PASSPHRASE=fintrack` em `.env.local` já não bate com a passphrase real do Cloud (rodada no C-01). Bloqueia TODOS os specs e2e. Desbloquear: pôr o valor real em `.env.local` ou criar utilizador de teste dedicado.
 - ✅ **Já resolvidos:** C-02, C-01, A-04, F-03, F-01, A-01, F-05, **F-04, F-02, A-02**. **Parcial:** A-03 (feito nas páginas do portfólio; falta varrer o resto). **Adiado:** M-01 (em expansão, 36 testes).
 
+- ✅ **M-02 + M-04 FEITOS (2026-08-05):** commit `7413266`. M-02 (higiene, sem schema): double-casts removidos (B-13), middleware por segmento (B-12), purge/cap nos caches (B-03/04/05/14), logs por `err.message` (B-06/14), badge `TX_COUNT=13` do sidebar removida. M-04: CSP `unsafe-inline` documentado como aceite (`A-02` em SECURITY_FINDINGS).
+
 ### Estado dos 15 pontos
 | Resolvido | Adiado | Em aberto |
 |---|---|---|
-| C-02, C-01, A-04, F-03, F-01, A-01, F-05, F-04, F-02, A-02 | M-01 | A-03*, M-02, M-03, M-04 |
+| C-02, C-01, A-04, F-03, F-01, A-01, F-05, F-04, F-02, A-02, M-02, M-04 | M-01, M-03† | A-03* |
 
 \* A-03: banner de erro/preço-indisponível implementado em `/dashboard`, `/holdings`, `/performance` (Etapa 3). Falta só varrer outras superfícies se existirem.
+† M-03: adiado por decisão do dono (cache persistente = tabela nova `price_cache`; só avança com OK explícito).
 
 ### Etapa 1 — Fundação: FEITA em código (2026-08-05)
 Decisões do dono (registadas): moeda base **EUR fixo**; `portfolio_positions` **é eliminada** (drop físico na Etapa 3, quando os leitores forem religados); metadata do ticker (name/asset_type/chart_var) **derivada** do Yahoo + determinística, sem tabela nova; âmbito da etapa = **só fundação** (sem mudança visível — o ledger está vazio até a Etapa 2).
@@ -179,6 +182,8 @@ Mesmo "ignorando" o `/projeto-fable-5`, o código está **deployado junto com o 
 Só há e2e Playwright (`tests/e2e/`) e specs do sandbox. Nenhum teste unitário cobre custo médio, P&L, conversão fx, oversell. **O que fazer:** ao portar o motor de ledger (F-03), trazer/expandir `tests/fable5/ledger.spec.ts` como suite unitária do app principal (vitest ou node:test — Playwright não é ferramenta para isto). Casos mínimos: compra múltipla → custo médio; venda parcial → realized P&L; venda total → ciclo fechado; oversell rejeitado; fx ≠ 1; fees em compra vs. venda.
 
 ### M-02 · Higiene já registada em SECURITY_FINDINGS.md, ainda aberta
+
+> **Status 2026-08-05: RESOLVIDO (commit `7413266`).** `select("*")`+`(supabase as any)` (B-07/08/10/11) já tinham caído na Etapa 3; o double-cast residual (B-13) foi removido por anotação de tipo nos 6 leitores (postgrest infere limpo com `LEDGER_COLUMNS`). Middleware por fronteira de segmento (B-12). Rate limiter com purge throttled (B-03). Caches Yahoo com TTL-purge + cap (B-04/05/14) via `pruneCache` partilhado. Logs por `err.message` (B-06/14). Badge `TX_COUNT=13` do sidebar removida.
 
 - `select("*")` + casts `(supabase as any)` em summary/chart/movers/holdings (B-07/B-08/B-10/B-11) — regenerar `src/types/database.ts` (`npx supabase gen types`) e remover todos os casts; seleccionar colunas explícitas.
 - Middleware por prefixo (B-12) — trocar para match com fronteira de segmento.
