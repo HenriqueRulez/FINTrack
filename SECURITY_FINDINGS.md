@@ -33,12 +33,10 @@ Ao fechar um achado, adicionar: `→ Resolvido em: [nome da feature] (YYYY-MM-DD
 | B-04 | `src/lib/yahoo-finance/client.ts:27` | Cache do Yahoo Finance sem limite de tamanho de entradas (mitigado pelo rate limit de 20 req/min no verify-ticker) | Ticker Validation | 2026-05-23 |
 | B-05 | `src/lib/yahoo-finance/client.ts:45` | `historyCache` (Map) para dados históricos sem limite de entradas — memory leak potencial idêntico ao B-04. Negligível para app pessoal com <100 tickers | Portfolio Aggregated View | 2026-05-23 |
 | B-06 | `src/lib/yahoo-finance/client.ts:104` | `console.error` em `getHistory` loga ticker + objecto de erro completo do Yahoo Finance (stack trace) nos logs do servidor. Risco baixo: ticker é validado por Zod, log é server-side | Portfolio Aggregated View | 2026-05-23 |
-| B-07 | `src/app/api/portfolio/summary/route.ts:53`, `chart/route.ts:73`, `movers/route.ts:35` | `select("*")` nas 3 novas routes — busca todas as colunas de `portfolio_positions`; expõe campos desnecessários e aumenta superfície de risco para colunas futuras | Dashboard Visual Redesign | 2026-05-26 |
-| B-08 | `src/app/api/portfolio/summary/route.ts:51`, `chart/route.ts:71`, `movers/route.ts:33` | `(supabase as any)` type cast nas 3 novas routes — contorna type checking; não é bypass de segurança (`.eq("user_id", user.id)` + RLS activos) mas pode mascarar erros de schema em compile time | Dashboard Visual Redesign | 2026-05-26 |
 | B-09 | `src/hooks/useAnimations.ts:8`, `src/components/settings/AnimationsToggle.tsx:8` | `useState(true)` como valor inicial antes de ler localStorage — flash visual de animações durante hidratação SSR→client se utilizador as tiver desactivado. Sem impacto de segurança | Dashboard Visual Redesign | 2026-05-26 |
-| B-10 | `src/app/api/portfolio/holdings/route.ts:90` | `select("*")` busca todas as colunas de `portfolio_positions`, incluindo campos não retornados ao cliente. Padrão idêntico ao B-07 — mitigado por RLS + filtro por `user_id`. Recomenda-se selecção explícita de colunas na Fase 2 | Holdings Redesign | 2026-05-27 |
-| B-11 | `src/app/api/portfolio/holdings/route.ts:88` | `(supabase as any)` type cast para acomodar campos `sold`/`chart_var` recém-adicionados. Não é bypass de segurança (RLS activo); pode mascarar erros de schema. Padrão idêntico ao B-08. Resolver após regenerar tipos | Holdings Redesign | 2026-05-27 |
 | B-12 | `src/lib/supabase/middleware.ts:33` | Protecção de rotas usa `pathname.startsWith(r)` — um match por prefixo. Para `/tax-calculator` não há sobreposição (nenhuma rota pública partilha o prefixo), mas o padrão é frágil se no futuro existir uma rota pública cujo caminho comece por um prefixo protegido (ex.: `/settings-public`). Recomenda-se match exacto ou com fronteira de segmento (`=== r || startsWith(r + "/")`). Risco actual negligível — registado como informacional, não introduzido por esta feature | Tax Calculator | 2026-06-03 |
+| B-13 | `src/app/(dashboard)/dashboard/page.tsx:119`, `api/portfolio/{holdings:96,summary:58,movers:44,chart:57,performance:84}/route.ts` | Double-cast `(data ?? []) as unknown as TransactionRow[]` no resultado do `.select()` do ledger em 6 ficheiros — contorna a inferência de tipos do Supabase e pode mascarar drift de schema em compile time. NÃO é bypass de segurança (RLS de `transactions` + `.eq("user_id", user.id)` activos). Sucessor higiénico do B-08/B-11; resolver regenerando `database.ts` e tipando o retorno | Etapa 3 AUDIT (portfólio derivado) | 2026-08-05 |
+| B-14 | `src/lib/yahoo-finance/client.ts:199`, `client.ts:54` | Nova `getHistoryRange`: `console.error` loga ticker + objecto de erro completo do Yahoo (mesmo padrão do B-06) e `historyRangeCache` (Map) é acumulado sem limite de entradas (mesmo padrão do B-04/B-05). Server-side; ticker vem do ledger do próprio utilizador (não input arbitrário). Memory leak negligível para app pessoal | Etapa 3 AUDIT (portfólio derivado) | 2026-08-05 |
 
 ---
 
@@ -57,6 +55,10 @@ Ao fechar um achado, adicionar: `→ Resolvido em: [nome da feature] (YYYY-MM-DD
 | M-02 | `src/components/portfolio/portfolio-client.tsx:45` | `body.error` da API logado em `console.error` | Delete da página `/portfolio` — ficheiro removido (commit `4873021`) na sessão da feature Reformular Holdings (Fase 1) | 2026-06-09 |
 | M-03 | `src/components/portfolio/portfolio-client.tsx:37,56` | `id` em URLs de PATCH/DELETE sem `encodeURIComponent` | Delete da página `/portfolio` — componente e rotas PATCH/DELETE removidos (commit `4873021`) | 2026-06-09 |
 | B-02 | `src/components/portfolio/portfolio-client.tsx:27` | `console.error` expõe stack trace na consola do browser | Delete da página `/portfolio` — ficheiro removido (commit `4873021`) | 2026-06-09 |
+| B-07 | `src/app/api/portfolio/summary/route.ts`, `chart/route.ts`, `movers/route.ts` | `select("*")` em `portfolio_positions` nas 3 routes | Etapa 3 AUDIT — routes reescritas para derivar de `transactions` com selecção explícita (`LEDGER_COLUMNS`); `portfolio_positions` DROPPED (migration `0012`, commit `973bcc0`) | 2026-08-05 |
+| B-08 | `src/app/api/portfolio/summary/route.ts`, `chart/route.ts`, `movers/route.ts` | `(supabase as any)` type cast nas 3 routes | Etapa 3 AUDIT — cast removido na reescrita das routes (commit `973bcc0`) | 2026-08-05 |
+| B-10 | `src/app/api/portfolio/holdings/route.ts:90` | `select("*")` em `portfolio_positions` | Etapa 3 AUDIT — route reescrita com selecção explícita (`LEDGER_COLUMNS`); tabela DROPPED (commit `973bcc0`) | 2026-08-05 |
+| B-11 | `src/app/api/portfolio/holdings/route.ts:88` | `(supabase as any)` type cast | Etapa 3 AUDIT — cast removido na reescrita da route (commit `973bcc0`) | 2026-08-05 |
 
 ---
 
@@ -78,5 +80,5 @@ A cada ciclo de desenvolvimento, após a auditoria:
 | Crítico   | 0       | 0          | 0       |
 | Alto      | 0       | 0          | 0       |
 | Médio     | 1       | 2          | 0       |
-| Baixo     | 11      | 1          | 1       |
-| **Total** | **12**  | **3**      | **1**   |
+| Baixo     | 9       | 5          | 1       |
+| **Total** | **10**  | **7**      | **1**   |
