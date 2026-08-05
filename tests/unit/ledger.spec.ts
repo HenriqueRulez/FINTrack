@@ -1,6 +1,6 @@
-// Testes unitários do motor de derivação do ledger (src/lib/fable5/ledger.ts)
-// — o coração financeiro do sandbox. Funções puras, sem browser nem banco.
-// Correr com: npx playwright test -c playwright.fable5.config.ts ledger
+// Testes unitários do motor de derivação do ledger (src/lib/portfolio/ledger.ts)
+// — o coração financeiro do app. Funções puras, sem browser nem banco.
+// Correr com: npx playwright test -c playwright.unit.config.ts
 
 import { expect, test } from "@playwright/test";
 import {
@@ -8,11 +8,11 @@ import {
   buildTimeline,
   formatLedgerError,
   validateLedger,
-} from "../../src/lib/fable5/ledger";
-import type { F5Transaction } from "../../src/lib/fable5/types";
+  type LedgerTransaction,
+} from "../../src/lib/portfolio/ledger";
 
 let seq = 0;
-function tx(partial: Partial<F5Transaction>): F5Transaction {
+function tx(partial: Partial<LedgerTransaction>): LedgerTransaction {
   seq += 1;
   return {
     id: `tx-${seq}`,
@@ -21,12 +21,9 @@ function tx(partial: Partial<F5Transaction>): F5Transaction {
     type: "buy",
     qty: 1,
     price: 100,
-    currency: "EUR",
     fee: 0,
     fx_to_eur: 1,
-    notes: null,
     created_at: `2026-01-01T00:00:${String(seq).padStart(2, "0")}.000Z`,
-    updated_at: "2026-01-01T00:00:00.000Z",
     ...partial,
   };
 }
@@ -68,7 +65,7 @@ test.describe("custo médio (decisão do utilizador)", () => {
 
   test("fx_to_eur converte custo e proceeds para EUR", () => {
     const txs = [
-      tx({ qty: 10, price: 100, currency: "USD", fx_to_eur: 0.9 }),
+      tx({ qty: 10, price: 100, fx_to_eur: 0.9 }),
     ];
     const { aggregates } = buildLedger(txs, TODAY);
     expect(aggregates.get("TEST")!.investedEur).toBeCloseTo(900, 8);

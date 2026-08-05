@@ -1,21 +1,36 @@
-// Sandbox Fable 5 — motor de derivação do ledger (funções puras, zero I/O).
-// Source of truth = f5_transactions; tudo o resto (holdings, performance,
+// Motor de derivação do ledger (funções puras, zero I/O).
+// Source of truth = transações buy/sell; tudo o resto (holdings, performance,
 // dashboard) deriva daqui. Valores monetários internos SEMPRE em EUR
-// (qty·price·fx_to_eur) — a conversão EUR→moeda base é feita no overview.
+// (qty·price·fx_to_eur) — a conversão EUR→moeda base é feita na apresentação.
 //
-// Método de custo: MÉDIO (decisão do utilizador) — o custo de cada venda é o
-// preço médio de todas as compras até à data; fees de compra entram no custo,
-// fees de venda saem dos proceeds.
+// Método de custo: MÉDIO — o custo de cada venda é o preço médio de todas as
+// compras até à data; fees de compra entram no custo, fees de venda saem dos
+// proceeds.
 //
 // Ordem canónica: (date ASC, buy antes de sell, created_at ASC) — permite
 // inserir retroactivamente uma compra no mesmo dia de uma venda existente.
+//
+// Portado do sandbox Fable 5 (src/lib/fable5/ledger.ts) na remoção do sandbox;
+// testes unitários em tests/unit/ledger.spec.ts.
 
-import type { F5Transaction } from "./types";
+export type LedgerTxType = "buy" | "sell";
+
+export interface LedgerTransaction {
+  id: string;
+  date: string; // YYYY-MM-DD
+  ticker: string;
+  type: LedgerTxType;
+  qty: number;
+  price: number;
+  fee: number;
+  fx_to_eur: number; // taxa moeda→EUR capturada na criação (pivot EUR fixo)
+  created_at: string;
+}
 
 const EPS = 1e-8;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-export interface F5LedgerError {
+export interface LedgerError {
   ticker: string;
   transactionId: string;
   date: string;
@@ -23,7 +38,7 @@ export interface F5LedgerError {
   available: number; // qty detida nessa altura
 }
 
-export interface F5TickerAggregate {
+export interface TickerAggregate {
   ticker: string;
   openQty: number;
   avgCostEur: number; // custo médio/unidade (0 se posição fechada)
@@ -38,7 +53,7 @@ export interface F5TickerAggregate {
   holdDays: number; // activa: cycleStart→hoje; fechada: cycleStart→closedDate
 }
 
-export interface F5TimelinePoint {
+export interface TimelinePoint {
   date: string; // YYYY-MM-DD
   qtyByTicker: Record<string, number>;
   investedEur: number; // custo médio acumulado das posições abertas
@@ -55,7 +70,7 @@ interface TickerState {
   closedDate: string | null;
 }
 
-export function sortLedger(txs: F5Transaction[]): F5Transaction[] {
+export function sortLedger(txs: LedgerTransaction[]): LedgerTransaction[] {
   return [...txs].sort((a, b) => {
     if (a.date !== b.date) return a.date < b.date ? -1 : 1;
     if (a.type !== b.type) return a.type === "buy" ? -1 : 1; // buy antes de sell
@@ -79,7 +94,7 @@ function newState(): TickerState {
 // Aplica uma transacção ao estado do ticker; devolve erro de oversell ou null.
 // Em oversell a venda é IGNORADA (modo tolerante para leitura — as APIs de
 // escrita rejeitam a mutação com validateLedger antes de persistir).
-function applyTx(state: TickerState, tx: F5Transaction): F5LedgerError | null {
+function applyTx(state: TickerState, tx: LedgerTransaction): LedgerError | null {
   const grossEur = tx.qty * tx.price * tx.fx_to_eur;
   const feeEur = tx.fee * tx.fx_to_eur;
 
@@ -132,11 +147,11 @@ function holdDaysOf(state: TickerState, today: Date): number {
 }
 
 export function buildLedger(
-  txs: F5Transaction[],
+  txs: LedgerTransaction[],
   today: Date = new Date()
-): { aggregates: Map<string, F5TickerAggregate>; errors: F5LedgerError[] } {
+): { aggregates: Map<string, TickerAggregate>; errors: LedgerError[] } {
   const states = new Map<string, TickerState>();
-  const errors: F5LedgerError[] = [];
+  const errors: LedgerError[] = [];
 
   for (const tx of sortLedger(txs)) {
     let state = states.get(tx.ticker);
@@ -148,7 +163,7 @@ export function buildLedger(
     if (err) errors.push(err);
   }
 
-  const aggregates = new Map<string, F5TickerAggregate>();
+  const aggregates = new Map<string, TickerAggregate>();
   for (const [ticker, s] of states) {
     const active = s.openQty > EPS;
     aggregates.set(ticker, {
@@ -170,23 +185,23 @@ export function buildLedger(
 }
 
 // Conveniência para as APIs de escrita: valida o ledger candidato em memória.
-export function validateLedger(txs: F5Transaction[]): F5LedgerError[] {
+export function validateLedger(txs: LedgerTransaction[]): LedgerError[] {
   return buildLedger(txs).errors;
 }
 
-export function formatLedgerError(e: F5LedgerError): string {
+export function formatLedgerError(e: LedgerError): string {
   const [y, m, d] = e.date.split("-");
   return `Venda de ${e.attempted} ${e.ticker} em ${d}/${m}/${y} excede a quantidade detida (${e.available} disponível)`;
 }
 
 // Série cumulativa para o gráfico "Portfolio over time": um ponto por data
 // com transacções (após processar todas as txs dessa data).
-export function buildTimeline(txs: F5Transaction[]): F5TimelinePoint[] {
+export function buildTimeline(txs: LedgerTransaction[]): TimelinePoint[] {
   const states = new Map<string, TickerState>();
-  const points: F5TimelinePoint[] = [];
+  const points: TimelinePoint[] = [];
   const sorted = sortLedger(txs);
 
-  const snapshot = (date: string): F5TimelinePoint => {
+  const snapshot = (date: string): TimelinePoint => {
     const qtyByTicker: Record<string, number> = {};
     let investedEur = 0;
     for (const [ticker, s] of states) {

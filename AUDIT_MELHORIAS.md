@@ -11,6 +11,8 @@
 
 ### C-01 · Passphrase default `fintrack` semeada na migration, sem forma de trocar
 
+> **Status 2026-08-04 (parcial):** migrations 0004/0006 removidas na migração para Supabase Cloud — o owner passa a ser criado no Dashboard com passphrase forte (ver `MIGRACAO_SUPABASE_CLOUD.md`, Passos 3-4, incluindo rate limits de auth). **Falta:** UI de mudança de passphrase em `/settings` (item 1 abaixo).
+
 - **Prova:** `supabase/migrations/0004_owner_user.sql` cria `owner@fintrack.local` com password `fintrack` (bcrypt de valor conhecido, comentado no próprio ficheiro). A página `/settings` (`src/app/(dashboard)/settings/page.tsx`) não tem UI de mudança de passphrase — o comentário "change it in Settings after first login" aponta para uma feature que não existe.
 - **Agravante:** o email do owner está hardcoded no bundle do browser (`src/app/(auth)/passphrase/page.tsx:21`, já registado como M-01 em `SECURITY_FINDINGS.md`), e a anon key do Supabase é pública por design — qualquer pessoa pode fazer brute-force **directamente no endpoint do GoTrue**, ignorando a UI. Não há lockout nem captcha.
 - **O que fazer:**
@@ -19,6 +21,8 @@
   3. Configurar rate limits de auth do Supabase (GoTrue `RATE_LIMIT_*` no `config.toml`) e, se o app for exposto à internet, captcha do GoTrue.
 
 ### C-02 · Restos do sandbox: rotas API sem auth + RLS aberto a `anon` no mesmo deploy
+
+> **Status 2026-08-04: RESOLVIDO (Opção A executada, decisão do dono).** Sandbox removido por completo — páginas, rotas `/api/fable5`, componentes, libs, migrations 0010/0011 e config Playwright. O motor de ledger foi preservado em `src/lib/portfolio/ledger.ts` (testes em `tests/unit/ledger.spec.ts`) para servir de base ao F-03. Detalhes em `MIGRACAO_SUPABASE_CLOUD.md`.
 
 Mesmo "ignorando" o `/projeto-fable-5`, o código está **deployado junto com o app principal** e é atacável de forma independente:
 
