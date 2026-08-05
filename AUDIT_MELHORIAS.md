@@ -11,7 +11,7 @@
 
 ### C-01 · Passphrase default `fintrack` semeada na migration, sem forma de trocar
 
-> **Status 2026-08-04 (parcial):** migrations 0004/0006 removidas na migração para Supabase Cloud — o owner passa a ser criado no Dashboard com passphrase forte (ver `MIGRACAO_SUPABASE_CLOUD.md`, Passos 3-4, incluindo rate limits de auth). **Falta:** UI de mudança de passphrase em `/settings` (item 1 abaixo).
+> **Status 2026-08-05: RESOLVIDO (decisão do dono).** Migrations 0004/0006 removidas — o owner é criado no Dashboard do Supabase Cloud com passphrase forte, e a passphrase troca-se no Dashboard (Authentication → Users → Reset password). O `fintrack` deixou de existir. A UI de mudança de passphrase dentro do app (item 1 abaixo) foi dispensada por agora: app single-user pessoal, reset via Dashboard é suficiente. Ver `MIGRACAO_SUPABASE_CLOUD.md`, Passos 3-4.
 
 - **Prova:** `supabase/migrations/0004_owner_user.sql` cria `owner@fintrack.local` com password `fintrack` (bcrypt de valor conhecido, comentado no próprio ficheiro). A página `/settings` (`src/app/(dashboard)/settings/page.tsx`) não tem UI de mudança de passphrase — o comentário "change it in Settings after first login" aponta para uma feature que não existe.
 - **Agravante:** o email do owner está hardcoded no bundle do browser (`src/app/(auth)/passphrase/page.tsx:21`, já registado como M-01 em `SECURITY_FINDINGS.md`), e a anon key do Supabase é pública por design — qualquer pessoa pode fazer brute-force **directamente no endpoint do GoTrue**, ignorando a UI. Não há lockout nem captcha.
@@ -99,6 +99,8 @@ Mesmo "ignorando" o `/projeto-fable-5`, o código está **deployado junto com o 
 
 ### A-04 · Dependências: 12 vulnerabilidades (8 high) + lockfile quebrado
 
+> **Status 2026-08-05: RESOLVIDO.** `npm install` re-sincronizou o lockfile (`npm ci` volta a funcionar) e `npm audit fix` levou a **0 vulnerabilidades**. Só o `package-lock.json` mudou — `package.json` intacto (fixes só em deps transitivas, sem risco para o runtime). typecheck e lint a zero.
+
 - **Prova:** `npm audit` → 12 vulns (2 low, 2 moderate, 8 high): `sharp <0.35.0`, `fast-uri`, `brace-expansion` (DoS), `hono`, `body-parser`, `postcss`/`@babel/core` (transitivas, maioria dev/build). Além disso **`npm ci` falha** — `package-lock.json` dessincronizado do `package.json` (pacotes `@emnapi/*` em falta) → builds não reprodutíveis, CI impossível.
 - **O que fazer:** `npm install` para re-sincronizar o lockfile e commitá-lo; `npm audit fix`; re-correr `npm audit` e registar o que sobrar em `SECURITY_FINDINGS.md`. Considerar bump do Next (16.2.6 → última patch).
 
@@ -107,6 +109,8 @@ Mesmo "ignorando" o `/projeto-fable-5`, o código está **deployado junto com o 
 ## MÉDIOS
 
 ### M-01 · Zero testes da matemática financeira
+
+> **Status 2026-08-05: ADIADO (decisão do dono) — rastreado em `TODO.md`.** Parcialmente iniciado: o motor de ledger foi salvo em `src/lib/portfolio/ledger.ts` com uma suite unitária em `tests/unit/ledger.spec.ts` (11 testes verdes). A expansão da cobertura (conversão fx, mais casos de P&L) fica para um momento posterior, fora deste ciclo de auditoria.
 
 Só há e2e Playwright (`tests/e2e/`) e specs do sandbox. Nenhum teste unitário cobre custo médio, P&L, conversão fx, oversell. **O que fazer:** ao portar o motor de ledger (F-03), trazer/expandir `tests/fable5/ledger.spec.ts` como suite unitária do app principal (vitest ou node:test — Playwright não é ferramenta para isto). Casos mínimos: compra múltipla → custo médio; venda parcial → realized P&L; venda total → ciclo fechado; oversell rejeitado; fx ≠ 1; fees em compra vs. venda.
 

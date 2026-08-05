@@ -28,6 +28,12 @@
     - Secção **Persistent Agent Memory** presente e a apontar para `.claude/agent-memory/<nome>/`
   - **Objectivo:** uniformizar todos os agentes ao formato do `ola-sayer` (o template validado como correcto)
 
+## Auditoria — itens adiados (fora do ciclo de auditoria de 2026-08)
+
+> Registados aqui por decisão do dono para serem feitos noutro momento. Detalhe completo em `AUDIT_MELHORIAS.md`.
+
+- [ ] **M-01 — Expandir testes unitários da matemática financeira.** Base já existe (`src/lib/portfolio/ledger.ts` + `tests/unit/ledger.spec.ts`, 11 testes). Falta cobrir: conversão fx (moeda ≠ EUR à data), venda parcial vs. total, oversell rejeitado, fees compra vs. venda em cenários combinados. Correr com `npx playwright test -c playwright.unit.config.ts`.
+
 ## Features
 
 - [x] Feedback de erro ao adicionar ticker inválido — mostrar mensagem clara quando o ticker não existe no Yahoo Finance (actualmente silencioso)
