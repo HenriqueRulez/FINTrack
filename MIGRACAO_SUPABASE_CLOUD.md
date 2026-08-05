@@ -15,15 +15,40 @@
 
 ## Passo 2 — Aplicar as migrations (sem Docker)
 
-O `supabase db push` para um projeto **linked** fala direto com o banco cloud — não precisa do Docker local.
+> **Importante:** este passo tem de correr a partir do commit de limpeza (`76dbf33` ou posterior, do branch `claude/security-audit-finance-1i4vns`). Se correres a partir de um checkout antigo, as migrations `0010`/`0011` do sandbox ainda existem e o teu banco cloud fica com o schema ERRADO (tabelas `f5_assets`, `f5_price_cache`, `f5_settings`, `f5_transactions` em vez das reais). Ver **Troubleshooting** no fim.
+
+**2a. Garante que estás no código limpo:**
+
+```bash
+git fetch origin
+git checkout claude/security-audit-finance-1i4vns
+git pull
+ls supabase/migrations/   # deve mostrar SÓ: 0001 0002 0005 0007 0008 0009 — nenhum 0010/0011
+```
+
+**2b. Liga o CLI ao projeto cloud** (`db push`/`db reset --linked` falam direto com o banco — não precisam de Docker):
 
 ```bash
 npx supabase login                          # abre o browser para autenticar o CLI
 npx supabase link --project-ref <ref>       # <ref> está em Settings → General → Project ID
-npx supabase db push                        # aplica supabase/migrations/ no cloud
 ```
 
-Verifica no Dashboard → **Table Editor**: devem existir `profiles`, `transactions`, `portfolio_positions`, `ai_insights` — e **nenhuma** tabela `f5_*`.
+**2c. Confirma o estado do histórico de migrations no remote:**
+
+```bash
+npx supabase migration list --linked
+```
+
+- Se a coluna **Remote** estiver vazia (projeto novo, nunca migrado) → aplica com `npx supabase db push`.
+- Se o remote já tiver migrations aplicadas (0010/0011, ou desalinhadas com a coluna Local) → **não uses `db push`** (ele não apaga tabelas a mais). Faz um reset limpo, que dropa tudo e reaplica só as migrations atuais:
+
+```bash
+npx supabase db reset --linked
+```
+
+> ⚠️ `db reset --linked` **apaga todos os dados e utilizadores** do banco cloud e reaplica as migrations do zero. Num projeto pessoal ainda vazio é exatamente o que queres. Se já criaste o owner (Passo 3), terás de o recriar depois do reset.
+
+**2d. Verifica** no Dashboard → **Table Editor**: devem existir **exatamente** `profiles`, `transactions`, `portfolio_positions`, `ai_insights` — e **nenhuma** tabela `assets`, `price_cache`, `settings` ou `f5_*`. Abre `transactions` e confirma que tem a coluna **`user_id`** (a tabela certa) e não `fx_to_eur`/`notes` (essa era a do sandbox).
 
 ## Passo 3 — Criar o utilizador owner (substitui as antigas migrations 0004/0006)
 
@@ -90,6 +115,30 @@ As posições e transações no banco local eram **seeds mock** (migration 0009 
 npx supabase db dump --local --data-only -f dump.sql   # exporta só os dados
 # depois filtra as tabelas que interessam e aplica no cloud via SQL Editor
 ```
+
+---
+
+## Troubleshooting
+
+### Sintoma: no cloud aparecem `transactions`, `assets`, `price_cache`, `settings` (e faltam `profiles`/`portfolio_positions`/`ai_insights`)
+
+Essas são as tabelas do **sandbox fable5** (`f5_assets`, `f5_price_cache`, `f5_settings`, `f5_transactions`) — não da app principal. Aconteceu uma de duas coisas:
+
+1. O `db push` correu a partir de um checkout **anterior** ao commit de limpeza `76dbf33` (as migrations `0010`/`0011` ainda existiam), ou
+2. O projeto cloud é o mesmo usado no desenvolvimento do sandbox e já tinha essas tabelas — e o `db push` não as remove.
+
+**Como confirmar:** abre a tabela `transactions` no Table Editor. Se tiver `fx_to_eur`/`notes` e **não** tiver `user_id`, é a `f5_transactions` do sandbox.
+
+**Correção (banco pessoal, sem dados reais):**
+
+```bash
+git checkout claude/security-audit-finance-1i4vns && git pull   # código limpo
+ls supabase/migrations/                                          # confirmar: sem 0010/0011
+npx supabase link --project-ref <ref>
+npx supabase db reset --linked                                  # dropa tudo e reaplica limpo
+```
+
+Depois volta ao **Passo 2d** para verificar as tabelas e ao **Passo 3** para (re)criar o owner. Se preferires não apagar o banco todo, em alternativa dropa só as tabelas a mais no **SQL Editor** e depois `npx supabase migration repair` para alinhar o histórico — mas o reset é mais simples e garantido.
 
 ---
 
