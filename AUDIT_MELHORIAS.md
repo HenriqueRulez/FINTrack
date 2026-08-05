@@ -191,6 +191,8 @@ Só há e2e Playwright (`tests/e2e/`) e specs do sandbox. Nenhum teste unitário
 
 ### M-04 · CSP com `style-src 'unsafe-inline'`
 
+> **Status 2026-08-05: RESOLVIDO (documentado como aceite).** Registado como `A-02` em `SECURITY_FINDINGS.md` (Achados Aceites): necessário para o runtime do TailwindCSS v4; o resto do CSP é forte (nonce + strict-dynamic, object-src none, frame-ancestors none). Sem acção de código — risco reconhecido.
+
 `src/proxy.ts:16` — aceitável com Tailwind runtime, mas documentar como aceite em `SECURITY_FINDINGS.md`. O resto dos headers (HSTS, X-Frame-Options DENY, nonce + strict-dynamic) está bom.
 
 ---

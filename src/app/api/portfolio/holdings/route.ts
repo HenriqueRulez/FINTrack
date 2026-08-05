@@ -93,7 +93,7 @@ export async function GET(request: NextRequest) {
   if (dbError) {
     return NextResponse.json({ error: "Database error" }, { status: 500 });
   }
-  const rows = (data ?? []) as unknown as TransactionRow[];
+  const rows: TransactionRow[] = data ?? [];
 
   // 5. Deriva holdings + sumário (preços live convertidos a EUR)
   let portfolio;

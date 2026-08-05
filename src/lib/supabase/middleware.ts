@@ -30,7 +30,11 @@ export async function updateSession(
 
   const { data: { user } } = await supabase.auth.getUser();
   const pathname = request.nextUrl.pathname;
-  const isProtected = PROTECTED.some((r) => pathname.startsWith(r));
+  // Match por fronteira de segmento (B-12): path === rota OU path começa por
+  // `rota + "/"`. Evita que `/dashboardX` case com `/dashboard` (prefixo puro).
+  const isProtected = PROTECTED.some(
+    (r) => pathname === r || pathname.startsWith(r + "/")
+  );
 
   if (isProtected && !user) {
     const url = request.nextUrl.clone();

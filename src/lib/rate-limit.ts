@@ -13,12 +13,27 @@ interface RateLimitResult {
 // Replace with Upstash Redis in v2 for multi-instance deployments
 const store = new Map<string, RateLimitEntry>();
 
+// Purge de entradas expiradas (B-03): sem isto o Map cresce indefinidamente
+// à medida que aparecem novas chaves (ex.: novos user.id). Varre no máximo
+// uma vez por PURGE_INTERVAL_MS para não percorrer o Map a cada chamada.
+const PURGE_INTERVAL_MS = 60_000;
+let lastPurge = 0;
+
+function purgeExpired(now: number): void {
+  if (now - lastPurge < PURGE_INTERVAL_MS) return;
+  lastPurge = now;
+  for (const [key, entry] of store) {
+    if (now > entry.reset) store.delete(key);
+  }
+}
+
 export function rateLimit(
   identifier: string,
   limit: number = 20,
   windowMs: number = 60_000
 ): RateLimitResult {
   const now = Date.now();
+  purgeExpired(now);
   const entry = store.get(identifier);
 
   if (!entry || now > entry.reset) {

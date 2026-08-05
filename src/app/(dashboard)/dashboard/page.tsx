@@ -116,7 +116,7 @@ async function getDashboardData(): Promise<DashboardData> {
 
   // A-03: erro de leitura NÃO devolve patrimônio 0 silencioso — sinaliza erro.
   if (error) return { ...base, state: "error" };
-  const rows = (data ?? []) as unknown as TransactionRow[];
+  const rows: TransactionRow[] = data ?? [];
 
   // Carteira genuinamente vazia (0 transacções) — zeros são reais, não erro.
   if (rows.length === 0) return { ...base, state: "empty" };

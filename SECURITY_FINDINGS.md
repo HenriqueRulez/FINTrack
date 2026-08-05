@@ -45,6 +45,7 @@ Ao fechar um achado, adicionar: `→ Resolvido em: [nome da feature] (YYYY-MM-DD
 | ID | Arquivo | Problema | Motivo de aceite | Data |
 |----|---------|----------|------------------|------|
 | A-01 | `src/app/(auth)/passphrase/page.tsx:57` | Mensagem "Palavra-passe incorrecta" confirma existência do utilizador (user enumeration) | App single-user por design — risco desprezível | 2026-05-23 |
+| A-02 | `src/proxy.ts:15` | CSP com `style-src 'self' 'unsafe-inline'` — permite estilos inline, vector teórico de exfiltração via CSS injection | Necessário para o runtime do TailwindCSS v4 (injecta estilos inline); o resto do CSP é forte (script-src com nonce + strict-dynamic, object-src none, frame-ancestors none, HSTS via upgrade-insecure-requests). Sem input de utilizador renderizado como HTML/CSS não sanitizado. Achado M-04 do AUDIT. | 2026-08-05 |
 
 ---
 
@@ -80,5 +81,5 @@ A cada ciclo de desenvolvimento, após a auditoria:
 | Crítico   | 0       | 0          | 0       |
 | Alto      | 0       | 0          | 0       |
 | Médio     | 1       | 2          | 0       |
-| Baixo     | 9       | 5          | 1       |
-| **Total** | **10**  | **7**      | **1**   |
+| Baixo     | 9       | 5          | 2       |
+| **Total** | **10**  | **7**      | **2**   |

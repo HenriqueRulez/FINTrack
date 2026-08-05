@@ -57,6 +57,43 @@ const historyRangeCache = new Map<string, HistoryCacheEntry>();
 const fxCache = new Map<string, { rate: number; fetchedAt: number }>();
 const FX_CACHE_TTL_MS = 15 * 60 * 1000;
 
+// --- Bound partilhado dos caches em memória (B-04/B-05/B-14) --------------
+// Sem isto os Maps crescem sem limite à medida que aparecem novos tickers/
+// datas. `pruneCache` remove entradas expiradas por TTL e, se ainda exceder
+// o cap, remove as mais antigas (ordem de inserção do Map ≈ LRU por idade de
+// escrita). Throttle por Map via WeakMap para não varrer a cada chamada.
+const MAX_CACHE_ENTRIES = 1000;
+const PURGE_INTERVAL_MS = 60_000;
+const lastPurgeAt = new WeakMap<Map<string, unknown>, number>();
+
+function pruneCache<V>(
+  map: Map<string, V>,
+  now: number,
+  getFetchedAt: (v: V) => number | null,
+  ttlMs: number
+): void {
+  const key = map as unknown as Map<string, unknown>;
+  const last = lastPurgeAt.get(key) ?? 0;
+  if (now - last < PURGE_INTERVAL_MS && map.size <= MAX_CACHE_ENTRIES) return;
+  lastPurgeAt.set(key, now);
+
+  // Remove expiradas por TTL (só quando a entrada tem fetchedAt).
+  for (const [k, value] of map) {
+    const fetchedAt = getFetchedAt(value);
+    if (fetchedAt !== null && now - fetchedAt >= ttlMs) map.delete(k);
+  }
+
+  // Cap de tamanho: remove as entradas mais antigas até voltar ao cap.
+  if (map.size > MAX_CACHE_ENTRIES) {
+    const excess = map.size - MAX_CACHE_ENTRIES;
+    let i = 0;
+    for (const k of map.keys()) {
+      if (i++ >= excess) break;
+      map.delete(k);
+    }
+  }
+}
+
 // Câmbio LIVE de 1 unidade de `currency` em EUR (par Yahoo `<CUR>EUR=X`).
 // EUR→1. Usado para converter valor de mercado (preço live em moeda nativa)
 // para a moeda base EUR — achado F-01. Devolve null se o par não existir.
@@ -73,6 +110,7 @@ export async function getFxToEur(currency: string): Promise<number | null> {
     const quote = await yahooFinance.quote(`${cur}EUR=X`);
     if (!quote.regularMarketPrice) return null;
 
+    pruneCache(fxCache, Date.now(), (v) => v.fetchedAt, FX_CACHE_TTL_MS);
     fxCache.set(cur, { rate: quote.regularMarketPrice, fetchedAt: Date.now() });
     return quote.regularMarketPrice;
   } catch {
@@ -120,6 +158,8 @@ export async function getFxOnDate(
       if (q.date.getTime() <= target) rate = q.close;
     }
 
+    // fxHistoryCache é imutável por (moeda,data) → só cap de tamanho, sem TTL.
+    pruneCache(fxHistoryCache, Date.now(), () => null, 0);
     fxHistoryCache.set(key, rate);
     return rate;
   } catch {
@@ -146,6 +186,7 @@ export async function getQuote(ticker: string): Promise<QuoteResult | null> {
       fetchedAt: Date.now(),
     };
 
+    pruneCache(cache, Date.now(), (v) => v.fetchedAt, CACHE_TTL_MS);
     cache.set(ticker, result);
     return result;
   } catch {
@@ -193,10 +234,15 @@ export async function getHistoryRange(
         close: q.close as number,
       }));
 
+    pruneCache(historyRangeCache, Date.now(), (v) => v.fetchedAt, HISTORY_CACHE_TTL_MS);
     historyRangeCache.set(key, { data, fetchedAt: Date.now() });
     return data;
   } catch (err) {
-    console.error(`[yahoo-finance] getHistoryRange error for ${ticker}:`, err);
+    console.error(
+      `[yahoo-finance] getHistoryRange error for ${ticker}:`,
+      err instanceof Error ? err.message : String(err)
+    );
+    pruneCache(historyRangeCache, Date.now(), (v) => v.fetchedAt, HISTORY_CACHE_TTL_MS);
     historyRangeCache.set(key, { data: [], fetchedAt: Date.now() });
     return [];
   }
@@ -219,11 +265,16 @@ export async function getHistory(ticker: string): Promise<HistoryPoint[]> {
         close: item.close,
       }));
 
+    pruneCache(historyCache, Date.now(), (v) => v.fetchedAt, HISTORY_CACHE_TTL_MS);
     historyCache.set(ticker, { data, fetchedAt: Date.now() });
     return data;
   } catch (err) {
-    console.error(`[yahoo-finance] getHistory error for ${ticker}:`, err);
+    console.error(
+      `[yahoo-finance] getHistory error for ${ticker}:`,
+      err instanceof Error ? err.message : String(err)
+    );
     // Cache empty result to avoid re-fetching on repeated failures within TTL
+    pruneCache(historyCache, Date.now(), (v) => v.fetchedAt, HISTORY_CACHE_TTL_MS);
     historyCache.set(ticker, { data: [], fetchedAt: Date.now() });
     return [];
   }
