@@ -14,7 +14,8 @@
 ### Onde estamos
 - ✅ **Infraestrutura pronta.** O banco foi migrado do Supabase local (Docker) para o **Supabase Cloud**. Schema limpo (4 tabelas: `profiles`, `transactions`, `portfolio_positions`, `ai_insights`), RLS ativo e confirmado, app a arrancar e login a funcionar. Guia: `MIGRACAO_SUPABASE_CLOUD.md`.
 - ✅ **Sandbox fable5 removido** por completo (C-02) — o motor de cálculo foi preservado em `src/lib/portfolio/ledger.ts` com testes em `tests/unit/ledger.spec.ts` (correr: `npx playwright test -c playwright.unit.config.ts`).
-- ✅ **Já resolvidos:** C-02, C-01, A-04. **Parcial:** F-04 (seed mock removido; falta ligar páginas). **Adiado:** M-01 (rastreado em `TODO.md`).
+- ✅ **Etapas 1 e 2 CONCLUÍDAS (2026-08-05):** o ledger `transactions` é a fonte única com moeda base EUR (F-03/F-01), integridade no schema + API (A-01), e CRUD completo em `/transactions` verificado e2e no browser (F-05). Migrations `0010` (CHECKs) e `0011` (GRANTs) aplicadas ao Cloud. 30/30 testes unitários, typecheck/lint a zero.
+- ✅ **Já resolvidos:** C-02, C-01, A-04, F-03, F-01, A-01, F-05. **Parcial:** F-04 (seed mock removido; falta ligar páginas — Etapa 3). **Adiado:** M-01 (em expansão, 30 testes).
 
 ### Estado dos 15 pontos
 | Resolvido | Fundação/API feita (falta ligar UI) | Adiado | Em aberto |
@@ -29,8 +30,8 @@
 ### Etapa 1 — Fundação: FEITA em código (2026-08-05)
 Decisões do dono (registadas): moeda base **EUR fixo**; `portfolio_positions` **é eliminada** (drop físico na Etapa 3, quando os leitores forem religados); metadata do ticker (name/asset_type/chart_var) **derivada** do Yahoo + determinística, sem tabela nova; âmbito da etapa = **só fundação** (sem mudança visível — o ledger está vazio até a Etapa 2).
 
-Entregue e verificado (typecheck + lint a zero; 20/20 testes unitários):
-- **A-01** — `supabase/migrations/0010_transactions_integrity.sql`: CHECKs de `qty>0/price>=0` (buy/sell), `fx>0`, `fee>=0`. *Falta aplicar ao Cloud (ver acima).*
+Entregue e verificado (typecheck + lint a zero):
+- **A-01** — `supabase/migrations/0010_transactions_integrity.sql`: CHECKs de `qty>0/price>=0` (buy/sell), `fx>0`, `fee>=0`. **Aplicada ao Cloud.**
 - **F-01** — `getFxToEur()` em `src/lib/yahoo-finance/client.ts`: câmbio live moeda→EUR com cache 15 min.
 - **F-03** — `src/lib/portfolio/derive.ts` (puro, fonte única: ledger→holdings/sumário em EUR, preços injectáveis) + `src/lib/portfolio/prices.ts` (provider Yahoo+fx) + `tests/unit/derive.spec.ts` (9 testes).
 
