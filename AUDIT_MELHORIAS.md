@@ -17,21 +17,32 @@
 - ✅ **Já resolvidos:** C-02, C-01, A-04. **Parcial:** F-04 (seed mock removido; falta ligar páginas). **Adiado:** M-01 (rastreado em `TODO.md`).
 
 ### Estado dos 15 pontos
-| Resolvido | Adiado | Em aberto |
-|---|---|---|
-| C-02, C-01, A-04 | M-01 | F-01, F-02, F-03, F-04*, F-05, A-01, A-02, A-03, M-02, M-03, M-04 |
+| Resolvido | Fundação/API feita (falta ligar UI) | Adiado | Em aberto |
+|---|---|---|---|
+| C-02, C-01, A-04 | F-03, F-01, A-01*, F-05‡ | M-01 | F-02, F-04†, A-02, A-03, M-02, M-03, M-04 |
 
-\* F-04 está parcialmente feito (seed removido); a parte restante completa-se na Etapa 3 abaixo.
+‡ F-05: API completa (POST/PATCH/DELETE + validação A-01). Falta a UI de escrita e o e2e — adiado para outra sessão.
 
-### 👉 PRÓXIMO PASSO: Etapa 1 do plano — Fundação (F-03 + A-01 + F-01)
-Fazer tudo derivar do **ledger de transações** como fonte única, usando o motor já pronto em `src/lib/portfolio/ledger.ts`. Inclui travas de integridade no banco (A-01) e moeda base + conversão de câmbio (F-01).
+\* A-01: a migration `0010_transactions_integrity.sql` está **aplicada ao Supabase Cloud** (2026-08-05, `supabase db push`; confirmada em `migration list`). Falta a camada de API: validação Zod/oversell — Etapa 2 (F-05).
+† F-04 tem o seed mock já removido; ligar `/holdings` e `/performance` é a Etapa 3.
 
-**Antes de escrever código:** produzir um plano detalhado (que ficheiros mexer, que decisões: nova migration? `portfolio_positions` vira cache derivado ou é eliminada? onde entra a conversão fx?) e validar com o dono.
+### Etapa 1 — Fundação: FEITA em código (2026-08-05)
+Decisões do dono (registadas): moeda base **EUR fixo**; `portfolio_positions` **é eliminada** (drop físico na Etapa 3, quando os leitores forem religados); metadata do ticker (name/asset_type/chart_var) **derivada** do Yahoo + determinística, sem tabela nova; âmbito da etapa = **só fundação** (sem mudança visível — o ledger está vazio até a Etapa 2).
+
+Entregue e verificado (typecheck + lint a zero; 20/20 testes unitários):
+- **A-01** — `supabase/migrations/0010_transactions_integrity.sql`: CHECKs de `qty>0/price>=0` (buy/sell), `fx>0`, `fee>=0`. *Falta aplicar ao Cloud (ver acima).*
+- **F-01** — `getFxToEur()` em `src/lib/yahoo-finance/client.ts`: câmbio live moeda→EUR com cache 15 min.
+- **F-03** — `src/lib/portfolio/derive.ts` (puro, fonte única: ledger→holdings/sumário em EUR, preços injectáveis) + `src/lib/portfolio/prices.ts` (provider Yahoo+fx) + `tests/unit/derive.spec.ts` (9 testes).
+
+### 👉 PRÓXIMO PASSO
+Etapa 2 — **camada de API FEITA** (`POST/PATCH/DELETE /api/transactions[/id]`, com fx-on-date, total recomputado, limites Zod e `validateLedger`; migration `0010` no Cloud; 25/25 testes). **Falta para fechar o F-05, adiado para outra sessão (decisão do dono 2026-08-05):**
+1. **UI de escrita** em `/transactions`: modal "New transaction" (date, ticker, type buy/sell, qty, price, currency, fee, label) + wire do delete (hoje é `alert()`) + `AddPositionModal` de holdings morre ou passa a criar transações.
+2. **Verificação e2e** no browser: login + insert real + CHECKs do `0010` + captura de fx (opção: smoke test com login manual do dono).
 
 ### O plano completo (4 etapas)
-1. **Fundação** — `F-03` + `A-01` + `F-01` ← *estamos aqui*
-2. **Entrada de dados** — `F-05` (CRUD de transações na UI com validação) ⭐ *app fica funcional*
-3. **Ligar páginas aos dados reais** — `F-04` + `F-02` + `A-02` (mock desaparece)
+1. **Fundação** — `F-03` + `A-01` + `F-01` ✅ *feito; migration `0010` aplicada ao Cloud*
+2. **Entrada de dados** — `F-05` (CRUD de transações) — **API feita** ✅; falta **UI de escrita + e2e** ⭐ ← *retomar aqui*
+3. **Ligar páginas aos dados reais** — `F-04` + `F-02` + `A-02` (mock desaparece; drop de `portfolio_positions`)
 4. **Robustez e afinação** — `A-03` + `M-02` + `M-03` + `M-04`
 
 > Regras transversais: seguir o pattern canónico de API route do `CLAUDE.md`; `npm run typecheck` e `npm run lint` a zero em cada passo; atualizar os status **neste ficheiro** ao fechar cada item.
@@ -75,6 +86,8 @@ Mesmo "ignorando" o `/projeto-fable-5`, o código está **deployado junto com o 
 
 ### F-01 · Mistura de moedas em TODOS os agregados de patrimônio
 
+> **Status 2026-08-05: FUNDAÇÃO FEITA.** `getFxToEur()` (câmbio live moeda→EUR, cache 15 min) em `src/lib/yahoo-finance/client.ts`; `derive.ts` já converte valor de mercado a EUR. Falta: aplicar nas rotas/páginas de leitura (Etapa 3) e capturar fx-on-date na escrita (Etapa 2). Moeda base = EUR fixo (decisão do dono).
+
 - **Problema:** posições têm `currency` (`EUR`/`USD`/`BRL`... — `0001_initial_schema.sql:59`), mas todos os cálculos somam `quantity × price` **sem converter**, e formatam o resultado como EUR:
   - `src/app/(dashboard)/dashboard/page.tsx:100-106` (totalValue/totalCost)
   - `src/app/api/portfolio/summary/route.ts:77-81`
@@ -90,6 +103,8 @@ Mesmo "ignorando" o `/projeto-fable-5`, o código está **deployado junto com o 
 
 ### F-03 · Duas fontes de verdade que não se falam
 
+> **Status 2026-08-05: FUNDAÇÃO FEITA.** `src/lib/portfolio/derive.ts` (puro) deriva holdings + sumário do ledger `transactions` — fonte única — em EUR, com preços injectados (`prices.ts` = provider Yahoo+fx). Testes em `tests/unit/derive.spec.ts`. Falta (Etapa 3): religar dashboard/summary/holdings/movers/chart a este módulo e **dropar `portfolio_positions`** (decisão do dono: eliminada). Metadata do ticker derivada do Yahoo + determinística, sem tabela nova.
+
 - **Problema:** existem `transactions` (ledger buy/sell/cash/div — `0009_investment_ledger.sql`) e `portfolio_positions` (posições com `avg_price` mantido à mão — `0001`). **Nada deriva positions das transactions.** Dashboard, summary, holdings, chart e movers leem `portfolio_positions`; a página `/transactions` lê o ledger. Os dois podem (e vão) divergir — o requisito declarado é "source of truth = transactions".
 - **O que fazer:** eleger o ledger `transactions` como única fonte de verdade. Derivar holdings/performance/dashboard dele em runtime (o motor puro `lib/fable5/ledger.ts` — `buildLedger`, `buildTimeline`, `validateLedger` — já implementa exactamente isto e deve ser portado para `src/lib/portfolio/ledger.ts` com testes unitários). `portfolio_positions` passa a cache derivado ou é eliminado.
 
@@ -104,6 +119,8 @@ Mesmo "ignorando" o `/projeto-fable-5`, o código está **deployado junto com o 
 
 ### F-05 · O app principal não tem caminho de escrita — não é funcional
 
+> **Status 2026-08-05: API FEITA (falta UI + QA e2e).** `POST /api/transactions` e `PATCH`/`DELETE /api/transactions/[id]` no pattern canónico (auth→rate limit→Zod→user_id da sessão). A-01 na API: `total` recomputado no servidor (`computeTotal`), `fx` capturado à data (`getFxOnDate`, câmbio da data do trade; 502 se indisponível), limites Zod (qty/price/fee ≤ 1e9), e `validateLedger` a rejeitar oversell — incluindo apagar uma compra que suporta uma venda (guard em `src/lib/portfolio/write-guard.ts`). Testes unitários: `tests/unit/write-path.spec.ts` (5). **Falta:** formulário de criação/edição em `/transactions` (hoje sem UI de escrita; delete é `alert()`), matar/reaproveitar `AddPositionModal`, e verificação e2e no browser (auth + insert real + CHECKs). typecheck/lint a zero; 25/25 testes.
+
 - **Prova:** todas as rotas em `src/app/api/` são `GET` (grep confirmado); `AddPositionModal.tsx:25` — "TODO: wire to POST /api/holdings when Engineer implements the API route". Não há como registrar uma compra/venda pela UI.
 - **O que fazer:** implementar CRUD de transações (`POST/PATCH/DELETE /api/transactions[/id]`) seguindo o pattern canónico do CLAUDE.md (auth → rate limit → Zod → user_id da sessão), com **validação de ledger** antes de persistir (venda não pode exceder posição — reusar `validateLedger`), e wiring da UI (form de transação em `/transactions`; o `AddPositionModal` de holdings deve morrer ou criar transações, não posições).
 
@@ -112,6 +129,8 @@ Mesmo "ignorando" o `/projeto-fable-5`, o código está **deployado junto com o 
 ## ALTOS
 
 ### A-01 · Ledger sem validação de integridade no schema nem na API
+
+> **Status 2026-08-05: PARCIAL.** Camada de schema **aplicada ao Cloud** — `supabase/migrations/0010_transactions_integrity.sql`: CHECK `type NOT IN ('buy','sell') OR (qty>0 AND price>=0)`, `fx>0 AND fx<1e6`, `fee>=0`. A camada de API (Zod com limites, recomputar `total` no servidor, `validateLedger` p/ oversell) entra com o write path — Etapa 2 (F-05, EM CURSO).
 
 - **Prova:** `0009_investment_ledger.sql` — `qty`/`price` são NULLable sem CHECK de positividade para `buy`/`sell`; `total` é livre (não conferido contra `qty×price±fee`); `fx` sem limites; nenhuma rota valida oversell.
 - **O que fazer:** na migration: `CHECK (type NOT IN ('buy','sell') OR (qty > 0 AND price >= 0))`; na API de escrita (F-05): Zod com limites superiores razoáveis (`qty ≤ 1e9`, `price ≤ 1e9` — evita overflow/`Infinity` em agregados JS), recomputar `total` no servidor em vez de aceitar do cliente, e `validateLedger` para oversell.
