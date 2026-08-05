@@ -4,6 +4,7 @@ import { useMemo, useState, useCallback, useEffect } from "react";
 import { TxPageHead } from "./TxPageHead";
 import { TxCard } from "./TxCard";
 import { TxTweaksPanel } from "./TxTweaksPanel";
+import { TxModal } from "./TxModal";
 import { TYPE_TABS } from "./mock-data";
 import type {
   TabKey,
@@ -128,6 +129,19 @@ function sortTransactions(rows: Transaction[], sort: SortState): Transaction[] {
 }
 
 // ---------------------------------------------------------------------------
+// parseDeleteError — reads the { error } shape returned by DELETE
+// ---------------------------------------------------------------------------
+
+async function parseDeleteError(res: Response): Promise<string> {
+  try {
+    const json = (await res.json()) as { error?: string };
+    return json.error ?? `Pedido falhou (${res.status})`;
+  } catch {
+    return `Pedido falhou (${res.status})`;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // TransactionsPage — root client component
 // ---------------------------------------------------------------------------
 
@@ -157,31 +171,37 @@ export function TransactionsPage() {
   const [showFx, setShowFx] = useState(true);
   const [showFees, setShowFees] = useState(true);
 
+  // -- New/edit transaction modal
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<"create" | "edit">("create");
+  const [editingTx, setEditingTx] = useState<Transaction | null>(null);
+
+  // -- Delete (bulk, via edit mode selection)
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  // -- Load transactions from GET /api/transactions — reused after writes
+  const loadTransactions = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const res = await fetch("/api/transactions");
+      if (!res.ok) {
+        throw new Error(`Request failed (${res.status})`);
+      }
+      const json = (await res.json()) as { data?: ApiTransactionRow[] };
+      setTransactions((json.data ?? []).map(mapRow));
+    } catch {
+      setLoadError("Failed to load transactions.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   // -- Fetch transactions on mount
   useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      setLoading(true);
-      setLoadError(null);
-      try {
-        const res = await fetch("/api/transactions");
-        if (!res.ok) {
-          throw new Error(`Request failed (${res.status})`);
-        }
-        const json = (await res.json()) as { data?: ApiTransactionRow[] };
-        if (cancelled) return;
-        setTransactions((json.data ?? []).map(mapRow));
-      } catch {
-        if (!cancelled) setLoadError("Failed to load transactions.");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    void loadTransactions();
+  }, [loadTransactions]);
 
   // -- Sort handler
   function handleSort(col: SortCol) {
@@ -260,15 +280,56 @@ export function TransactionsPage() {
     });
   }, [paged]);
 
-  // -- Delete (demo only)
-  function handleDelete() {
-    alert(`Would delete ${selected.size} transaction(s)`);
+  // -- Delete selected rows via DELETE /api/transactions/[id], then refetch
+  async function handleDelete() {
+    if (selected.size === 0) return;
+    setDeleteError(null);
+    setDeleting(true);
+    const ids = Array.from(selected);
+    const failures: string[] = [];
+    for (const id of ids) {
+      try {
+        const res = await fetch(`/api/transactions/${id}`, {
+          method: "DELETE",
+        });
+        if (!res.ok) {
+          failures.push(await parseDeleteError(res));
+        }
+      } catch {
+        failures.push("Falha de rede ao apagar transação.");
+      }
+    }
+    await loadTransactions();
+    setSelected(new Set());
+    setDeleting(false);
+    if (failures.length > 0) {
+      setDeleteError(failures.join(" "));
+    }
+  }
+
+  // -- New transaction modal
+  function handleAddClick() {
+    setModalMode("create");
+    setEditingTx(null);
+    setModalOpen(true);
+  }
+
+  // -- Edit transaction modal (opened from a row's edit action)
+  function handleEditRow(tx: Transaction) {
+    setModalMode("edit");
+    setEditingTx(tx);
+    setModalOpen(true);
+  }
+
+  // -- Refetch + close after a successful create/edit
+  function handleModalSuccess() {
+    void loadTransactions();
   }
 
   return (
     <div className="flex flex-col gap-5">
       {/* Page header */}
-      <TxPageHead />
+      <TxPageHead onAddClick={handleAddClick} />
 
       {/* Load states */}
       {loading && (
@@ -279,6 +340,14 @@ export function TransactionsPage() {
       {!loading && loadError && (
         <div className="rounded-lg border border-loss/40 bg-card px-4 py-6 text-sm text-loss">
           {loadError}
+        </div>
+      )}
+      {deleteError && (
+        <div
+          role="alert"
+          className="rounded-lg border border-[var(--loss)]/40 bg-[var(--loss)]/10 px-4 py-3 text-sm text-[var(--loss)]"
+        >
+          {deleteError}
         </div>
       )}
 
@@ -304,6 +373,8 @@ export function TransactionsPage() {
         onToggleOne={handleToggleOne}
         onToggleAll={handleToggleAll}
         onDelete={handleDelete}
+        deleting={deleting}
+        onEditRow={handleEditRow}
         sort={sort}
         onSort={handleSort}
         pageSize={pageSize}
@@ -321,6 +392,15 @@ export function TransactionsPage() {
         onShowFxChange={setShowFx}
         showFees={showFees}
         onShowFeesChange={setShowFees}
+      />
+
+      {/* New / edit transaction modal */}
+      <TxModal
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+        mode={modalMode}
+        transaction={editingTx}
+        onSuccess={handleModalSuccess}
       />
     </div>
   );

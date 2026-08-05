@@ -60,7 +60,11 @@ function HelpIcon() {
 // TxPageHead
 // ---------------------------------------------------------------------------
 
-export function TxPageHead() {
+interface TxPageHeadProps {
+  onAddClick: () => void;
+}
+
+export function TxPageHead({ onAddClick }: TxPageHeadProps) {
   const { enabled: animationsEnabled } = useAnimations();
   const rise = animationsEnabled ? "rise" : "";
 
@@ -94,10 +98,11 @@ export function TxPageHead() {
           Import
         </button>
 
-        {/* Add Manually — stub */}
+        {/* Add Manually — opens TxModal in create mode */}
         <button
           type="button"
-          className="inline-flex items-center gap-1.5 px-3 py-[6px] rounded-md text-sm bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-mono font-medium"
+          onClick={onAddClick}
+          className="inline-flex items-center gap-1.5 px-3 py-[6px] rounded-md text-sm bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-mono font-medium neon-primary"
           aria-label="Add transaction manually"
         >
           <PlusIcon />

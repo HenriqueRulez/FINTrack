@@ -22,6 +22,24 @@ interface TxTableProps {
   density: Density;
   showFx: boolean;
   showFees: boolean;
+  onEditRow: (tx: Transaction) => void;
+}
+
+function EditIcon() {
+  return (
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 14 14"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.3"
+      aria-hidden="true"
+    >
+      <path d="M1.5 12.5l1-3 7-7 2 2-7 7z" />
+      <path d="M8.5 3.5l2 2" />
+    </svg>
+  );
 }
 
 function SortArrow({ col, sort }: { col: SortCol; sort: SortState }) {
@@ -78,6 +96,7 @@ export function TxTable({
   density,
   showFx,
   showFees,
+  onEditRow,
 }: TxTableProps) {
   const { td: tdBase, th: thBase } = getDensityClasses(density);
 
@@ -208,7 +227,19 @@ export function TxTable({
             )}
 
             {/* Total */}
-            <SortTh col="total" label="Total" align="right" className="pr-5" />
+            <SortTh
+              col="total"
+              label="Total"
+              align="right"
+              className={editMode ? "" : "pr-5"}
+            />
+
+            {/* Row actions — edit mode only */}
+            {editMode && (
+              <th className={[thShared, "text-center pr-5 w-10"].join(" ")}>
+                <span className="sr-only">Actions</span>
+              </th>
+            )}
           </tr>
         </thead>
 
@@ -341,12 +372,34 @@ export function TxTable({
                 <td
                   className={[
                     tdBase,
-                    "border-b border-border/40 text-right tabular-nums align-middle pr-5",
+                    "border-b border-border/40 text-right tabular-nums align-middle",
+                    editMode ? "" : "pr-5",
                     totalColor,
                   ].join(" ")}
                 >
                   {totalFormatted}
                 </td>
+
+                {/* Row actions — edit mode only; PATCH only supports buy/sell */}
+                {editMode && (
+                  <td
+                    className={[
+                      tdBase,
+                      "border-b border-border/40 text-center align-middle pr-5",
+                    ].join(" ")}
+                  >
+                    {(tx.type === "buy" || tx.type === "sell") && (
+                      <button
+                        type="button"
+                        onClick={() => onEditRow(tx)}
+                        className="inline-flex items-center justify-center w-6 h-6 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                        aria-label={`Edit transaction ${tx.ticker} ${fmtDate(tx.date)}`}
+                      >
+                        <EditIcon />
+                      </button>
+                    )}
+                  </td>
+                )}
               </tr>
             );
           })}

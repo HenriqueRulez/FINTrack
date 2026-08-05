@@ -47,6 +47,8 @@ interface TxCardProps {
   onToggleOne: (id: string) => void;
   onToggleAll: () => void;
   onDelete: () => void;
+  deleting: boolean;
+  onEditRow: (tx: Transaction) => void;
 
   // Sort
   sort: SortState;
@@ -83,6 +85,8 @@ export function TxCard({
   onToggleOne,
   onToggleAll,
   onDelete,
+  deleting,
+  onEditRow,
   sort,
   onSort,
   pageSize,
@@ -120,6 +124,7 @@ export function TxCard({
         someSelected={someSelected}
         onToggleAll={onToggleAll}
         onDelete={onDelete}
+        deleting={deleting}
       />
 
       {/* Type tabs */}
@@ -147,6 +152,7 @@ export function TxCard({
           density={density}
           showFx={showFx}
           showFees={showFees}
+          onEditRow={onEditRow}
         />
       )}
 

@@ -95,6 +95,7 @@ interface FilterRowProps {
   someSelected: boolean;
   onToggleAll: () => void;
   onDelete: () => void;
+  deleting: boolean;
 }
 
 export function FilterRow({
@@ -114,6 +115,7 @@ export function FilterRow({
   someSelected,
   onToggleAll,
   onDelete,
+  deleting,
 }: FilterRowProps) {
   const chipBase =
     "bg-muted border border-border hover:border-border/70 rounded-md px-3 py-[7px] inline-flex items-center gap-2 min-h-[32px] text-sm cursor-pointer transition-colors";
@@ -217,10 +219,10 @@ export function FilterRow({
             <button
               type="button"
               onClick={onDelete}
-              disabled={selected.size === 0}
+              disabled={selected.size === 0 || deleting}
               className={[
                 "inline-flex items-center gap-1.5 px-3 py-[6px] rounded-md text-sm font-mono border transition-colors",
-                selected.size === 0
+                selected.size === 0 || deleting
                   ? "opacity-50 cursor-not-allowed border-[var(--loss)]/40 text-[var(--loss)]"
                   : "hover:opacity-90 border-[var(--loss)]/40 text-[var(--loss)]",
               ].join(" ")}
@@ -228,7 +230,7 @@ export function FilterRow({
               aria-label={`Delete ${selected.size} selected transactions`}
             >
               <TrashIcon />
-              Delete ({selected.size})
+              {deleting ? "Deleting…" : `Delete (${selected.size})`}
             </button>
           </>
         )}

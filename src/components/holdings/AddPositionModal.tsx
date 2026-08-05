@@ -20,9 +20,18 @@ import {
 } from "@/components/ui/select";
 
 // ---------------------------------------------------------------------------
-// AddPositionModal — visual-only modal for adding a new position (Phase 1 mock)
-// No persistence: closing the modal does not alter the holdings table.
-// TODO: wire to POST /api/holdings when Engineer implements the API route.
+// AddPositionModal — DEAD CODE, not rendered anywhere (no import site in the
+// codebase as of F-05). Do not wire this up.
+//
+// "Positions" is a concept superseded by the transactions ledger: the ledger
+// (`transactions` table) is now the single source of truth, written exclusively
+// via the /transactions page (see TxModal.tsx — POST/PATCH /api/transactions).
+// /holdings only reads/derives from that ledger; it never writes.
+//
+// Decision (F-05, Frontend agent): left this file in place, unused, rather
+// than deleted, in case a future "quick add from Holdings" UX is explicitly
+// requested — but that must open TxModal (or navigate to /transactions), not
+// resurrect this component or a POST /api/holdings endpoint.
 // ---------------------------------------------------------------------------
 
 interface AddPositionModalProps {
