@@ -62,9 +62,10 @@ function HelpIcon() {
 
 interface TxPageHeadProps {
   onAddClick: () => void;
+  onImportClick: () => void;
 }
 
-export function TxPageHead({ onAddClick }: TxPageHeadProps) {
+export function TxPageHead({ onAddClick, onImportClick }: TxPageHeadProps) {
   const { enabled: animationsEnabled } = useAnimations();
   const rise = animationsEnabled ? "rise" : "";
 
@@ -88,9 +89,10 @@ export function TxPageHead({ onAddClick }: TxPageHeadProps) {
           <HelpIcon />
         </button>
 
-        {/* Import — stub */}
+        {/* Import — opens ImportModal */}
         <button
           type="button"
+          onClick={onImportClick}
           className="inline-flex items-center gap-1.5 px-3 py-[6px] rounded-md text-sm border border-border/50 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors font-mono"
           aria-label="Import transactions"
         >

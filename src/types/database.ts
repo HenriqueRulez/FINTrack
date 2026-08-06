@@ -123,49 +123,61 @@ export type Database = {
           created_at: string
           currency: string
           date: string
+          external_id: string | null
           fee: number
           fx: number
           id: string
+          isin: string | null
           label: string | null
           price: number | null
           qty: number | null
+          source: string
           ticker: string | null
           total: number
           type: string
           updated_at: string
           user_id: string
+          withholding_tax: number
         }
         Insert: {
           created_at?: string
           currency: string
           date: string
+          external_id?: string | null
           fee?: number
           fx?: number
           id?: string
+          isin?: string | null
           label?: string | null
           price?: number | null
           qty?: number | null
+          source?: string
           ticker?: string | null
           total: number
           type: string
           updated_at?: string
           user_id: string
+          withholding_tax?: number
         }
         Update: {
           created_at?: string
           currency?: string
           date?: string
+          external_id?: string | null
           fee?: number
           fx?: number
           id?: string
+          isin?: string | null
           label?: string | null
           price?: number | null
           qty?: number | null
+          source?: string
           ticker?: string | null
           total?: number
           type?: string
           updated_at?: string
           user_id?: string
+          withholding_tax?: number
         }
         Relationships: []
       }

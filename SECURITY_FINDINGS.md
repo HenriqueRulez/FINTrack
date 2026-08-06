@@ -28,7 +28,6 @@ Ao fechar um achado, adicionar: `→ Resolvido em: [nome da feature] (YYYY-MM-DD
 
 | ID | Arquivo | Problema | Feature de origem | Data |
 |----|---------|----------|-------------------|------|
-| B-01 | `next` (dependência transitiva) | `postcss@8.4.31` interno do Next.js — GHSA-qx2v-qp2m-jg93 (XSS build-time). Sem acção viável — aguardar patch do Next.js | Dark Mode Visual Fix | 2026-05-23 |
 | B-03 | `src/lib/rate-limit.ts:14` | Rate limiter em memória sem purge de entradas expiradas — potencial memory leak (negligível para app pessoal) | Ticker Validation | 2026-05-23 |
 | B-04 | `src/lib/yahoo-finance/client.ts:27` | Cache do Yahoo Finance sem limite de tamanho de entradas (mitigado pelo rate limit de 20 req/min no verify-ticker) | Ticker Validation | 2026-05-23 |
 | B-05 | `src/lib/yahoo-finance/client.ts:45` | `historyCache` (Map) para dados históricos sem limite de entradas — memory leak potencial idêntico ao B-04. Negligível para app pessoal com <100 tickers | Portfolio Aggregated View | 2026-05-23 |
@@ -38,6 +37,9 @@ Ao fechar um achado, adicionar: `→ Resolvido em: [nome da feature] (YYYY-MM-DD
 | B-13 | `src/app/(dashboard)/dashboard/page.tsx:119`, `api/portfolio/{holdings:96,summary:58,movers:44,chart:57,performance:84}/route.ts` | Double-cast `(data ?? []) as unknown as TransactionRow[]` no resultado do `.select()` do ledger em 6 ficheiros — contorna a inferência de tipos do Supabase e pode mascarar drift de schema em compile time. NÃO é bypass de segurança (RLS de `transactions` + `.eq("user_id", user.id)` activos). Sucessor higiénico do B-08/B-11; resolver regenerando `database.ts` e tipando o retorno | Etapa 3 AUDIT (portfólio derivado) | 2026-08-05 |
 | B-14 | `src/lib/yahoo-finance/client.ts:199`, `client.ts:54` | Nova `getHistoryRange`: `console.error` loga ticker + objecto de erro completo do Yahoo (mesmo padrão do B-06) e `historyRangeCache` (Map) é acumulado sem limite de entradas (mesmo padrão do B-04/B-05). Server-side; ticker vem do ledger do próprio utilizador (não input arbitrário). Memory leak negligível para app pessoal | Etapa 3 AUDIT (portfólio derivado) | 2026-08-05 |
 | B-15 | `src/lib/portfolio/prices.ts:51-53`, `prices.ts:106` | Higiene de tipos: double-cast `(data ?? []) as Array<...>` na leitura e `(supabase as any)` no upsert de `price_cache`. NÃO é bypass de segurança — RLS de `price_cache` activo + GRANT limitado a `authenticated`. Mesma família do B-13/B-08(resolvido); causa raiz = `database.ts` mantido à mão sem o marcador `__InternalSupabase` da inferência do postgrest-js v2. Resolve regenerando `database.ts` via Supabase CLI | M-03 AUDIT (cache persistente de preços) | 2026-08-06 |
+| B-16 | Processo — `supabase/migrations/0014_import_support.sql` aplicada ao Supabase **Cloud** via `yes \| npx supabase db push`, auto-confirmando o prompt interactivo e saltando a confirmação humana | A `0014` é **aditiva e reversível** (`ADD COLUMN` com default constante = metadata-only no PG11+; `CREATE UNIQUE INDEX` parcial) e não toca dados existentes, logo o risco técnico DESTA aplicação é baixo. O risco real é de **governança**: o mesmo padrão aplicado a uma migração destrutiva (DROP/ALTER TYPE/rewrite) ou ao ambiente errado remove o último gate humano antes de uma alteração irreversível em produção, sem checkpoint. Não reutilizar o auto-confirm para migrações não-aditivas; rever `supabase db diff`/dry-run e confirmar manualmente | CSV Import (Trading212) | 2026-08-06 |
+| B-17 | `src/lib/validations/import.ts:15`, `src/app/api/transactions/import/route.ts:67` | DoS por payload: o cap de ~2MB do Zod (`.max` sobre o comprimento da string) só corre **depois** de `request.json()` já ter bufferizado o corpo inteiro em memória. Route Handlers do Next 15 não impõem limite de body por omissão, logo o cap NÃO limita a memória do parse do JSON — só limita o trabalho do `parseCsv` e o payload de BD. Mitigado: endpoint autenticado (app single-user — só o dono é principal) + rate limit 10/min. Parser é O(n) single-pass, sem ReDoS/backtracking, memória O(n) mesmo com input adversarial (aspas não fechadas, muitas colunas, newlines) dentro do cap | CSV Import (Trading212) | 2026-08-06 |
+| B-18 | `src/app/api/transactions/import/route.ts:201` | Higiene de tipos: `(supabase as any)` no batch `insert` do ledger. NÃO é bypass de segurança — `user_id` vem da sessão (`user.id`), RLS de `transactions` activo, insert parametrizado via postgrest (sem concatenação SQL). Mesma família/causa-raiz do B-13/B-15 (`database.ts` à mão sem `__InternalSupabase`); novo local. Resolve regenerando `database.ts` via Supabase CLI | CSV Import (Trading212) | 2026-08-06 |
 
 ---
 
@@ -62,6 +64,7 @@ Ao fechar um achado, adicionar: `→ Resolvido em: [nome da feature] (YYYY-MM-DD
 | B-08 | `src/app/api/portfolio/summary/route.ts`, `chart/route.ts`, `movers/route.ts` | `(supabase as any)` type cast nas 3 routes | Etapa 3 AUDIT — cast removido na reescrita das routes (commit `973bcc0`) | 2026-08-05 |
 | B-10 | `src/app/api/portfolio/holdings/route.ts:90` | `select("*")` em `portfolio_positions` | Etapa 3 AUDIT — route reescrita com selecção explícita (`LEDGER_COLUMNS`); tabela DROPPED (commit `973bcc0`) | 2026-08-05 |
 | B-11 | `src/app/api/portfolio/holdings/route.ts:88` | `(supabase as any)` type cast | Etapa 3 AUDIT — cast removido na reescrita da route (commit `973bcc0`) | 2026-08-05 |
+| B-01 | `next` (dependência transitiva) | `postcss@8.4.31` interno do Next.js — GHSA-qx2v-qp2m-jg93 (XSS build-time) | Patch do Next.js — `npm audit` (full) reporta **0 vulnerabilidades**; verificado na auditoria da feature CSV Import | 2026-08-06 |
 
 ---
 
@@ -83,5 +86,5 @@ A cada ciclo de desenvolvimento, após a auditoria:
 | Crítico   | 0       | 0          | 0       |
 | Alto      | 0       | 0          | 0       |
 | Médio     | 1       | 2          | 0       |
-| Baixo     | 10      | 5          | 3       |
-| **Total** | **11**  | **7**      | **3**   |
+| Baixo     | 12      | 6          | 3       |
+| **Total** | **13**  | **8**      | **3**   |

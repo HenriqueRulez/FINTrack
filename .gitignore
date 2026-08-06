@@ -7,6 +7,9 @@
 # testing
 /coverage
 
+#data
+/positions_export/
+
 # playwright — auth state e reports (contêm tokens de sessão)
 /tests/e2e/.auth/user.json
 /playwright-report/

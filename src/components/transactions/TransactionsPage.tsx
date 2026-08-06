@@ -5,6 +5,7 @@ import { TxPageHead } from "./TxPageHead";
 import { TxCard } from "./TxCard";
 import { TxTweaksPanel } from "./TxTweaksPanel";
 import { TxModal } from "./TxModal";
+import { ImportModal } from "./ImportModal";
 import { TYPE_TABS } from "./mock-data";
 import type {
   TabKey,
@@ -176,6 +177,9 @@ export function TransactionsPage() {
   const [modalMode, setModalMode] = useState<"create" | "edit">("create");
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
 
+  // -- Import CSV modal
+  const [importModalOpen, setImportModalOpen] = useState(false);
+
   // -- Delete (bulk, via edit mode selection)
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -329,7 +333,10 @@ export function TransactionsPage() {
   return (
     <div className="flex flex-col gap-5">
       {/* Page header */}
-      <TxPageHead onAddClick={handleAddClick} />
+      <TxPageHead
+        onAddClick={handleAddClick}
+        onImportClick={() => setImportModalOpen(true)}
+      />
 
       {/* Load states */}
       {loading && (
@@ -401,6 +408,13 @@ export function TransactionsPage() {
         mode={modalMode}
         transaction={editingTx}
         onSuccess={handleModalSuccess}
+      />
+
+      {/* Import CSV modal */}
+      <ImportModal
+        open={importModalOpen}
+        onOpenChange={setImportModalOpen}
+        onSuccess={loadTransactions}
       />
     </div>
   );
