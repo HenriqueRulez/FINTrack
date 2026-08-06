@@ -115,3 +115,5 @@ Tudo o que é ficheiro está feito e localmente verificado verde. Falta só o la
    Abre a PR para `main` no GitHub — o run de CI aparece no separador Checks.
 2. **Branch protection** (Settings → Branches → Add rule / ou Rulesets) em `main`: "Require status checks to pass before merging" e selecionar o check **`Deterministic gate`** (só aparece na lista depois do primeiro run). Marca também "Require a pull request before merging" se quiseres bloquear push directo.
 3. **Provas do gate** (opcional, mas é a verificação real): parte um unit test de propósito num commit → CI vermelho → PR bloqueada; reverte → verde → PR desbloqueada.
+
+[ignorar essa linha]
