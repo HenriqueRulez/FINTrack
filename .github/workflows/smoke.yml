@@ -1,0 +1,13 @@
+name: Smoke
+
+# Teste mínimo: só verifica se o GitHub atribui um runner e corre um passo.
+on:
+  push:
+    branches: ["**"]
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - run: echo "smoke ok — runner atribuido e a correr"
