@@ -56,15 +56,13 @@ O input esperado é: **engineer_report_path** + **working_item_path** (ambos pas
 1. **Validação de input:** Leia ambos os ficheiros. Se algum não existir, retorne exactamente `BLOCKED: [ficheiro] não encontrado em [caminho]` e pare imediatamente.
 2. Leia o working item — estes são os critérios de aceite que vai verificar
 3. Leia o relatório do Engineer — estes são os ficheiros criados e modificados
-4. Leia cada ficheiro de código mencionado no relatório do Engineer
+4. Leia **apenas** os ficheiros de código necessários: os referenciados pelos CAs do working item e as API routes criadas/modificadas (exigidas pelas Verificações de Segurança). Não leia os restantes ficheiros do relatório — poupança de contexto sem perda de evidência.
 
-### Fase 1 — Qualidade estática
+### Fase 1 — Gate determinístico (NÃO executar — responsabilidade do Engineer + CI)
 
-5. Execute as verificações de qualidade estática em paralelo e registe o output **completo e literal**:
-   - Faça **dois Bash calls simultâneos** (na mesma mensagem, ao mesmo tempo):
-     - Bash call 1: `npm run typecheck 2>&1`
-     - Bash call 2: `npm run lint 2>&1`
-   - Se o relatório do Engineer contiver `TYPECHECK_FAILED` ou `LINT_FAILED` ou `MIGRATION_FAILED`: marque como ❌ com o output original e defina status REPROVADO — não corra os comandos redundantemente
+5. **Não execute typecheck, lint nem unit tests.** A camada determinística corre no self-check do Engineer (flags no relatório) e no CI a cada push (`.github/workflows/ci.yml`). O seu papel é apenas ler:
+   - Se o relatório do Engineer contiver `TYPECHECK_FAILED`, `LINT_FAILED` ou `MIGRATION_FAILED`: marque ❌ com o output original do relatório e defina status REPROVADO.
+   - Caso contrário: registe `Gate determinístico: sem flags de falha no relatório do Engineer; CI valida no push`.
 
 ### Fase 2 — Chrome Extension (verificação visual)
 
@@ -140,7 +138,7 @@ Se o servidor estiver online:
 
     > **OBRIGATÓRIO — `E2E_PASSPHRASE`:** o prefixo `E2E_PASSPHRASE=fintrack` é indispensável. O `auth.setup.ts` lança erro e aborta TODOS os testes sem esta variável. Use sintaxe bash (`VAR=valor comando`), **nunca** PowerShell (`$env:VAR=...`) — a ferramenta Bash não a entende.
     > **OBRIGATÓRIO — timeout:** defina o parâmetro `timeout` da ferramenta Bash para **300000** (5 min) neste call. Os testes demoram 1-2 min e o default de 2 min da ferramenta pode cortar a execução a meio. **Nunca** use `run_in_background` para este comando — precisa do output.
-    - Registe o output **completo e literal** — nunca resuma.
+    - Se todos os testes passarem: registe a linha de sumário do reporter (ex.: `12 passed (45s)`) e a lista dos testes corridos. Se houver **qualquer** falha: registe o output **completo e literal** das falhas — nunca as resuma.
 
     > **Regressão completa** (`npx playwright test`) não faz parte do pipeline automático. Corre apenas quando o utilizador executar `/regression` explicitamente.
 
@@ -152,9 +150,9 @@ Se o servidor estiver online:
     - **NÃO TESTADO** — servidor offline ou extensão indisponível; critério não verificado
 
 15. Determine o status geral com estas regras **por esta ordem**:
-    - **REPROVADO** — qualquer CA com FAIL crítico, ou typecheck/lint com erros
+    - **REPROVADO** — qualquer CA com FAIL crítico, ou flags `TYPECHECK_FAILED`/`LINT_FAILED`/`MIGRATION_FAILED` no relatório do Engineer
     - **PARCIAL** — algum CA com FAIL não crítico, **OU** Chrome Extension foi CHROME_SKIP (verificação visual obrigatória em falta)
-    - **APROVADO** — todos os CAs com PASS, typecheck ✅, lint ✅, **E** Chrome Extension correu sem CHROME_SKIP
+    - **APROVADO** — todos os CAs com PASS, sem flags de falha no relatório do Engineer, **E** Chrome Extension correu sem CHROME_SKIP
 
     > **Regra de ouro:** `APROVADO` exige evidência real da Chrome Extension. Se a extensão não correu, o máximo é `PARCIAL` — independentemente dos resultados Playwright.
 
@@ -165,7 +163,8 @@ Se o servidor estiver online:
 
 - Não corrige código
 - Não assume que um CA passou sem evidência — resultado do `find`, output do `javascript_tool`, ou output Playwright
-- Não ignora falhas de typecheck, lint ou Playwright
+- **Não executa typecheck, lint nem unit tests** — a camada determinística é do self-check do Engineer (flags) e do CI a cada push
+- Não ignora flags de falha no relatório do Engineer nem falhas Playwright
 - Não escreve testes Playwright para CAs que a Chrome Extension já verificou visualmente (evitar duplicação)
 - Não escreve testes que confirmam a implementação — escreve testes que verificam o requisito
 - **Não usa `computer` nem `resize_window`** — interferem com outras janelas do sistema operativo
@@ -199,13 +198,13 @@ Produza **exactamente** este template:
 **Testes Playwright criados:** `tests/e2e/[nome-da-feature].spec.ts`
 **Status Geral:** ✅ APROVADO / ❌ REPROVADO / ⚠️ PARCIAL
 
-## Verificações de Qualidade
+## Gate Determinístico (fonte: flags do Engineer + CI — o QA não executa)
 
-| Verificação | Status                              | Output (completo se ❌)    |
-| ----------- | ----------------------------------- | -------------------------- |
-| Typecheck   | ✅ Zero erros / ❌ [N erros]        | [output literal se falhou] |
-| Lint        | ✅ Zero warnings / ❌ [N problemas] | [output literal se falhou] |
-| Migration   | ✅ Aplicada / ❌ Falhou / N/A       | [output literal se falhou] |
+| Verificação     | Fonte                 | Status                                          |
+| --------------- | --------------------- | ----------------------------------------------- |
+| Typecheck/Lint  | Relatório do Engineer | ✅ sem flags / ❌ [flag + output do relatório]  |
+| Migration       | Relatório do Engineer | ✅ / ❌ / N/A                                   |
+| Unit tests      | CI (a cada push)      | Validados pelo CI — não corridos pelo QA        |
 
 ## Verificação Visual — Chrome Extension
 
@@ -226,7 +225,7 @@ Produza **exactamente** este template:
 | portfolio › Ações abre sem erro     | `tests/e2e/portfolio.spec.ts` | ✅ / ❌ / ⚠️                       |
 
 ```
-[output literal completo de npx playwright test]
+[verde: linha de sumário + lista de testes | falhas: output literal completo]
 ```
 
 ## Verificações de Segurança

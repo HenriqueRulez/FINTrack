@@ -116,6 +116,15 @@ PO → Designer → frontend-design skill → SM → Engineer → QA → Securit
 - **Security Review é gate obrigatório**: inclui auditoria OWASP + `npm audit` + verificação de pacotes suspeitos
 - **Security Reviewer deve actualizar `SECURITY_FINDINGS.md`** a cada ciclo: adicionar novos achados, marcar resolvidos, não duplicar
 
+## Gate Determinístico — responsabilidade do CI (não do QA)
+
+O gate determinístico (`typecheck` + `lint` + unit tests) é responsabilidade do **CI** (`.github/workflows/ci.yml`), não do agente QA. Corre a cada push e PR: `npm ci → npm run typecheck → npm run lint → npx playwright test -c playwright.unit.config.ts`. Sem browser, sem banco, sem secrets.
+
+- **QA** deixa de correr qualquer verificação determinística — foca-se no que exige agente: verificação visual (Chrome Extension) e E2E/funcional (Playwright e2e). Lê os flags do relatório do Engineer (`TYPECHECK_FAILED`/`LINT_FAILED`/`MIGRATION_FAILED`) em vez de reexecutar.
+- **Engineer** mantém o self-check próprio de typecheck+lint pós-implementação (feedback imediato, não o gate).
+- **Merge em `main`** passa a ser via PR com o check de CI verde (required status check). Trabalho de feature acontece em branch; push directo a `main` deixa de ser o caminho normal.
+- **Porquê:** mover o determinístico para CI grátis/reprodutível minimiza gasto de tokens sem relaxar nada — o gate é o mesmo conjunto de verificações, só muda quem as executa.
+
 ## Pipeline de Agentes — Ordem Obrigatória
 
 ```
