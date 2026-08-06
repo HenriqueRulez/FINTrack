@@ -2,12 +2,7 @@ name: CI
 
 # Gate determinístico (Fase 1): typecheck + lint + unit tests.
 # Sem browser, sem banco, sem secrets — nada toca Supabase, Yahoo Finance ou Anthropic.
-on:
-  push:
-    branches: ["**"]
-  pull_request:
-    branches: [main]
-
+on: [push]
 # Push em qualquer branch + PR para main geram runs duplicados na branch da PR.
 # Cancelar o run obsoleto poupa minutos de Actions.
 concurrency:
