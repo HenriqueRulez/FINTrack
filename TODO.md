@@ -1,106 +1,65 @@
-# FINTrack — Import CSV (Trading212) em /transactions
+# FINTrack — CI Fase 1: gate determinístico em GitHub Actions
 
-> CONCLUÍDO em 2026-08-06 via pipeline completa (PO → Designer → Frontend → SM → Engineer → QA → Security).
-> Resultado: 75/75 unit tests + 12/12 E2E verdes; typecheck+lint zero; npm audit 0 vulnerabilidades; Security aprovado sem achados bloqueantes.
-> Achados BAIXO registados em SECURITY_FINDINGS.md: B-16 (auto-confirm db push), B-17 (json buffer antes do cap), B-18 (supabase as any).
-> Dívida de teste (fora do escopo): QA limpou o ledger do user e2e → agrava G-05 (transactions-ledger.spec desatualizado).
->
-> Plano aprovado em 2026-08-06. Execução via pipeline de agentes (regra do projeto).
-> Backlog anterior removido a pedido do dono — recuperável no histórico git deste ficheiro.
+> Objetivo aprovado em 2026-08-06. **Só a Fase 1.** A Fase 2 (E2E em CI) está explicitamente fora deste TODO.
+> A feature anterior (Import CSV Trading212) está concluída e versionada — recuperável no histórico git deste ficheiro.
 
-## Contexto
+## Objetivo central — porque isto existe
 
-O ledger `transactions` é a única source of truth do portfólio, mas hoje só aceita entradas manuais (buy/sell) uma a uma. O objetivo é importar o export CSV do broker e popular o ledger de forma fiel, idempotente e sem chamadas externas desnecessárias. O botão "Import" já existe como stub sem handler (`src/components/transactions/TxPageHead.tsx:92`).
+Tirar a camada de verificação **determinística** do subagente QA e passá-la para GitHub Actions, com um fim claro: **reduzir ao máximo o gasto de tokens, automatizando o máximo de testes possível sem que o agente QA os tenha de correr — mantendo 100% da qualidade, eficiência e segurança do aplicativo.**
 
-## Decisões fechadas com o dono (2026-08-06) — não rediscutir
+Hoje o QA (um subagente LLM) corre `typecheck`, `lint` e os 75 unit tests a cada ciclo. É trabalho 100% determinístico, que não precisa de inteligência nenhuma e que queima tokens (ex.: ~166k tokens num único ciclo de QA). Movê-lo para CI:
 
-1. **Só Trading212 no v1.** O `positions_export/degiro.csv` é um snapshot de posições (sem datas/trades) — não serve para um ledger; DEGIRO entra numa iteração futura via export de transações próprio.
-2. **Tipos importados:** Market/Limit buy → `buy`; Market/Limit sell → `sell`; Deposit → `cash`; Dividend → `div`. Restantes actions são ignoradas e reportadas.
-3. **Merge idempotente:** coluna nova `external_id` (ID do broker) + unique index; reimportar nunca duplica. Linhas Dividend do T212 **não têm ID** → external_id sintético determinístico.
-4. **UX:** upload → preview server-side (novas/duplicadas/ignoradas/erro) → confirmação grava.
-5. **Parser RFC4180 próprio** (zero dependências novas).
-6. **Schema:** + `external_id`, `source`, `isin`, `withholding_tax`. SEM coluna charge_amount (derivável: total + fee no depósito).
-7. **fx do ficheiro** (exchange rate que o broker aplicou), não Yahoo — fidelidade + zero calls externas no import.
+- **Minimiza tokens ao máximo:** o agente deixa de executar estes testes; passa apenas a LER o resultado verde/vermelho do CI (ou nem isso, quando o gate já protege a PR).
+- **Automatiza o máximo de testes fora do agente:** typecheck + lint + todos os unit tests correm sozinhos, a cada push/PR, sem intervenção.
+- **Mantém 100% da qualidade, eficiência e segurança:** o gate é exactamente o mesmo conjunto de verificações — nada é removido, relaxado ou saltado. Só muda quem as executa: CI grátis e reprodutível, em vez de um agente pago. A segurança do app não depende destes testes correrem num agente; depende de correrem sempre — e o CI garante isso melhor.
 
-## Factos do código que condicionam o design (validados 2026-08-06)
+## Escopo — SÓ Fase 1
 
-- Sem lib CSV, sem código de upload no projeto; sem UNIQUE constraint em `transactions`.
-- API atual: Zod só aceita `type buy/sell` (`src/lib/validations/transactions.ts`); DB aceita `buy/sell/cash/conv/div/int` (migration 0009).
-- POST manual chama `getFxOnDate` (Yahoo) por transação e corre `ledgerErrorFor` por linha — inaceitável em massa; o import corre o guard UMA vez sobre (existente + lote).
-- `database.ts` é mantido à mão; writes usam `(supabase as any)`.
-- **fx é multiplicativo, "EUR por 1 unidade da moeda"** (`grossEur = qty * price * fx`, `src/lib/portfolio/ledger.ts:98`). T212 alterna a direção do exchange rate entre tipos de linha (buys ~1.16 USD-por-EUR → inverter; dividends ~0.86 EUR-por-USD → directo) — o mapper escolhe a direção que satisfaz `qty*price*fx ≈ Total EUR` da linha; senão, linha marcada erro.
-- **UI já renderiza cash/div sem alterações** (`TYPE_TABS`, `TypeBadge`, `TxTable` — cash mostra `label` no lugar do ticker; div sempre positivo). TxModal continua só buy/sell — correcto, não mexer.
-- **Sinal do total:** depósito positivo, dividendo positivo (líquido de withholding). Nenhum cálculo consome `total` de cash/div — display-only.
-- **Oversell guard seguro com cash/div:** `mapRowsToLedgerTx` filtra non-buy/sell (`derive.ts:95`). Replicar o pattern existing+candidatas do POST (`route.ts:116-140`).
-- **Batch insert:** payload `TablesInsert<"transactions">[]` + `(supabase as any).from("transactions").insert(array).select(...)` sem `.single()`.
-- **Body size:** Route Handlers não têm limite do framework; cap fica no Zod (~2MB).
-- Ledger usa custo médio; `created_at` igual para o lote inteiro é aceitável (ordem intra-dia só importa via regra buy-before-sell).
-- GRANTs: tabela já tem GRANT a `authenticated` (0011); colunas novas herdam.
+Um workflow que corre, a cada push e PR, a camada que não precisa de browser, banco nem secrets:
 
-## Tarefas — pipeline `csv-import`
+```
+npm ci → npm run typecheck → npm run lint → npx playwright test -c playwright.unit.config.ts
+```
 
-### 1. Migration `supabase/migrations/0014_import_support.sql`
+Factos que tornam isto seguro e barato (validados 2026-08-06):
 
-- [x] `ALTER TABLE public.transactions ADD COLUMN external_id TEXT, ADD COLUMN source TEXT NOT NULL DEFAULT 'manual' CHECK (source IN ('manual','trading212')), ADD COLUMN isin TEXT CHECK (isin IS NULL OR char_length(isin) = 12), ADD COLUMN withholding_tax NUMERIC(15,4) NOT NULL DEFAULT 0 CHECK (withholding_tax >= 0);`
-- [x] `CREATE UNIQUE INDEX idx_transactions_user_external ON public.transactions (user_id, external_id) WHERE external_id IS NOT NULL;`
-- [x] Aplicar com `npx supabase db push`; actualizar `src/types/database.ts` à mão (Row/Insert/Update).
+- `playwright.unit.config.ts`: `testDir: tests/unit`, `fullyParallel`, **sem webServer, sem browser, sem banco** (comentário explícito na própria config).
+- 75 unit tests determinísticos (parser CSV, mapper T212, ledger, fx, derive, chart-series, financial-edge, write-path).
+- `package-lock.json` versionado → `npm ci` reprodutível.
+- **Zero secrets:** nada toca Supabase, Yahoo Finance ou Anthropic. Nenhuma chave é exposta ao CI.
 
-### 2. Parsing e mapeamento (server-only)
+## Tarefas
 
-- [x] `src/lib/import/csv.ts` — parser RFC4180 puro (aspas, vírgulas e newlines em campos, CRLF), com unit tests.
-- [x] `src/lib/import/trading212.ts` — mapper: detecta header T212, converte cada linha em candidato `{date, ticker, isin, type, qty, price, currency, fx, fee, withholding_tax, total, external_id, label}` ou `{error, rawLine}`.
-  - qty arredondada a 8 casas (NUMERIC(20,8)); price/fee/total a 4.
-  - fx normalizado para `fx_to_eur` multiplicativo: testa rate directo e 1/rate contra o Total EUR da linha.
-  - fees: deposit fee (valor absoluto) → `fee` do cash row; currency conversion fee → `fee` do buy/sell; withholding tax → `withholding_tax` do div row (total do div = líquido, positivo).
-  - Cash rows: `ticker` NULL, `label` descritivo (ex.: "Deposit Trading212").
-  - external_id: ID da linha (EOF…/UUID); dividendos: `t212:div:<ISIN>:<timestamp>:<total>` (determinístico).
-  - Moedas fora de EUR/USD/GBP → linha com erro (constraint do DB).
+### 1. `.github/workflows/ci.yml`
 
-### 3. API `src/app/api/transactions/import/route.ts` (POST)
+- [ ] Triggers: `push` (todas as branches) + `pull_request` (para `main`).
+- [ ] Runner `ubuntu-latest`; Node 20 LTS (alinhar com a versão local); cache de npm via `actions/setup-node`.
+- [ ] Passos, nesta ordem (qualquer um vermelho falha o job — é o gate):
+  1. `actions/checkout`
+  2. `actions/setup-node` (Node 20, `cache: npm`)
+  3. `npm ci`
+  4. `npm run typecheck`
+  5. `npm run lint`
+  6. `npx playwright test -c playwright.unit.config.ts`
+- [ ] SEM `playwright install` de browsers, SEM secrets, SEM webServer, SEM Supabase.
 
-- [x] Pattern canónico completo: auth getUser → 401; rateLimit chave própria `transactions:import:${user.id}`, 10/60s (não partilhar `transactions:write`); Zod `ImportRequestSchema { csv: string max ~2MB, dryRun: boolean }` → 422.
-- [x] Fluxo (igual em dryRun e commit, só o insert difere):
-  1. Parse + map → candidatos e erros.
-  2. Uma query: external_ids existentes do user → classifica duplicadas.
-  3. Oversell guard: `ledgerErrorFor(existentes + novas)` UMA vez.
-  4. dryRun: devolve `{summary, rows: [{...status: new|duplicate|ignored|error, reason}]}`.
-  5. Commit: batch insert das novas (ordem cronológica do ficheiro), `user_id` da sessão; conflito no unique index (corrida) → tratado como duplicado, não 500.
+### 2. Integração no fluxo de trabalho
 
-### 4. Frontend
+- [ ] Actualizar `CLAUDE.md`: o gate determinístico (typecheck/lint/unit) passa a ser responsabilidade do CI, não do QA. O QA foca-se no que exige agente (E2E/visual) e apenas LÊ o status do CI — não re-executa a camada determinística.
+- [ ] (Opcional) Badge de status do CI no `README`.
 
-- [x] `src/components/transactions/ImportModal.tsx` — novo modal (spec do Designer conforme DESIGN.md): input file .csv, leitura como texto no cliente, POST dryRun → tabela de preview com badges de estado + contadores, botão confirmar → POST commit → `loadTransactions()` (`TransactionsPage.tsx:184`) + fecho.
-- [x] `TxPageHead.tsx:92` — ligar `onImportClick` ao botão stub (montado em `TransactionsPage.tsx:332`).
-- [x] Sem alterações à tabela/tabs: cash/div já renderizam (validado).
+## O que NÃO entra — Fase 2, fora deste TODO
 
-### 5. Validações Zod
+- **E2E no CI.** Exige, nesta ordem: (a) projeto Supabase **separado para testes** (não produção); (b) fixture sintética/anonimizada commitada (a real `positions_export/trading212.csv` é gitignored por conter dados pessoais); (c) correcção do drift da `E2E_PASSPHRASE`; (d) resolução da flakiness G-05 (isolamento de estado por spec). É um mini-projeto próprio — pôr E2E flaky em CI produziria vermelho por instabilidade, não por bugs, custando mais tempo de dev e minando a confiança no gate.
+- Build de produção / deploy no CI.
 
-- [x] `src/lib/validations/import.ts` — `ImportRequestSchema` (csv max ~2MB, dryRun boolean default true).
-- [x] NÃO alterar `TransactionCreateSchema` (fluxo manual continua buy/sell only).
+## Execução
 
-## O que NÃO entra
-
-- Parser DEGIRO (v2, com export de transações do DEGIRO).
-- Coluna charge_amount (derivável).
-- Alteração do fluxo manual (POST atual intocado).
-- Suporte a Withdrawal/Interest/conversões do T212 (ignoradas e reportadas no preview).
-
-## Execução — pipeline de agentes
-
-Feature slug: `csv-import`. Este plano é o input do PO.
-
-- [x] 1. `po` → working item com CAs (deduplicação, preview, tipos, erros por linha, `positions_export/trading212.csv` como fixture de teste).
-- [x] 2. `designer` → spec do ImportModal (DESIGN.md: dark, IBM Plex Mono, teal, badges gain/loss para estados).
-- [x] 3. `frontend` → ImportModal + wiring do botão.
-- [x] 4. `sm` → tasks para o Engineer (migration, parser, mapper, endpoint, database.ts).
-- [x] 5. `engineer` → implementação + unit tests do parser/mapper.
-- [x] 6. `qa` → Playwright: import do trading212.csv real, reimport (0 duplicadas), preview correto, typecheck+lint.
-- [x] 7. `security-reviewer` → OWASP (upload handling, DoS por payload, injection via campos CSV) + npm audit + SECURITY_FINDINGS.md.
-
-Todos por nome via `subagent_type`, sempre `run_in_background: true`, encadeados por notificações.
+Tarefa de **infra/CI** — sem UI e sem lógica de negócio, por isso `Designer` e `Frontend` não se aplicam (decisão consciente, análoga ao `db-schema-designer` estar fora do pipeline). Implementação pelo `engineer` (ou directa); a "verificação" é o próprio primeiro run verde do CI.
 
 ## Verificação
 
-- [x] Unit tests parser/mapper em `tests/unit/` (`npx playwright test -c playwright.unit.config.ts`). Fixture = `positions_export/trading212.csv` real: 56 linhas de dados → 38 buys, 5 sells, 5 deposits (cash), 8 dividends (div), 0 erros; fx normalizado (buys USD: fx = 1/1.16…; dividends USD: fx = 0.86… directo); external_id sintético estável nos dividendos.
-- [x] `npm run typecheck` + `npm run lint` zero erros.
-- [x] E2E (`npm run test:e2e`): importar o ficheiro real no browser → preview mostra contagens certas → commit → tabela reflecte (tabs cash/div incluídos); reimportar → tudo duplicado, 0 inseridas; dashboard/holdings/performance derivam do ledger novo sem erro.
-- [x] Verificar no Supabase que o unique index rejeita insert duplicado directo.
+- [ ] Primeiro run do CI passa verde numa PR de teste.
+- [ ] **Aviso de baseline:** o primeiro run corre typecheck/lint sobre o repo INTEIRO, não só sobre uma feature. Se houver dívida pré-existente noutros ficheiros, aparece aqui. É o baseline real — limpar se vier vermelho.
+- [ ] Prova de que o gate morde: um push com um unit test propositadamente partido deixa o CI vermelho.
+- [ ] Confirmar que o QA deixou de correr typecheck/lint/unit no seu fluxo (passa a ler o status do CI).
