@@ -1,0 +1,13 @@
+name: Verify
+
+# CI de teste: corre em qualquer push (qualquer branch, qualquer ficheiro)
+# e apenas imprime uma mensagem de verificação.
+on: [push]
+
+jobs:
+  verify:
+    name: Verification message
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - run: echo "Verificacao OK - branch ${{ github.ref_name }}, commit ${{ github.sha }}"
