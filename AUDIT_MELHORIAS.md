@@ -17,16 +17,16 @@
 - ✅ **Etapas 1 e 2 CONCLUÍDAS (2026-08-05):** o ledger `transactions` é a fonte única com moeda base EUR (F-03/F-01), integridade no schema + API (A-01), e CRUD completo em `/transactions` verificado e2e no browser (F-05). Migrations `0010` (CHECKs) e `0011` (GRANTs) aplicadas ao Cloud. 30/30 testes unitários, typecheck/lint a zero.
 - ✅ **Etapa 3 CONCLUÍDA e com TODOS os gates passados (2026-08-05):** commit `973bcc0`. Todos os leitores (`dashboard`, `summary`, `holdings`, `movers`, `chart` + nova rota `performance`) derivam agora do ledger via `derivePortfolio` — **mocks e placeholders falsos eliminados** (F-04), realized P&L real do ledger (F-02), gráfico "Portfolio over time" reconstruído com carry-forward de closes e invested só a partir da 1ª compra (A-02). Tabela `portfolio_positions` **dropada** (migration `0012`, aplicada ao Cloud). UI **EUR em tudo** (toggle de moeda + FX mock removidos). A-03 coberto em dashboard/holdings/performance (banner de erro vs carteira vazia, aviso de preço indisponível). Bug apanhado no QA e corrigido: `PortfolioChart` deixou de cair para dados fabricados quando vazio. **Gates:** 36/36 unitários + typecheck/lint a zero; **QA** verificou o wire real no browser e reescreveu os specs e2e; **Security Review APROVADO** (0 crítico/alto/médio novos; fechou B-07/B-08/B-10/B-11; abriu B-13/B-14 higiene).
 - ⚠️ **Bloqueio de infra (não-código):** a suite e2e Playwright não corre — `E2E_PASSPHRASE=fintrack` em `.env.local` já não bate com a passphrase real do Cloud (rodada no C-01). Bloqueia TODOS os specs e2e. Desbloquear: pôr o valor real em `.env.local` ou criar utilizador de teste dedicado.
-- ✅ **Já resolvidos:** C-02, C-01, A-04, F-03, F-01, A-01, F-05, F-04, F-02, A-02, A-03, **M-02, M-03, M-04** — **14 dos 15 pontos**. **Adiado (contínuo):** M-01 (expansão de testes, já em 45 verdes). M-03 fechado em 2026-08-06 (cache persistente `price_cache`, migration `0013`, Security APROVADO).
+- ✅ **AUDIT COMPLETO — 15/15 pontos resolvidos (2026-08-06).** Últimos a fechar: A-03, M-02, M-03, M-04 e **M-01** (51 testes unitários, incl. fx no timeline + ciclos reabertos). M-03 = cache persistente `price_cache` (migration `0013`, Security APROVADO). E2E desbloqueado. Resta apenas dívida de manutenção da suite E2E (G-05), fora dos 15 pontos.
 
 - ✅ **M-02 + M-04 FEITOS (2026-08-05):** commit `7413266`. M-02 (higiene, sem schema): double-casts removidos (B-13), middleware por segmento (B-12), purge/cap nos caches (B-03/04/05/14), logs por `err.message` (B-06/14), badge `TX_COUNT=13` do sidebar removida. M-04: CSP `unsafe-inline` documentado como aceite (`A-02` em SECURITY_FINDINGS).
 
 ### Estado dos 15 pontos
-| Resolvido | Adiado (contínuo) |
-|---|---|
-| C-02, C-01, A-04, F-03, F-01, A-01, F-05, F-04, F-02, A-02, A-03, M-02, M-03, M-04 | M-01† |
+| Resolvido |
+|---|
+| C-02, C-01, A-04, F-03, F-01, A-01, F-05, F-04, F-02, A-02, A-03, M-01, M-02, M-03, M-04 |
 
-**14 dos 15 pontos resolvidos** (2026-08-06). M-01 (testes da matemática financeira) fica em expansão contínua por decisão do dono — já em 45 testes (os 9 novos do M-03 incluídos).
+**✅ 15 dos 15 pontos resolvidos (2026-08-06). AUDIT COMPLETO.** M-01 fechado: 51 testes unitários (incl. combinações fx no timeline e P&L em ciclos reabertos com fx).
 † A-03: varredura concluída (portfólio + `/transactions` cobertos; `/settings` n/a; `/tax-calculator` fora de escopo, ver `TODO.md` U-01).
 M-03: cache persistente `price_cache` (migration `0013`, GRANT a `authenticated`) via pipeline completa — Security APROVADO, 45 testes verdes.
 
@@ -50,7 +50,7 @@ Entregue e verificado (typecheck + lint a zero):
 
 **Lembretes operacionais (inalterados):**
 - Migrations → `npx supabase db push` (Cloud ligado); **não existe `db:backup`**. `database.ts` é mantido **à mão** (sem `gen types` contra o Cloud).
-- Testes unitários (a fonte de verdade da matemática financeira): `npx playwright test -c playwright.unit.config.ts` → **45 verdes** (36 + 9 do M-03).
+- Testes unitários (a fonte de verdade da matemática financeira): `npx playwright test -c playwright.unit.config.ts` → **51 verdes** (inclui M-03 e M-01).
 - E2E: user de teste dedicado em `.env.local` (`E2E_EMAIL`/`E2E_PASSPHRASE`); `npx playwright test`. Correr specs de dados em isolamento até a dívida de isolamento da suite ser tratada.
 - Toda rota nova segue o pattern canónico do `CLAUDE.md` (auth `getUser` → rate limit → Zod → `user_id` da sessão) e **toda tabela nova precisa de GRANT a `authenticated`**.
 - `npm run typecheck` e `npm run lint` a zero em cada passo; atualizar os status **neste ficheiro** ao fechar cada item.
@@ -191,7 +191,7 @@ Mesmo "ignorando" o `/projeto-fable-5`, o código está **deployado junto com o 
 
 ### M-01 · Zero testes da matemática financeira
 
-> **Status 2026-08-05: EM EXPANSÃO.** Suite unitária cobre agora o motor de ledger, a derivação e o write path — **30 testes verdes** em 4 ficheiros: `ledger.spec.ts` (11), `derive.spec.ts` (9), `write-path.spec.ts` (5), `financial-edge.spec.ts` (5, adicionado 2026-08-05: P&L realizado com fx diferente compra/venda, custo médio em compra→venda parcial→compra, sumário multi-ticker activa+fechada, edge de fee no total). Correr: `npx playwright test -c playwright.unit.config.ts`. Casos ainda por cobrir: mais combinações fx no timeline e P&L em ciclos reabertos com fx.
+> **Status 2026-08-06: RESOLVIDO.** Suite unitária cobre o motor de ledger, a derivação, o write path, o cache de preços e agora as combinações fx que faltavam — **51 testes verdes** em 6 ficheiros: `ledger.spec.ts` (11), `derive.spec.ts` (9), `write-path.spec.ts` (5), `financial-edge.spec.ts` (5), `prices.spec.ts` (9, M-03), `fx-cycles.spec.ts` (6, adicionado 2026-08-06). Os 6 novos fecham os buracos que esta secção apontava: `buildChartSeries` multi-moeda (USD+GBP) com fx por data + carry-forward; `derivePortfolio` multi-moeda em simultâneo; ciclo reaberto com fx (avg reinicia; realized soma os dois ciclos com fx-por-perna); fees em compra E venda com fx≠1; oversell após reabertura parcial. Zero bugs de matemática encontrados na expansão. Correr: `npx playwright test -c playwright.unit.config.ts` → **51 passed**.
 
 Só há e2e Playwright (`tests/e2e/`) e specs do sandbox. Nenhum teste unitário cobre custo médio, P&L, conversão fx, oversell. **O que fazer:** ao portar o motor de ledger (F-03), trazer/expandir `tests/fable5/ledger.spec.ts` como suite unitária do app principal (vitest ou node:test — Playwright não é ferramenta para isto). Casos mínimos: compra múltipla → custo médio; venda parcial → realized P&L; venda total → ciclo fechado; oversell rejeitado; fx ≠ 1; fees em compra vs. venda.
 
