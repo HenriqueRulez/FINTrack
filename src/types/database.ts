@@ -67,6 +67,30 @@ export type Database = {
         }
         Relationships: []
       }
+      price_cache: {
+        Row: {
+          currency: string
+          fetched_at: string
+          name: string
+          price: number
+          ticker: string
+        }
+        Insert: {
+          currency: string
+          fetched_at?: string
+          name: string
+          price: number
+          ticker: string
+        }
+        Update: {
+          currency?: string
+          fetched_at?: string
+          name?: string
+          price?: number
+          ticker?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string

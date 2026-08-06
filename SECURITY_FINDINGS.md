@@ -37,6 +37,7 @@ Ao fechar um achado, adicionar: `→ Resolvido em: [nome da feature] (YYYY-MM-DD
 | B-12 | `src/lib/supabase/middleware.ts:33` | Protecção de rotas usa `pathname.startsWith(r)` — um match por prefixo. Para `/tax-calculator` não há sobreposição (nenhuma rota pública partilha o prefixo), mas o padrão é frágil se no futuro existir uma rota pública cujo caminho comece por um prefixo protegido (ex.: `/settings-public`). Recomenda-se match exacto ou com fronteira de segmento (`=== r || startsWith(r + "/")`). Risco actual negligível — registado como informacional, não introduzido por esta feature | Tax Calculator | 2026-06-03 |
 | B-13 | `src/app/(dashboard)/dashboard/page.tsx:119`, `api/portfolio/{holdings:96,summary:58,movers:44,chart:57,performance:84}/route.ts` | Double-cast `(data ?? []) as unknown as TransactionRow[]` no resultado do `.select()` do ledger em 6 ficheiros — contorna a inferência de tipos do Supabase e pode mascarar drift de schema em compile time. NÃO é bypass de segurança (RLS de `transactions` + `.eq("user_id", user.id)` activos). Sucessor higiénico do B-08/B-11; resolver regenerando `database.ts` e tipando o retorno | Etapa 3 AUDIT (portfólio derivado) | 2026-08-05 |
 | B-14 | `src/lib/yahoo-finance/client.ts:199`, `client.ts:54` | Nova `getHistoryRange`: `console.error` loga ticker + objecto de erro completo do Yahoo (mesmo padrão do B-06) e `historyRangeCache` (Map) é acumulado sem limite de entradas (mesmo padrão do B-04/B-05). Server-side; ticker vem do ledger do próprio utilizador (não input arbitrário). Memory leak negligível para app pessoal | Etapa 3 AUDIT (portfólio derivado) | 2026-08-05 |
+| B-15 | `src/lib/portfolio/prices.ts:51-53`, `prices.ts:106` | Higiene de tipos: double-cast `(data ?? []) as Array<...>` na leitura e `(supabase as any)` no upsert de `price_cache`. NÃO é bypass de segurança — RLS de `price_cache` activo + GRANT limitado a `authenticated`. Mesma família do B-13/B-08(resolvido); causa raiz = `database.ts` mantido à mão sem o marcador `__InternalSupabase` da inferência do postgrest-js v2. Resolve regenerando `database.ts` via Supabase CLI | M-03 AUDIT (cache persistente de preços) | 2026-08-06 |
 
 ---
 
@@ -46,6 +47,7 @@ Ao fechar um achado, adicionar: `→ Resolvido em: [nome da feature] (YYYY-MM-DD
 |----|---------|----------|------------------|------|
 | A-01 | `src/app/(auth)/passphrase/page.tsx:57` | Mensagem "Palavra-passe incorrecta" confirma existência do utilizador (user enumeration) | App single-user por design — risco desprezível | 2026-05-23 |
 | A-02 | `src/proxy.ts:15` | CSP com `style-src 'self' 'unsafe-inline'` — permite estilos inline, vector teórico de exfiltração via CSS injection | Necessário para o runtime do TailwindCSS v4 (injecta estilos inline); o resto do CSP é forte (script-src com nonce + strict-dynamic, object-src none, frame-ancestors none, HSTS via upgrade-insecure-requests). Sem input de utilizador renderizado como HTML/CSS não sanitizado. Achado M-04 do AUDIT. | 2026-08-05 |
+| A-03 | `supabase/migrations/0013_price_cache.sql:38-48` | RLS permissiva em `price_cache`: policies `TO authenticated USING(true)/WITH CHECK(true)` sem `user_id` — qualquer utilizador autenticado pode INSERT/UPDATE/DELETE qualquer linha (cache poisoning: alterar preço/nome de um ticker afecta o valor de portfólio mostrado a todos, até ao TTL). SEM vazamento de dados de utilizador: tabela não tem `user_id` nem PII; preço/nome de ticker são dados de mercado PÚBLICOS. | Aceite por design: app single-user (o único principal autenticado é o dono → poisoning é auto-infligido). Impacto adicional bounded: TTL de 15 min regenera a linha no próximo fetch ao Yahoo, CHECKs validam a linha (`price>0`, tamanhos de `currency`/`name`/`ticker`), GRANT só a `authenticated` (nada a `anon`). Restringir writes ao nível de RLS exigiria caminho de escrita via `service_role` (mudança arquitectural), sem ganho para app single-user. | 2026-08-06 |
 
 ---
 
@@ -81,5 +83,5 @@ A cada ciclo de desenvolvimento, após a auditoria:
 | Crítico   | 0       | 0          | 0       |
 | Alto      | 0       | 0          | 0       |
 | Médio     | 1       | 2          | 0       |
-| Baixo     | 9       | 5          | 2       |
-| **Total** | **10**  | **7**      | **2**   |
+| Baixo     | 10      | 5          | 3       |
+| **Total** | **11**  | **7**      | **3**   |

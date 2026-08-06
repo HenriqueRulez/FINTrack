@@ -17,17 +17,20 @@
 - ✅ **Etapas 1 e 2 CONCLUÍDAS (2026-08-05):** o ledger `transactions` é a fonte única com moeda base EUR (F-03/F-01), integridade no schema + API (A-01), e CRUD completo em `/transactions` verificado e2e no browser (F-05). Migrations `0010` (CHECKs) e `0011` (GRANTs) aplicadas ao Cloud. 30/30 testes unitários, typecheck/lint a zero.
 - ✅ **Etapa 3 CONCLUÍDA e com TODOS os gates passados (2026-08-05):** commit `973bcc0`. Todos os leitores (`dashboard`, `summary`, `holdings`, `movers`, `chart` + nova rota `performance`) derivam agora do ledger via `derivePortfolio` — **mocks e placeholders falsos eliminados** (F-04), realized P&L real do ledger (F-02), gráfico "Portfolio over time" reconstruído com carry-forward de closes e invested só a partir da 1ª compra (A-02). Tabela `portfolio_positions` **dropada** (migration `0012`, aplicada ao Cloud). UI **EUR em tudo** (toggle de moeda + FX mock removidos). A-03 coberto em dashboard/holdings/performance (banner de erro vs carteira vazia, aviso de preço indisponível). Bug apanhado no QA e corrigido: `PortfolioChart` deixou de cair para dados fabricados quando vazio. **Gates:** 36/36 unitários + typecheck/lint a zero; **QA** verificou o wire real no browser e reescreveu os specs e2e; **Security Review APROVADO** (0 crítico/alto/médio novos; fechou B-07/B-08/B-10/B-11; abriu B-13/B-14 higiene).
 - ⚠️ **Bloqueio de infra (não-código):** a suite e2e Playwright não corre — `E2E_PASSPHRASE=fintrack` em `.env.local` já não bate com a passphrase real do Cloud (rodada no C-01). Bloqueia TODOS os specs e2e. Desbloquear: pôr o valor real em `.env.local` ou criar utilizador de teste dedicado.
-- ✅ **Já resolvidos:** C-02, C-01, A-04, F-03, F-01, A-01, F-05, **F-04, F-02, A-02**. **Parcial:** A-03 (feito nas páginas do portfólio; falta varrer o resto). **Adiado:** M-01 (em expansão, 36 testes).
+- ✅ **Já resolvidos:** C-02, C-01, A-04, F-03, F-01, A-01, F-05, F-04, F-02, A-02, A-03, **M-02, M-03, M-04** — **14 dos 15 pontos**. **Adiado (contínuo):** M-01 (expansão de testes, já em 45 verdes). M-03 fechado em 2026-08-06 (cache persistente `price_cache`, migration `0013`, Security APROVADO).
 
 - ✅ **M-02 + M-04 FEITOS (2026-08-05):** commit `7413266`. M-02 (higiene, sem schema): double-casts removidos (B-13), middleware por segmento (B-12), purge/cap nos caches (B-03/04/05/14), logs por `err.message` (B-06/14), badge `TX_COUNT=13` do sidebar removida. M-04: CSP `unsafe-inline` documentado como aceite (`A-02` em SECURITY_FINDINGS).
 
 ### Estado dos 15 pontos
-| Resolvido | Adiado | Em aberto |
-|---|---|---|
-| C-02, C-01, A-04, F-03, F-01, A-01, F-05, F-04, F-02, A-02, M-02, M-04 | M-01, M-03† | A-03* |
+| Resolvido | Adiado (contínuo) |
+|---|---|
+| C-02, C-01, A-04, F-03, F-01, A-01, F-05, F-04, F-02, A-02, A-03, M-02, M-03, M-04 | M-01† |
 
-\* A-03: banner de erro/preço-indisponível implementado em `/dashboard`, `/holdings`, `/performance` (Etapa 3). Falta só varrer outras superfícies se existirem.
-† M-03: adiado por decisão do dono (cache persistente = tabela nova `price_cache`; só avança com OK explícito).
+**14 dos 15 pontos resolvidos** (2026-08-06). M-01 (testes da matemática financeira) fica em expansão contínua por decisão do dono — já em 45 testes (os 9 novos do M-03 incluídos).
+† A-03: varredura concluída (portfólio + `/transactions` cobertos; `/settings` n/a; `/tax-calculator` fora de escopo, ver `TODO.md` U-01).
+M-03: cache persistente `price_cache` (migration `0013`, GRANT a `authenticated`) via pipeline completa — Security APROVADO, 45 testes verdes.
+
+**E2E desbloqueado (2026-08-06):** user de teste dedicado + `auth.setup.ts` via `@supabase/ssr`; specs de dados passam em corrida limpa. Resta dívida de manutenção da suite (isolamento/specs desatualizados) — fora dos 15 pontos, registada em `TODO.md` G-05. Ver PRÓXIMO PASSO.
 
 ### Etapa 1 — Fundação: FEITA em código (2026-08-05)
 Decisões do dono (registadas): moeda base **EUR fixo**; `portfolio_positions` **é eliminada** (drop físico na Etapa 3, quando os leitores forem religados); metadata do ticker (name/asset_type/chart_var) **derivada** do Yahoo + determinística, sem tabela nova; âmbito da etapa = **só fundação** (sem mudança visível — o ledger está vazio até a Etapa 2).
@@ -37,19 +40,18 @@ Entregue e verificado (typecheck + lint a zero):
 - **F-01** — `getFxToEur()` em `src/lib/yahoo-finance/client.ts`: câmbio live moeda→EUR com cache 15 min.
 - **F-03** — `src/lib/portfolio/derive.ts` (puro, fonte única: ledger→holdings/sumário em EUR, preços injectáveis) + `src/lib/portfolio/prices.ts` (provider Yahoo+fx) + `tests/unit/derive.spec.ts` (9 testes).
 
-### 👉 PRÓXIMO PASSO (sessão parada aqui por decisão do dono — 2026-08-05)
+### 👉 PRÓXIMO PASSO (atualizado 2026-08-06)
 
-**O AUDIT está essencialmente encerrado: 13 dos 15 pontos fechados.** Etapas 1-4 concluídas (Etapa 4 = M-02 + M-04; M-03 adiado; M-01 em expansão contínua). Últimos commits na branch `claude/security-audit-finance-1i4vns`: `973bcc0` (Etapa 3), `7413266` (M-02+M-04), `ef1798d` (docs). **Só sobram 3 tarefas, e DUAS delas precisam de decisão/input do dono — não arrancar sem isso:**
+**Os 15 pontos do AUDIT estão fechados (14 resolvidos + M-01 em expansão contínua).** A-03 e M-03 fechados pela pipeline completa. O **E2E foi DESBLOQUEADO** (2026-08-06) — deixa de ser bloqueio:
 
-1. **M-03 — cache persistente de preços** ⚠️ *precisa de OK explícito do dono (é schema novo)*. Objetivo: tabela `price_cache (ticker, price, currency, fetched_at)` + uma única `getPricesFor(tickers)` partilhada por todas as rotas — reduz billing/risco de ban do Yahoo. **Se o dono autorizar:** correr `db-schema-designer` → `engineer`; a migration (próximo nº livre: `0013`) **TEM obrigatoriamente `GRANT SELECT/INSERT/UPDATE/DELETE ... authenticated`** na tabela nova, senão volta o erro `42501 permission denied` (lição das migrations 0001/0009 → corrigida no `0011`). Aplicar com `npx supabase db push`.
+1. **E2E desbloqueado** ✅ (2026-08-06). O dono criou um user de teste dedicado (`E2E_EMAIL`/`E2E_PASSPHRASE` em `.env.local`). Feito: `playwright.config.ts` carrega o `.env.local` via `@next/env`; `tests/e2e/auth.setup.ts` autentica o user de teste com o próprio `@supabase/ssr` e injecta os cookies de sessão (contorna o email fixo `owner@fintrack.local` da UI de login, sem tocar na conta real). **Prova de execução:** numa corrida limpa, as specs centrais de `/holdings` com dados reais passam (KPI strip, Realized P/L +50 € do ciclo MSFT, tabela 9 colunas, AAPL Shares/Avg/Invested/Portfolio%, sort, refresh) — valida F-02/F-03/F-04 end-to-end contra o Cloud.
 
-2. **Desbloquear o E2E** ⚠️ *precisa da passphrase real do dono*. `E2E_PASSPHRASE=fintrack` em `.env.local` está desatualizada (a passphrase do Cloud foi rodada no C-01). Bloqueia TODOS os specs Playwright (`auth.setup.ts` falha com "Palavra-passe incorrecta"). **Não adivinhar o segredo.** Desbloquear: o dono põe o valor real em `.env.local`, OU cria um utilizador de teste dedicado no Dashboard do Supabase e usa essas credenciais no setup. Os specs de `/holdings` e `/performance` já foram reescritos contra a UI nova (EUR-fixo, data-driven) e passam `tsc`+`eslint` — só falta poder correr para ter prova de execução.
-
-3. **A-03 (resto)** — pode arrancar sem input: o banner de erro / aviso de preço-indisponível está feito em `/dashboard`, `/holdings`, `/performance`. Varrer as restantes superfícies (`/settings`, `/tax-calculator`, `/transactions`) e aplicar o mesmo padrão onde uma falha silenciosa possa mostrar um valor falso.
+**⚠️ Dívida de manutenção da suite E2E (pré-existente, NÃO é um dos 15 pontos; registada em `TODO.md` G-05):** a suite completa não fica verde por defeitos das próprias specs, expostos agora que corre autenticada: (a) o teste de logout faz `signOut` global e revoga a sessão partilhada, envenenando todos os testes seguintes; (b) `transactions-ledger.spec` espera 13 transações mock da migration `0009` (removidas no F-04); (c) specs partilham um só ledger → contaminação de estado/flaky; (d) drift spec-vs-UI (empty/error-state, formato "| EUR", opacity, `.overflow-x-auto`). É uma passagem de manutenção de testes, não regressão de produto nem do M-03.
 
 **Lembretes operacionais (inalterados):**
 - Migrations → `npx supabase db push` (Cloud ligado); **não existe `db:backup`**. `database.ts` é mantido **à mão** (sem `gen types` contra o Cloud).
-- Testes unitários (a fonte de verdade da matemática financeira): `npx playwright test -c playwright.unit.config.ts` → **36 verdes**.
+- Testes unitários (a fonte de verdade da matemática financeira): `npx playwright test -c playwright.unit.config.ts` → **45 verdes** (36 + 9 do M-03).
+- E2E: user de teste dedicado em `.env.local` (`E2E_EMAIL`/`E2E_PASSPHRASE`); `npx playwright test`. Correr specs de dados em isolamento até a dívida de isolamento da suite ser tratada.
 - Toda rota nova segue o pattern canónico do `CLAUDE.md` (auth `getUser` → rate limit → Zod → `user_id` da sessão) e **toda tabela nova precisa de GRANT a `authenticated`**.
 - `npm run typecheck` e `npm run lint` a zero em cada passo; atualizar os status **neste ficheiro** ao fechar cada item.
 
@@ -166,7 +168,12 @@ Mesmo "ignorando" o `/projeto-fable-5`, o código está **deployado junto com o 
 
 ### A-03 · Falhas silenciosas mostram 0,00 € em vez de erro
 
-> **Status 2026-08-05: RESOLVIDO nas páginas do portfólio (Etapa 3).** `/dashboard`, `/holdings` e `/performance` distinguem agora três estados: erro (banner `role="alert"`, Hero recebe `null` — nunca €0 falso), carteira vazia (0 posições, zeros legítimos) e preços indisponíveis (`role="status"` / aviso por linha com `priceMissing`/`hasPriceGaps`). Falta apenas varrer outras superfícies fora do portfólio, se existirem.
+> **Status 2026-08-06: RESOLVIDO (varredura das restantes superfícies concluída).** Além do portfólio (Etapa 3), varridas `/settings`, `/transactions` e `/tax-calculator`:
+> - `/settings` — **n/a**: não faz fetch de dados financeiros (só `user.email`/`user.id` + toggle de animações), sem risco de valor falso silencioso.
+> - `/transactions` — **já cumpre**: `TransactionsPage.tsx` sinaliza `loadError` (banner no fetch) e `deleteError` (`role="alert"`) nas falhas de delete.
+> - `/tax-calculator` — **fora de escopo** (decisão do dono, 2026-08-06): página 100% mock (`SAMPLE_EVENTS_2026`/`EMPTY_EVENTS`), honest-empty por default, sample atrás de toggle rotulado. Registado como dívida em `TODO.md` (U-01), candidato a feature futura via pipeline.
+>
+> **Estado 2026-08-05 (portfólio):** `/dashboard`, `/holdings` e `/performance` distinguem três estados: erro (banner `role="alert"`, Hero recebe `null` — nunca €0 falso), carteira vazia (zeros legítimos) e preços indisponíveis (`role="status"` / aviso por linha com `priceMissing`/`hasPriceGaps`).
 
 - **Prova:** `dashboard/page.tsx` — `catch { return empty }` engole qualquer erro (DB fora, Yahoo fora) e renderiza patrimônio 0,00 €, indistinguível de uma carteira real a zero. `getQuote`/`getHistory` (`src/lib/yahoo-finance/client.ts:69,103`) devolvem `null`/`[]` em erro, e os callers usam fallback `avg_price` sem sinalizar.
 - **O que fazer:** distinguir "sem dados" de "erro": estado de erro na UI (banner "preços indisponíveis, valores desactualizados"), e nos KPIs marcar quando o preço usado é fallback (`price_updated_at` antigo). Num app financeiro, número silenciosamente errado é pior que erro visível.
@@ -197,6 +204,8 @@ Só há e2e Playwright (`tests/e2e/`) e specs do sandbox. Nenhum teste unitário
 - Rate limiter em memória sem purge (B-03) e caches Yahoo sem bound (B-04/B-05) — adicionar purge/LRU simples.
 
 ### M-03 · Preços: cache só em memória, refresh duplicado e sem dedupe entre rotas
+
+> **Status 2026-08-06: RESOLVIDO (autorizado pelo dono).** Tabela persistente `price_cache (ticker PK, price, currency, name, fetched_at)` criada na migration `0013` (RLS ligado, policies `TO authenticated`, GRANT obrigatório a `authenticated` — sem `anon`), aplicada ao Cloud. `yahooPriceProvider` (`src/lib/portfolio/prices.ts`) — o ponto único por onde todo o portfólio deriva preços via `derivePortfolio` — passa a ler o `price_cache` (TTL 15 min), só busca ao Yahoo os tickers em falta/stale, e faz upsert dos frescos; falha de DB cai em fallback ao Yahoo sem rebentar (loga só `err.message`). Câmbio fica fora da tabela (é por-moeda, não por-ticker; mantém cache em memória por moeda). **Gates:** 45 testes unitários verdes (9 novos em `tests/unit/prices.spec.ts` cobrindo hit/miss/stale/mix/fallback), typecheck/lint a zero; **Security Review APROVADO** (0 crítico/alto/médio; B-15 informacional de cast de tipos; cache poisoning aceite por design — app single-user, TTL, CHECKs); QA no browser sem regressão. **Fora do âmbito (follow-up registado):** `chart-data`/`day-pnl`/`movers`(sparklines)/`history`/`verify-ticker` continuam só com cache em memória do `client.ts` — não passam pelo provider.
 
 - **Prova:** `src/lib/yahoo-finance/client.ts` — caches em `Map` morrem a cada restart/deploy (cold start = rajada de chamadas ao Yahoo); dashboard, summary, chart e movers fazem cada um o seu fan-out de `getQuote`/`getHistory` por posição.
 - **O que fazer:** cache persistente de preços em tabela (o sandbox tinha `f5_price_cache` — o conceito é bom: `ticker, price, currency, fetched_at`, upsert com TTL) + uma única função `getPricesFor(tickers)` partilhada por todas as rotas. Reduz billing/risco de ban do Yahoo e acelera a UI — objetivo declarado do projeto.

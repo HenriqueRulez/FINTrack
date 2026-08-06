@@ -1,4 +1,9 @@
 import { defineConfig, devices } from "@playwright/test";
+import { loadEnvConfig } from "@next/env";
+
+// Carrega .env.local (E2E_EMAIL/E2E_PASSPHRASE + chaves do Supabase) na mesma
+// ordem que o Next — o Playwright não lê .env.local sozinho.
+loadEnvConfig(process.cwd());
 
 export default defineConfig({
   testDir: "./tests/e2e",
