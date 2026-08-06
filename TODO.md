@@ -90,7 +90,14 @@ Tarefa de **infra/CI** — sem UI e sem lógica de negócio, por isso `Designer`
 ## Verificação
 
 - [x] **Baseline local verde (2026-08-06):** correndo o gate exacto do CI localmente — `npm run typecheck` (exit 0), `npm run lint` (exit 0), `npx playwright test -c playwright.unit.config.ts` (**75 passed**). O primeiro run do CI vai passar verde; não há dívida pré-existente a limpar.
-- [ ] Primeiro run do CI passa verde numa PR de teste. **(requer push — ver "Passos manuais do utilizador")**
+- [x] **Push feito (2026-08-06):** branch `ci/deterministic-gate` está em `origin`. O trigger `push` (todas as branches) disparou o CI — run `31120160661` foi criado (Actions activo no repo).
+- [!] **BLOQUEIO CONFIRMADO — GitHub não atribui runner a esta conta (2026-08-06):** provado via API pública com DOIS runs consecutivos, ambos com o mesmo desfecho:
+  - Run `31120160661` (commit `0b57f5d`): `conclusion=failure`, job `cancelled`, `runner=[]`, 0 passos executados. Ficou ~15min sem runner e foi cancelado.
+  - Run `31121167352` (commit `624095a`, re-trigger deliberado): idêntico — `conclusion=failure`, job `cancelled`, `runner=[]`, 0 passos.
+  - Conclusão factual: NÃO é incidente transitório (dois runs, mesma assinatura) nem erro do `ci.yml` (Actions cria o run; nenhum passo chega a correr). É **estado da conta GitHub**: em repo público os runners hosted são grátis/ilimitados, logo runner nunca atribuído = **Actions restrito/suspenso na conta** (causa mais provável: billing — fatura em atraso ou limite de gasto a $0; ou conta por verificar).
+  - **Prova adicional com workflow smoke (`.github/workflows/smoke.yml`, um só `echo`, commit `4cf6978`):** o push NÃO criou nenhum run — `total_count` de runs do repo ficou em 2 (só os CI antigos), zero runs para `4cf6978`. Ou seja, o GitHub deixou de sequer AGENDAR runs (evolução: primeiro criava run sem runner → depois nem cria). Confirma que o problema não é o `ci.yml` nem os runners hosted, é o Actions desligado/suspenso na conta.
+  - **Acção do utilizador (única forma de destravar):** GitHub → Settings → Billing and plans (verificar fatura pendente / spending limit) e Settings → Actions → General (verificar se Actions está permitido / não "Disable actions"). Sem isto, NENHUM dos itens de verificação abaixo pode correr.
+  - URLs: https://github.com/HenriqueRulez/FINTrack/actions/runs/31120160661 · https://github.com/HenriqueRulez/FINTrack/actions/runs/31121167352 · https://github.com/HenriqueRulez/FINTrack/actions
 - [ ] Prova de que o gate morde: um push com um unit test propositadamente partido deixa o CI vermelho. **(requer push)**
 - [ ] Prova de que a branch protection morde: com o check vermelho, a PR de teste não permite merge; com verde, permite. **(requer branch protection configurada + push)**
 - [x] `.claude/agents/qa.md` sem execução de typecheck/lint (Fase 1, passo 15 da Fase 4 e template actualizados — feito 2026-08-06) e `CLAUDE.md` com a regra do CI registada (feito 2026-08-06).
