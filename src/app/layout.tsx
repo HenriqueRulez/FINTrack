@@ -22,7 +22,7 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" className={`dark ${ibmPlexMono.variable}`}>
       <body className="antialiased">
-        {children}
+        {children} teste
       </body>
     </html>
   );
