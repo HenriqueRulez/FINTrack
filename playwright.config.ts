@@ -34,7 +34,11 @@ export default defineConfig({
   webServer: {
     command: "npm run dev",
     url: "http://localhost:3000",
-    reuseExistingServer: true,
+    // Local: reutiliza um dev server já a correr (evita arrancar um segundo e
+    // colidir na porta 3000). CI: NUNCA reutiliza — arranca um server fresco por
+    // run e o Playwright mata-o no fim, garantindo ambiente limpo e determinístico
+    // (sem estado partilhado entre runs, sem processos órfãos).
+    reuseExistingServer: !process.env.CI,
     timeout: 60_000,
   },
 });

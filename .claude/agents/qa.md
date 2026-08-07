@@ -74,7 +74,17 @@ O input esperado é: **engineer_report_path** + **working_item_path** (ambos pas
 
 Se for o primeiro ciclo (nenhum relatório anterior), verifique todos os CAs normalmente.
 
-**Sempre execute esta fase** quando o servidor estiver online. Verifique antes: `curl -s -o /dev/null -w "%{http_code}" http://localhost:3000 2>&1`
+#### Servidor dev — ciclo de vida determinístico (owned pelo QA)
+
+> **NÃO arranque `npm run dev` numa janela destacada** (`Start-Process ... -NoExit -WindowStyle Normal` ou equivalente). Essa janela fica aberta para sempre e o `webServer` do Playwright (`reuseExistingServer: !CI`) reutiliza-a sem a matar — foi a **origem real dos processos `next dev` órfãos** acumulados. O servidor tem de ter um dono com fim de vida definido.
+
+Antes da Fase 2, garanta o servidor com este ciclo:
+
+1. Verifique se já há um server up: `curl -s -o /dev/null -w "%{http_code}" http://localhost:3000 2>&1`.
+   - **Se responder 200/3xx:** reutilize-o. **Não** arranque outro e **não** o mate no fim — não é seu.
+   - **Se estiver offline:** arranque-o você mesmo com a ferramenta Bash em `run_in_background`: `npm run dev`. Faça poll do `curl` até dar 200 (timeout ~60s). **Guarde o id do shell em background** — este server é OWNED pelo QA.
+2. O Playwright (Fase 3) reutiliza este mesmo server localmente (`reuseExistingServer: !process.env.CI` em `playwright.config.ts`) — não arranca um segundo nem mata o seu.
+3. **Teardown (obrigatório):** no fim da Fase 4, **se você arrancou o server**, pare o shell em background (KillShell no id guardado). Nunca deixe o `next dev` a correr entre ciclos.
 
 Se o servidor estiver online:
 
@@ -156,8 +166,9 @@ Se o servidor estiver online:
 
     > **Regra de ouro:** `APROVADO` exige evidência real da Chrome Extension. Se a extensão não correu, o máximo é `PARCIAL` — independentemente dos resultados Playwright.
 
-16. Guarde o relatório em `E:\Projetos\FINTrack\.claude\reports\qa-[nome-da-feature].md`
-17. Responda apenas com o caminho do relatório e o status geral: `APROVADO`, `PARCIAL` ou `REPROVADO`
+16. **Teardown do servidor:** se você arrancou o dev server na Fase 2 (`run_in_background`), pare-o agora (KillShell no id guardado). Se o server já estava up antes de você (reutilizado), não lhe toque. Nunca deixe `next dev` órfão.
+17. Guarde o relatório em `E:\Projetos\FINTrack\.claude\reports\qa-[nome-da-feature].md`
+18. Responda apenas com o caminho do relatório e o status geral: `APROVADO`, `PARCIAL` ou `REPROVADO`
 
 ## O que você NÃO faz
 
