@@ -231,6 +231,7 @@ Escolhida a alternativa de processo — abrir a PR **enquanto o run do CI do pus
 ### D1. Dev server do QA — arranque e paragem determinísticos
 
 - [ ] **Facto (memória do projecto):** o QA deixa dev server órfão após os ciclos — processos `next dev` acumulam-se. Corrigir na config e2e do Playwright: usar `webServer` (arranca o dev server se não estiver up, mata-o no fim, `reuseExistingServer: true` para dev local). Actualizar `qa.md` (Fase 2, passo "Sempre execute esta fase") para deixar de assumir servidor pré-existente.
+- **NOTA FACTUAL (verificado 2026-08-07):** `playwright.config.ts` linhas 34-39 **JÁ TEM** o bloco `webServer` (`command: npm run dev`, `url: localhost:3000`, `reuseExistingServer: true`, `timeout: 60_000`). Logo o D1 é MAIS ESTREITO do que o descrito acima — a base já existe. O que falta investigar/corrigir: (a) a origem real dos órfãos é provavelmente o `qa.md` a arrancar `next dev` À MÃO (fora do Playwright), que fica órfão; verificar e passar o QA a confiar no `webServer` do Playwright; (b) avaliar `reuseExistingServer: !process.env.CI` (em CI convém não reutilizar). NÃO recriar o `webServer` — já está lá.
 - **Ganho:** QA reprodutível de ambiente limpo + fim dos órfãos.
 
 ### D2. Auditoria periódica do gasto por agente — medir antes de optimizar mais
@@ -258,5 +259,7 @@ D1 em qualquer altura; D2 no fim de cada feature
 > **Estado 2026-08-07:** FEITOS e merged — **A2** (gh instalado+autenticado), **A4** (guard supply-chain no auto-heal do lockfile, PR #8), **A5** (job `security-audit`/`npm audit` no CI + reviewer lê do CI, PR #9), **A6** (decidido: opção processo — abrir a PR enquanto o run do push está `in_progress`; sem mudança de infra), **B1** (lint cobre `tests/`, PR #4), **B2** (script `test:unit` + `ci.yml` a usá-lo, PRs #4/#7), **B3** (`@types/node` ^24, PR #6). POR FAZER — **A1** (branch protection, acção do utilizador), **A3** (praticado, falta a regra no CLAUDE.md), **B4** (investigação), bloco **C** (E2E em CI), bloco **D** (robustez do processo).
 
 Itens B4, C1, D1 são pequenos e maioritariamente independentes — candidatos a uma única sessão de engineer. C2-C4 são a espinha da Fase 2 e merecem pipeline própria.
+
+> **PRÓXIMO PASSO ESCOLHIDO (2026-08-07):** bundle **B4 + C1 + D1**, cada um em branch+PR próprios (independentes; ordem flexível). Fluxo obrigatório: branch a partir de `main` limpa/sincronizada, 3 checks locais verdes (typecheck/lint/test:unit), PR aberta ENQUANTO o run do push está `in_progress` (regra do A6) para o auto-merge fechar sem rerun, CI verde confirmado por `gh run watch`, main sincronizada e branches apagadas. **NÃO tocar** em A1 (ação do utilizador), A3, self-check do Engineer, nem bloco C2-C4. Referências factuais: B4 = `npm run build` com env dummy → job não-required se limpo; C1 = `tests/e2e/csv-import.spec.ts:31` (`positions_export/trading212.csv` → `tests/fixtures/trading212.sample.csv`, já existe) + ajustar asserções aos valores da fixture; D1 = ver NOTA FACTUAL no item (webServer já existe, focar em `qa.md`).
 
 [ignorar essa linha]
