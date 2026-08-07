@@ -152,11 +152,12 @@ Actualizado 2026-08-07: o CI já está em `main` e verde — o ponto 1 (push) es
 - **Prova local (2026-08-07):** 5 cenários sintéticos contra o lockfile real — (T1) `@emnapi` version → verde; (T2) `zod` version → vermelho+diff; (T3) remover `peer:true` de react → verde (identidade intacta); (T4) cenário real (add `@emnapi/core` + remover `peer`/`dev` de 5 normais) → verde+warning; (T5) peer-flip benigno + bump malicioso de react juntos → vermelho, só `react` offender. Lockfile restaurado sem alterações. 3 checks determinísticos verdes (typecheck 0, lint 0, test:unit 75 passed) — o guard vive em `.github/scripts/`, fora do escopo de `eslint src tests` e do `tsc`.
 - **Porquê:** segurança de supply chain > conveniência. O auto-heal foi desenhado para UM caso crónico (TODO, secção 1b); o guard garante que continua restrito a drift sem código — e como o `npm ci` do CI falha em todo o run, o fallback e o guard são exercidos a cada run.
 
-### A5. `npm audit` como job do CI — tirar mais um passo determinístico de um agente
+### A5. `npm audit` como job do CI — tirar mais um passo determinístico de um agente — FEITO 2026-08-07
 
-- [ ] Novo job `security-audit` no `ci.yml`: `npm audit --audit-level=high`. Começa **não-required** (informativo); promover a required após ~2 semanas sem falsos vermelhos (CVEs novos pintam o audit de vermelho sem commit nenhum — observar a taxa antes de gatear).
-- [ ] Actualizar `.claude/agents/security-reviewer.md` (linhas 46-47, 103): deixa de executar `npm audit`; passa a ler o resultado do último run do CI (via `gh`, depende de A2) e a registá-lo no relatório com a referência do run.
-- **Facto:** o security-reviewer corre `npm audit --audit-level=high` a cada ciclo — determinístico, zero inteligência, pago em tokens. Mesma lógica da Fase 1: muda quem executa, não o que se verifica.
+- [x] Novo job `security-audit` (nome "Security audit") no `ci.yml`: `npm audit --audit-level=high`. Começa **não-required** (informativo); promover a required após ~2 semanas sem falsos vermelhos (CVEs novos pintam o audit de vermelho sem commit nenhum — observar a taxa antes de gatear). **FEITO** na branch `ci/security-audit`.
+- [x] Actualizar `.claude/agents/security-reviewer.md`: deixa de executar `npm audit`; passa a ler o resultado do último run do job "Security audit" via `gh` (`gh run list --workflow=ci.yml --limit 1` + `gh run view <id> --json jobs`) e a registá-lo no relatório com a referência do run (ID + URL). **FEITO.**
+- **Decisão de implementação (com prova, 2026-08-07):** o job **NÃO reutiliza** o auto-heal+guard do gate. `npm audit` lê apenas o `package-lock.json` — não precisa de `node_modules` nem de `npm ci`. Verificado localmente: `npm audit --audit-level=high` contra só o lockfile (sem `node_modules`) devolveu `found 0 vulnerabilities`, exit 0. Assim o job é só checkout@v5 + setup-node@v5 (Node 24, cache npm) + `npm audit` — evita duplicar a lógica frágil de instalação (goal explícito) e é mais rápido. Job SEPARADO/independente do "Deterministic gate" (não o toca).
+- **Facto:** o security-reviewer corria `npm audit --audit-level=high` a cada ciclo — determinístico, zero inteligência, pago em tokens. Mesma lógica da Fase 1: muda quem executa, não o que se verifica.
 
 ### A6. Auto-merge não dispara para PR aberta DEPOIS do CI correr — descoberto no B3 (2026-08-07)
 
@@ -244,8 +245,8 @@ C1 → C2 → C3 → C4 (sequencial — cada um é gate do seguinte)
 D1 em qualquer altura; D2 no fim de cada feature
 ```
 
-> **Estado 2026-08-07:** FEITOS e merged — **A2** (gh instalado+autenticado), **B1** (lint cobre `tests/`, PR #4), **B2** (script `test:unit` + `ci.yml` a usá-lo, PRs #4/#7), **B3** (`@types/node` ^24, PR #6). POR FAZER — **A1** (branch protection, acção do utilizador), **A3** (praticado, falta a regra no CLAUDE.md), **A4**, **A5**, **A6**, **B4** (investigação), bloco **C** (E2E em CI), bloco **D** (robustez do processo).
+> **Estado 2026-08-07:** FEITOS e merged — **A2** (gh instalado+autenticado), **A4** (guard supply-chain no auto-heal do lockfile, PR #8), **B1** (lint cobre `tests/`, PR #4), **B2** (script `test:unit` + `ci.yml` a usá-lo, PRs #4/#7), **B3** (`@types/node` ^24, PR #6). POR FAZER — **A1** (branch protection, acção do utilizador), **A3** (praticado, falta a regra no CLAUDE.md), **A5**, **A6**, **B4** (investigação), bloco **C** (E2E em CI), bloco **D** (robustez do processo).
 
-Itens A4, A5, A6, B4, C1, D1 são pequenos e maioritariamente independentes — candidatos a uma única sessão de engineer. C2-C4 são a espinha da Fase 2 e merecem pipeline própria.
+Itens A5, A6, B4, C1, D1 são pequenos e maioritariamente independentes — candidatos a uma única sessão de engineer. C2-C4 são a espinha da Fase 2 e merecem pipeline própria.
 
 [ignorar essa linha]

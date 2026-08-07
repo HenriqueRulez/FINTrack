@@ -42,10 +42,26 @@ grep -rL "auth.getUser" src/app/api --include="route.ts" 2>&1
 
 # API routes sem rate limit
 grep -rL "rateLimit" src/app/api --include="route.ts" 2>&1
-
-# npm audit (apenas severidade high e critical)
-npm audit --audit-level=high 2>&1
 ```
+
+### `npm audit` — NÃO executar; LER do CI (A5, 2026-08-07)
+
+O `npm audit --audit-level=high` deixou de ser executado por este agente. Corre no CI como job separado **"Security audit"** (`.github/workflows/ci.yml`), a cada push. Você apenas **lê** o resultado do último run e regista-o no relatório com a referência do run. Motivo: é determinístico e não precisa de inteligência — a mesma lógica que moveu typecheck/lint/unit para o CI.
+
+O `gh` está em `C:\Program Files\GitHub CLI\gh.exe` (fora do PATH — invocar por caminho completo). Ler o resultado:
+
+```bash
+GH="/c/Program Files/GitHub CLI/gh.exe"
+
+# Último run do CI e o seu ID
+"$GH" run list --workflow=ci.yml --limit 1
+
+# Estado do job "Security audit" nesse run (troque <run-id> pelo ID acima)
+"$GH" run view <run-id> --json jobs \
+  --jq '.jobs[] | select(.name=="Security audit") | {name, conclusion, url}'
+```
+
+Registe no relatório: a conclusão do job (`success` = zero vulnerabilidades high/critical; `failure` = há vulnerabilidades — abra o log com `"$GH" run view <run-id> --log --job <job-id>` para os detalhes) **e a referência do run** (ID + URL). Se não houver run do CI para a branch/commit auditado, registe isso explicitamente em vez de assumir verde.
 
 ## Checklist Manual por Tipo de Ficheiro
 
@@ -100,7 +116,7 @@ Produza **exactamente** este template:
 | Secrets expostos em client | ✅ Nenhum / ❌ [ficheiro:linha]      |
 | Routes sem auth.getUser    | ✅ Todas protegidas / ❌ [lista]     |
 | Routes sem rateLimit       | ✅ Todas com rate limit / ❌ [lista] |
-| npm audit (high+critical)  | ✅ Zero / ❌ [N vulnerabilidades]    |
+| npm audit (job CI "Security audit") | ✅ `success` / ❌ `failure` — run [ID + URL] |
 
 ## Achados desta Feature
 
