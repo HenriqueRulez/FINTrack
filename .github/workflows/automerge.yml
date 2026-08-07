@@ -1,0 +1,44 @@
+name: Auto-merge
+
+# Quando o CI (gate deterministico) passa numa branch com PR aberta para main,
+# o proprio GitHub faz squash merge e apaga a branch. Zero cliques, server-side.
+#
+# Bootstrap: workflow_run so dispara a partir da default branch, por isso este
+# ficheiro so fica activo depois de estar em `main` — a 1a PR que o adiciona e
+# merged a mao; as seguintes fazem-se sozinhas.
+#
+# Requisito unico (settings do repo): Settings -> Actions -> General ->
+# "Workflow permissions" = "Read and write permissions".
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  automerge:
+    # So corre se o CI passou, foi disparado por push (branch), e nao e a main.
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch != 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Squash-merge da PR desta branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          BRANCH: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          pr=$(gh pr list --head "$BRANCH" --base main --state open --json number --jq '.[0].number // empty')
+          if [ -z "$pr" ]; then
+            echo "Sem PR aberta de '$BRANCH' para main — nada a fazer."
+            exit 0
+          fi
+          echo "Auto-merge (squash) da PR #$pr da branch '$BRANCH'."
+          gh pr merge "$pr" --squash --delete-branch
