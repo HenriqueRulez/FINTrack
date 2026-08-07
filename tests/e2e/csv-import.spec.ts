@@ -87,7 +87,6 @@ test.describe.serial("csv-import — Trading212", () => {
     const ctx = await browser.newContext();
     const page = await ctx.newPage();
     const deleted = await wipeLedger(page);
-    // eslint-disable-next-line no-console
     console.log(`[csv-import setup] ledger limpo: ${deleted} transacção(ões) pré-existente(s) apagada(s).`);
     await ctx.close();
   });
