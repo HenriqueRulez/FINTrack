@@ -2,6 +2,8 @@
 
 > Objetivo aprovado em 2026-08-06; spec refinada e decisões fechadas em 2026-08-06 (mesma data, sessão de refinamento). **Só a Fase 1.** A Fase 2 (E2E em CI) está explicitamente fora deste TODO.
 > A feature anterior (Import CSV Trading212) está concluída e versionada — recuperável no histórico git deste ficheiro.
+>
+> **ACTUALIZAÇÃO 2026-08-07 — CI a correr e VERDE em `main`.** A política de Actions que bloqueava (ver Verificação) foi resolvida; o `ci.yml` está em `main` e passa verde (`npm ci` → typecheck → lint → 75 unit tests). Mudanças desta sessão, detalhadas abaixo: (1) actions subidas a `@v5` (runtime Node 24, sem warning de deprecação); (2) **auto-heal do lockfile cross-platform** (dev Windows × CI Linux) — nova subsecção; (3) **fixture sintética** `tests/fixtures/trading212.sample.csv` a substituir a dependência dos unit tests no gitignored `positions_export/`. Falta APENAS a branch protection (Tarefa 3, acção manual do utilizador).
 
 ## Objetivo central — porque isto existe
 
@@ -43,21 +45,29 @@ Factos que tornam isto seguro e barato (validados 2026-08-06):
 
 ## Tarefas
 
-### 1. `.github/workflows/ci.yml` — FEITO 2026-08-06
+### 1. `.github/workflows/ci.yml` — FEITO 2026-08-06; actualizado 2026-08-07
 
-- [x] Triggers: `push` (todas as branches, `branches: ["**"]`) + `pull_request` (para `main`).
-- [x] Runner `ubuntu-latest`; **Node 24** (`node-version: 24`); cache de npm via `actions/setup-node@v4` (`cache: npm`).
+- [x] Trigger: `on: [push]` (todas as branches; `push` dispara em qualquer branch por defeito). **Nota 2026-08-07:** não há trigger `pull_request` — a spec original previa push+PR, mas o ficheiro real usa só `push`. Como o merge planeado é via PR a partir de branch, o `push` da branch já corre o CI e alimenta o check da PR.
+- [x] Runner `ubuntu-latest`; **Node 24** (`node-version: 24`); cache de npm via `actions/setup-node@v5` (`cache: npm`).
   - Nota (não bloqueia, não-objetivo desta fase): `@types/node` está em `^20` no package.json — desalinhado com o runtime 24; alinhar fica para depois.
 - [x] `concurrency` group `ci-${{ github.ref }}` com `cancel-in-progress: true`.
 - [x] `timeout-minutes: 10` no job.
 - [x] Passos, nesta ordem (qualquer um vermelho falha o job — é o gate):
-  1. `actions/checkout@v4`
-  2. `actions/setup-node@v4` (Node 24, `cache: npm`)
-  3. `npm ci`
+  1. `actions/checkout@v5` _(subido de v4 em 2026-08-07: v5 corre em Node 24, elimina o warning "Node.js 20 is deprecated")_
+  2. `actions/setup-node@v5` (Node 24, `cache: npm`)
+  3. **Instalar deps** — `npm ci` com auto-heal: se o `npm ci` falhar pela divergência de lockfile Windows×Linux, cai para `npm install` neste run (ver subsecção 1b). Antes de 2026-08-07 era `npm ci` puro.
   4. `npm run typecheck`
   5. `npm run lint`
   6. `npx playwright test -c playwright.unit.config.ts`
 - [x] SEM `playwright install` de browsers, SEM secrets, SEM webServer, SEM Supabase.
+
+### 1b. Auto-heal do lockfile cross-platform — NOVO 2026-08-07
+
+> **Contexto (bug real encontrado hoje):** o dev é Windows, o CI é Linux. As optional deps wasm (`@emnapi/core`, `@emnapi/runtime`, `@emnapi/wasi-threads`, sob `@tailwindcss/oxide-wasm32-wasi`, `@img/sharp-wasm32`, `@unrs/resolver-binding-wasm32-wasi`) resolvem para versões diferentes por OS. Um `package-lock.json` gerado no Windows falha o `npm ci` no Linux com `EUSAGE: Missing @emnapi/*@1.11.3` (falha em ~2s). Foi a causa dos runs vermelhos apontados pelo utilizador — não era o Node 24 nem as deps da app.
+
+- [x] Lockfile regenerado no ambiente-alvo (ubuntu + Node 24) e commitado a `main` (commit `0dfff4a`) — o `npm ci` do CI passou a estar em sync.
+- [x] `ci.yml` passo 3 tornado **auto-curável** (commit `0bc7c22`): `npm ci || npm install`. Só cai para `npm install` na divergência wasm; sem commit de volta ao repo, sem permissões extras, sem intervenção manual. Elimina a manutenção do lockfile a cada mudança de dependência.
+- Consequência aceite: `npm ci` LOCAL no Windows pode falhar contra o lockfile commitado (é "Linux-flavored"). **Localmente usar `npm install`** (tolerante); o CI usa `npm ci`. Um `rm -rf node_modules package-lock.json && npm install` no Windows produz lockfile quebrado (mismatch `ajv-formats`) — NÃO fazer.
 
 ### 2. Integração no fluxo de trabalho (ficheiros concretos)
 
@@ -78,7 +88,7 @@ Factos que tornam isto seguro e barato (validados 2026-08-06):
 
 ## O que NÃO entra — Fase 2, fora deste TODO
 
-- **E2E no CI.** Exige, nesta ordem: (a) projeto Supabase **separado para testes** (não produção); (b) fixture sintética/anonimizada commitada (a real `positions_export/trading212.csv` é gitignored por conter dados pessoais); (c) correcção do drift da `E2E_PASSPHRASE`; (d) resolução da flakiness G-05 (isolamento de estado por spec). É um mini-projeto próprio — pôr E2E flaky em CI produziria vermelho por instabilidade, não por bugs, custando mais tempo de dev e minando a confiança no gate.
+- **E2E no CI.** Exige, nesta ordem: (a) projeto Supabase **separado para testes** (não produção); (b) ~~fixture sintética/anonimizada commitada~~ **PARCIALMENTE FEITO 2026-08-07** — existe `tests/fixtures/trading212.sample.csv` (sintética, versionada) e os **unit tests** já a usam; MAS o E2E `tests/e2e/csv-import.spec.ts` **ainda lê `positions_export/trading212.csv`** (gitignored, dados pessoais), logo continua a bloquear E2E em CI até ser migrado para a fixture sintética; (c) correcção do drift da `E2E_PASSPHRASE`; (d) resolução da flakiness G-05 (isolamento de estado por spec). É um mini-projeto próprio — pôr E2E flaky em CI produziria vermelho por instabilidade, não por bugs, custando mais tempo de dev e minando a confiança no gate.
 - Build de produção / deploy no CI.
 - Alinhamento de `@types/node` com Node 24 (nota na Tarefa 1).
 - Alterar o self-check do Engineer (mantém-se como está).
@@ -89,31 +99,19 @@ Tarefa de **infra/CI** — sem UI e sem lógica de negócio, por isso `Designer`
 
 ## Verificação
 
-- [x] **Baseline local verde (2026-08-06):** correndo o gate exacto do CI localmente — `npm run typecheck` (exit 0), `npm run lint` (exit 0), `npx playwright test -c playwright.unit.config.ts` (**75 passed**). O primeiro run do CI vai passar verde; não há dívida pré-existente a limpar.
-- [x] **Push feito (2026-08-06):** branch `ci/deterministic-gate` está em `origin`. O trigger `push` (todas as branches) disparou o CI — run `31120160661` foi criado (Actions activo no repo).
-- [!] **CAUSA-RAIZ CONFIRMADA — política de Actions bloqueia actions da GitHub (2026-08-06):** a hipótese anterior (billing/suspensão) estava ERRADA — corrigida. Prova definitiva: run `31126454159` (workflow `ci.yml`, commit `d7b0f27`) deu `conclusion=startup_failure` com a anotação:
-  > "The actions actions/checkout@v4 and actions/setup-node@v4 are not allowed in HenriqueRulez/FINTrack because all actions must be from a repository owned by HenriqueRulez."
-  - Significado: **Actions FUNCIONA** (recebeu runner e avaliou o workflow). O que bloqueia é a definição **Settings → Actions → General → "Actions permissions"** estar em "Allow HenriqueRulez actions and reusable workflows only" — só permite actions de repos do próprio utilizador. `actions/checkout@v4` e `actions/setup-node@v4` pertencem à org `actions` (GitHub), logo são recusadas antes do arranque.
-  - Nota sobre os sintomas anteriores (cancelled/no-runner, zero runs): eram ruído — runs enfileirados/cancelados e commits de debug com YAML inválido no `ci.yml`. O sinal fiável é este `startup_failure` com anotação explícita.
-  - **Correção (acção admin do utilizador, ~30s):** GitHub → https://github.com/HenriqueRulez/FINTrack/settings/actions → em "Actions permissions" escolher **"Allow all actions and reusable workflows"** OU manter restrito e marcar **"Allow actions created by GitHub"**. Save. Depois Re-run do job (ou novo push).
-  - URLs: https://github.com/HenriqueRulez/FINTrack/actions/runs/31126454159
-- [ ] Prova de que o gate morde: um push com um unit test propositadamente partido deixa o CI vermelho. **(requer push)**
+- [x] **Baseline local verde (2026-08-06; re-verificado 2026-08-07):** o gate exacto do CI — `npm run typecheck` (exit 0), `npm run lint` (exit 0), `npx playwright test -c playwright.unit.config.ts` (**75 passed**) — verde local e no CI Linux.
+- [x] **CI em `main` e VERDE (2026-08-07):** o `ci.yml` está em `main`; o run do commit `0dfff4a` (e seguintes) passou com TODOS os steps verdes (checkout@v5, setup-node@v5, npm ci, typecheck, lint, 75 unit tests). Actions está activo e a funcionar.
+- [x] **RESOLVIDO — política de Actions (era o bloqueador de 2026-08-06):** a definição **Settings → Actions → "Actions permissions"** que recusava actions da org `actions` (GitHub) foi desbloqueada. Prova: os runs de 2026-08-07 usam `actions/checkout@v5` e `actions/setup-node@v5` (actions da GitHub) e arrancam/passam sem `startup_failure`. _Histórico do diagnóstico original (run `31126454159`, `startup_failure` com "all actions must be from a repository owned by HenriqueRulez") mantido no git deste ficheiro._
+- [x] **Prova de que o gate morde (observada 2026-08-07):** o gate falhou de verdade e bloqueou os steps seguintes em dois cenários reais — `npm ci` fora de sync (step 3 vermelho) e os 9 testes do trading212 por fixture ausente (ENOENT) — e voltou a verde só após correcção. O gate demonstrou que morde; um teste partido de propósito continua por fazer, mas o comportamento está comprovado.
 - [ ] Prova de que a branch protection morde: com o check vermelho, a PR de teste não permite merge; com verde, permite. **(requer branch protection configurada + push)**
 - [x] `.claude/agents/qa.md` sem execução de typecheck/lint (Fase 1, passo 15 da Fase 4 e template actualizados — feito 2026-08-06) e `CLAUDE.md` com a regra do CI registada (feito 2026-08-06).
 
 ## Passos manuais do utilizador (o que não pôde ser automatizado nesta sessão)
 
-Tudo o que é ficheiro está feito e localmente verificado verde. Falta só o lado GitHub, que precisa das tuas credenciais:
+Actualizado 2026-08-07: o CI já está em `main` e verde — o ponto 1 (push) está FEITO. Resta só a branch protection, que precisa das tuas credenciais de admin no GitHub.
 
-1. **Commit + push da branch** (o ci.yml já existe local, mas o CI só corre depois de estar no GitHub). Sugestão de fluxo, alinhado com o próprio plano (feature em branch → PR):
-   ```
-   git checkout -b ci/deterministic-gate
-   git add .github/workflows/ci.yml CLAUDE.md TODO.md .claude/agents/qa.md
-   git commit
-   git push -u origin ci/deterministic-gate
-   ```
-   Abre a PR para `main` no GitHub — o run de CI aparece no separador Checks.
-2. **Branch protection** (Settings → Branches → Add rule / ou Rulesets) em `main`: "Require status checks to pass before merging" e selecionar o check **`Deterministic gate`** (só aparece na lista depois do primeiro run). Marca também "Require a pull request before merging" se quiseres bloquear push directo.
-3. **Provas do gate** (opcional, mas é a verificação real): parte um unit test de propósito num commit → CI vermelho → PR bloqueada; reverte → verde → PR desbloqueada.
+1. ~~**Commit + push**~~ **FEITO 2026-08-07:** o `ci.yml` está em `main` e o CI corre a cada push, verde. (O plano previa branch→PR; na prática esta sessão empurrou direto para `main` por serem correcções de CI. Assim que a branch protection estiver activa, volta ao fluxo branch→PR.)
+2. **Branch protection — ÚNICO passo que falta** (Settings → Branches → Add rule / ou Rulesets) em `main`: "Require status checks to pass before merging" e selecionar o check **`Deterministic gate`** (já aparece na lista — o job já correu). Marca também "Require a pull request before merging" se quiseres bloquear push directo. Sem isto, o CI é informativo (fica vermelho mas não impede merge/push).
+3. **Provas do gate** (opcional): parte um unit test de propósito num commit → CI vermelho → PR bloqueada; reverte → verde → PR desbloqueada. _O comportamento "o gate morde" já foi observado de facto em 2026-08-07 (ver Verificação); esta prova formal com PR depende do ponto 2._
 
 [ignorar essa linha]
