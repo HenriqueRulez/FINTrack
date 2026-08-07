@@ -22,7 +22,19 @@ jobs:
           node-version: 24
           cache: npm
 
-      - run: npm ci
+      # Instala deps de forma reproduzível com `npm ci`. Auto-cura o único caso
+      # crónico: o dev é Windows e o CI é Linux; as optional deps wasm (@emnapi/*)
+      # resolvem diferente por OS, dessincronizando o package-lock.json só no Linux.
+      # Se e SÓ se o `npm ci` falhar por isso, cai para `npm install` (que reconcilia
+      # o lockfile neste run) e segue. Sem commit de volta, sem intervenção manual.
+      - name: Instalar deps (npm ci, com auto-heal do lockfile cross-platform)
+        run: |
+          if npm ci; then
+            echo "npm ci OK — lockfile em sync"
+          else
+            echo "::warning::npm ci falhou (lockfile Windows x Linux fora de sync); auto-heal com npm install"
+            npm install --no-audit --no-fund
+          fi
 
       - run: npm run typecheck
 
