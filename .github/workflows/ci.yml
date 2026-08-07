@@ -48,3 +48,29 @@ jobs:
       - run: npm run lint
 
       - run: npm run test:unit
+
+  # Auditoria de supply chain (A5). Job SEPARADO e INDEPENDENTE do gate: corre em
+  # paralelo, o seu resultado não afeta o "Deterministic gate". Começa NÃO-REQUIRED
+  # / informativo — CVEs novos pintam este job de vermelho sem qualquer commit, por
+  # isso observa-se a taxa de falsos vermelhos antes de o tornar required (decisão
+  # futura registada no TODO, item A5).
+  #
+  # `npm audit` lê apenas o package-lock.json — NÃO precisa de node_modules nem de
+  # `npm ci`. Por isso este job NÃO reutiliza o auto-heal+guard do gate (evita
+  # duplicar lógica frágil de instalação): checkout + setup-node + audit directo.
+  # Verificado 2026-08-07: `npm audit --audit-level=high` só com o lockfile devolve
+  # "found 0 vulnerabilities", exit 0, sem node_modules.
+  security-audit:
+    name: Security audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: npm audit (severidade high+critical)
+        run: npm audit --audit-level=high
