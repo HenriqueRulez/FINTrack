@@ -159,12 +159,22 @@ Actualizado 2026-08-07: o CI já está em `main` e verde — o ponto 1 (push) es
 - **Decisão de implementação (com prova, 2026-08-07):** o job **NÃO reutiliza** o auto-heal+guard do gate. `npm audit` lê apenas o `package-lock.json` — não precisa de `node_modules` nem de `npm ci`. Verificado localmente: `npm audit --audit-level=high` contra só o lockfile (sem `node_modules`) devolveu `found 0 vulnerabilities`, exit 0. Assim o job é só checkout@v5 + setup-node@v5 (Node 24, cache npm) + `npm audit` — evita duplicar a lógica frágil de instalação (goal explícito) e é mais rápido. Job SEPARADO/independente do "Deterministic gate" (não o toca).
 - **Facto:** o security-reviewer corria `npm audit --audit-level=high` a cada ciclo — determinístico, zero inteligência, pago em tokens. Mesma lógica da Fase 1: muda quem executa, não o que se verifica.
 
-### A6. Auto-merge não dispara para PR aberta DEPOIS do CI correr — descoberto no B3 (2026-08-07)
+### A6. Auto-merge não dispara para PR aberta DEPOIS do CI correr — descoberto no B3 (2026-08-07) — DECIDIDO 2026-08-07: opção processo
 
-- [ ] `ci.yml` linha 5 corre só em `on: [push]`. O `automerge.yml` reage a `workflow_run` do CI. Fluxo típico do CLAUDE.md = push da branch → CI corre → **só depois** se abre a PR. Nessa ordem, o `workflow_run` do push já completou quando a PR ainda não existia; o `automerge` correu, não encontrou PR (`gh pr list` vazio), saiu 0 e **nunca mais re-dispara**. Resultado: PR fica aberta, verde e mergeable, mas parada.
-- **Prova (B3):** PR #6 ficou `OPEN/MERGEABLE/CLEAN` com o check `success`; o auto-merge não a tocou. Só fechou após **re-disparo manual** do run do CI (`gh run rerun 31174921198`) → novo `workflow_run` → `automerge` encontrou a PR #6 → squash-merge às 11:49:34.
-- **Fix proposto:** adicionar `pull_request` (para `main`) aos triggers do `ci.yml`, para que abrir a PR gere um run de CI cujo `workflow_run` acorda o `automerge`. Cuidado a validar: (a) o `concurrency: ci-${{ github.ref }}` + `cancel-in-progress` já existe para não duplicar runs push×PR — confirmar que o `ref` da PR e o do push não colidem de forma a cancelar o run errado; (b) o `if` do `automerge` exige `event == 'push'` (linha 27) — um `workflow_run` originado por `pull_request` traz `event == 'pull_request'` e seria **filtrado fora**; portanto o fix precisa de rever esse `if` (ou aceitar ambos os eventos) senão não resolve nada. **Investigar e decidir com prova antes de mexer** — mudança em CI, não às cegas.
-- **Alternativa mais barata:** deixar `ci.yml` como está e mudar o fluxo do orquestrador — abrir a PR **antes** do push, ou re-disparar o CI após abrir a PR (o que foi feito à mão no B3). Documentar a escolha aqui; é decisão de processo vs. infraestrutura.
+- [x] `ci.yml` linha 5 corre só em `on: [push]`. O `automerge.yml` reage a `workflow_run` do CI. Fluxo típico do CLAUDE.md = push da branch → CI corre → **só depois** se abre a PR. Nessa ordem, o `workflow_run` do push já completou quando a PR ainda não existia; o `automerge` correu, não encontrou PR (`gh pr list` vazio), saiu 0 e **nunca mais re-dispara**. Resultado: PR fica aberta, verde e mergeable, mas parada. **RESOLVIDO por processo (ver decisão abaixo).**
+
+#### Decisão (2026-08-07): **opção processo**, os workflows ficam como estão
+
+Escolhida a alternativa de processo — abrir a PR **enquanto o run do CI do push ainda está `in_progress`** (ou, se já completou, re-disparar com `gh run rerun <id>`). Nenhuma alteração a `ci.yml` nem a `automerge.yml`.
+
+**Porquê (com prova, não suposição):**
+
+- **A opção processo funciona sem intervenção manual — provado 2 vezes.** No B3 a PR #6 foi aberta DEPOIS do run do push completar → ficou parada e só fechou com `gh run rerun 31174921198` (re-disparo manual). Nesta sessão a **PR #9 (A5) foi aberta ENQUANTO o run do push `31190012853` estava `in_progress`** → o `workflow_run` desse run acordou o `automerge` (run `31190070504`, `success`, 14:55:52) → PR #9 `MERGED` 14:56:00 **sem nenhum `gh run rerun`**. A ordem "PR aberta antes do run completar" é o que resolve, e é barata (zero mudanças de infra).
+- **A opção infra sai mais cara e arriscada.** Adicionar `pull_request→main` ao `ci.yml` NÃO deduplica com o run do push: para `push`, `github.ref` = `refs/heads/<branch>`; para `pull_request`, `github.ref` = `refs/pull/<N>/merge` (factos documentados do GitHub). Como os refs diferem, o `concurrency: ci-${{ github.ref }}` + `cancel-in-progress` **não** cancela um contra o outro → passariam a correr DOIS runs completos (gate + security-audit) por cada push a uma branch com PR aberta. Isso **dobra o gasto de CI** — o oposto do objetivo-norte desta leva (minimizar tokens/minutos). Além disso, o `if` do `automerge` (linha 27, `event == 'push'`) filtraria fora o `workflow_run` originado por `pull_request` (que traz `event == 'pull_request'`), logo o fix infra exigiria também rever esse `if` — mais superfície, mais risco, para resolver um problema que o processo já resolve de graça.
+
+**Regra operacional (para o orquestrador):** ao mergear uma branch via PR, abrir a PR **antes de o run do CI do push completar** (na prática: `git push` e logo a seguir `gh pr create`, enquanto `gh run list` mostra o run `in_progress`). Se o run já tiver completado quando a PR abre, forçar novo `workflow_run` com `gh run rerun <run-id>` do run do push. Prova de sucesso: a PR auto-mergeia sem `gh pr merge` manual.
+
+- **Nota (carry-over):** a robustez definitiva desta ordem vive melhor numa regra escrita do fluxo do orquestrador; fica registada aqui no TODO conforme a decisão. Se um dia o custo de duplicação deixar de ser problema (ex.: CI muito curto), reavaliar a opção infra com concurrency reescrita (`group` comum a push×PR) — não é o caso hoje.
 
 ## Bloco B — Alargar a cobertura determinística (mesmo gate, mais dentes)
 
@@ -245,8 +255,8 @@ C1 → C2 → C3 → C4 (sequencial — cada um é gate do seguinte)
 D1 em qualquer altura; D2 no fim de cada feature
 ```
 
-> **Estado 2026-08-07:** FEITOS e merged — **A2** (gh instalado+autenticado), **A4** (guard supply-chain no auto-heal do lockfile, PR #8), **B1** (lint cobre `tests/`, PR #4), **B2** (script `test:unit` + `ci.yml` a usá-lo, PRs #4/#7), **B3** (`@types/node` ^24, PR #6). POR FAZER — **A1** (branch protection, acção do utilizador), **A3** (praticado, falta a regra no CLAUDE.md), **A5**, **A6**, **B4** (investigação), bloco **C** (E2E em CI), bloco **D** (robustez do processo).
+> **Estado 2026-08-07:** FEITOS e merged — **A2** (gh instalado+autenticado), **A4** (guard supply-chain no auto-heal do lockfile, PR #8), **A5** (job `security-audit`/`npm audit` no CI + reviewer lê do CI, PR #9), **A6** (decidido: opção processo — abrir a PR enquanto o run do push está `in_progress`; sem mudança de infra), **B1** (lint cobre `tests/`, PR #4), **B2** (script `test:unit` + `ci.yml` a usá-lo, PRs #4/#7), **B3** (`@types/node` ^24, PR #6). POR FAZER — **A1** (branch protection, acção do utilizador), **A3** (praticado, falta a regra no CLAUDE.md), **B4** (investigação), bloco **C** (E2E em CI), bloco **D** (robustez do processo).
 
-Itens A5, A6, B4, C1, D1 são pequenos e maioritariamente independentes — candidatos a uma única sessão de engineer. C2-C4 são a espinha da Fase 2 e merecem pipeline própria.
+Itens B4, C1, D1 são pequenos e maioritariamente independentes — candidatos a uma única sessão de engineer. C2-C4 são a espinha da Fase 2 e merecem pipeline própria.
 
 [ignorar essa linha]
