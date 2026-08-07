@@ -74,3 +74,46 @@ jobs:
 
       - name: npm audit (severidade high+critical)
         run: npm audit --audit-level=high
+
+  # Build de produção (B4). Job SEPARADO e INDEPENDENTE do gate: corre em paralelo,
+  # o seu resultado não afeta o "Deterministic gate". Começa NÃO-REQUIRED /
+  # informativo — promover a required é decisão futura registada no TODO (item B4).
+  #
+  # Porquê no CI: `next build` apanha erros que o typecheck NÃO vê — violações da
+  # fronteira servidor/cliente e imports de módulos `server-only` em Client
+  # Components (as regras de segurança do CLAUDE.md). O typecheck valida tipos; o
+  # build valida a compilação real e a divisão de bundles.
+  #
+  # SEM secrets reais: verificado 2026-08-07 (B4) que `next build` corre limpo
+  # (exit 0, 19 páginas estáticas geradas) num checkout sem `.env.local`, apenas com
+  # valores DUMMY para as env `NEXT_PUBLIC_*` que os clientes Supabase lêem. As
+  # chaves só são usadas em runtime (getUser/queries), nunca no build. Nenhuma chave
+  # real toca o CI. O job precisa de node_modules, por isso reutiliza o mesmo passo
+  # de instalação auto-curável+guard do gate (ao contrário do audit, que só lê o
+  # lockfile).
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://dummy.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: dummy-anon-key
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Instalar deps (npm ci, com auto-heal do lockfile cross-platform + guard)
+        run: |
+          if npm ci; then
+            echo "npm ci OK — lockfile em sync"
+          else
+            echo "::warning::npm ci falhou (lockfile Windows x Linux fora de sync); auto-heal com npm install"
+            npm install --no-audit --no-fund
+            node .github/scripts/lockfile-guard.mjs
+          fi
+
+      - run: npm run build
