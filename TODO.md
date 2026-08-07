@@ -1,4 +1,8 @@
-# FINTrack — CI Fase 1: gate determinístico em GitHub Actions
+# FINTrack — Pipeline & Qualidade
+
+> **2026-08-07 — nova leva definida.** A Fase 1 (gate determinístico no CI) está feita e verde em `main`; o registo completo mantém-se abaixo. A secção **"Próxima leva — Pipeline, robustez e qualidade"** no fim deste ficheiro define o trabalho seguinte: mais verificações determinísticas no CI (nunca no QA), robustez da automação e redução de gasto de tokens.
+
+## CI Fase 1: gate determinístico em GitHub Actions
 
 > Objetivo aprovado em 2026-08-06; spec refinada e decisões fechadas em 2026-08-06 (mesma data, sessão de refinamento). **Só a Fase 1.** A Fase 2 (E2E em CI) está explicitamente fora deste TODO.
 > A feature anterior (Import CSV Trading212) está concluída e versionada — recuperável no histórico git deste ficheiro.
@@ -113,5 +117,123 @@ Actualizado 2026-08-07: o CI já está em `main` e verde — o ponto 1 (push) es
 1. ~~**Commit + push**~~ **FEITO 2026-08-07:** o `ci.yml` está em `main` e o CI corre a cada push, verde. (O plano previa branch→PR; na prática esta sessão empurrou direto para `main` por serem correcções de CI. Assim que a branch protection estiver activa, volta ao fluxo branch→PR.)
 2. **Branch protection — ÚNICO passo que falta** (Settings → Branches → Add rule / ou Rulesets) em `main`: "Require status checks to pass before merging" e selecionar o check **`Deterministic gate`** (já aparece na lista — o job já correu). Marca também "Require a pull request before merging" se quiseres bloquear push directo. Sem isto, o CI é informativo (fica vermelho mas não impede merge/push).
 3. **Provas do gate** (opcional): parte um unit test de propósito num commit → CI vermelho → PR bloqueada; reverte → verde → PR desbloqueada. _O comportamento "o gate morde" já foi observado de facto em 2026-08-07 (ver Verificação); esta prova formal com PR depende do ponto 2._
+
+---
+
+# Próxima leva — Pipeline, robustez e qualidade (definida 2026-08-07)
+
+> Princípio inalterado: **tudo o que é determinístico corre no CI, nunca no QA.** Esta leva expande o gate, fecha buracos de robustez observados e corta mais gasto de tokens dos agentes. Cada item tem base factual verificada em 2026-08-07 (refs ficheiro:linha). Ordem = prioridade.
+
+## Bloco A — Fechar e endurecer o gate actual
+
+### A1. Branch protection em `main` (carry-over da Fase 1 — acção manual do utilizador)
+
+- [ ] O único passo que falta da Fase 1 (ver "Passos manuais do utilizador" acima). Sem isto o CI é informativo: vermelho não bloqueia merge nem push.
+- **Porquê primeiro:** todos os itens abaixo aumentam o gate; um gate que não morde não vale o investimento.
+
+### A2. Instalar `gh` CLI + autenticar — a base da robustez de automação
+
+- [ ] Instalar GitHub CLI no ambiente dev (Windows) e autenticar (`gh auth login`).
+- **Facto:** verificado 2026-08-06 — `gh` não existe neste ambiente (bash e PowerShell). Consequências actuais: branch protection não automatizável, status do CI não verificável em sessão, PRs criadas às cegas.
+- **O que desbloqueia:** (1) orquestrador confirma "CI verde" com facto (`gh run list --limit 1`) em vez de assumir — 1 comando barato substitui suposição; (2) branch protection configurável via `gh api` (fecha A1 sem UI); (3) fluxo branch→PR→merge automatizável de ponta a ponta.
+- **Verificação:** `gh run list` devolve os runs reais do repo.
+
+### A3. Passo pós-push obrigatório do orquestrador: confirmar o CI (depende de A2)
+
+- [ ] Adicionar ao fluxo de trabalho (CLAUDE.md, secção "Gate Determinístico"): após qualquer push, o orquestrador corre `gh run watch` (ou `gh run list --limit 1`) e regista o resultado real. Proibido declarar "CI verde" sem esse output.
+- **Porquê:** hoje o resultado do CI só é visível na UI do GitHub — o fecho do loop depende do utilizador ir ver. Robustez = o pipeline confirma-se a si próprio. Custo: ~zero tokens (um comando, output de 3 linhas).
+
+### A4. Guard no auto-heal do lockfile — não deixar o fallback esconder drift real
+
+- [ ] Endurecer o passo 3 do `ci.yml` (linhas 30-37): o fallback `npm install` hoje aceita **qualquer** divergência de lockfile, não só a wasm. Se um dia o lockfile dessincronizar por outra razão (dep adulterada, versão nova não commitada), o CI "cura" silenciosamente e fica verde com deps diferentes das versionadas.
+- **Como:** após o `npm install` do fallback, correr `git diff --stat package-lock.json` e falhar o job se o diff tocar em pacotes fora da lista conhecida (`@emnapi/*`, `@tailwindcss/oxide-wasm32-wasi`, `@img/sharp-wasm32`, `@unrs/resolver-binding-wasm32-wasi`). Divergência esperada → verde com warning (comportamento actual); divergência inesperada → vermelho com o diff no log.
+- **Porquê:** segurança de supply chain > conveniência. O auto-heal foi desenhado para UM caso crónico (TODO, secção 1b); o guard garante que continua restrito a esse caso.
+
+### A5. `npm audit` como job do CI — tirar mais um passo determinístico de um agente
+
+- [ ] Novo job `security-audit` no `ci.yml`: `npm audit --audit-level=high`. Começa **não-required** (informativo); promover a required após ~2 semanas sem falsos vermelhos (CVEs novos pintam o audit de vermelho sem commit nenhum — observar a taxa antes de gatear).
+- [ ] Actualizar `.claude/agents/security-reviewer.md` (linhas 46-47, 103): deixa de executar `npm audit`; passa a ler o resultado do último run do CI (via `gh`, depende de A2) e a registá-lo no relatório com a referência do run.
+- **Facto:** o security-reviewer corre `npm audit --audit-level=high` a cada ciclo — determinístico, zero inteligência, pago em tokens. Mesma lógica da Fase 1: muda quem executa, não o que se verifica.
+
+## Bloco B — Alargar a cobertura determinística (mesmo gate, mais dentes)
+
+### B1. Lint cobrir `tests/` — 21 ficheiros de teste sem lint hoje — FEITO 2026-08-07
+
+- [x] Mudar `package.json` linha 9: `"lint": "eslint src"` → `"lint": "eslint src tests"` e corrigir o que aparecer. **FEITO** na branch `ci/lint-tests` (commit `d10568b`).
+- **O que apareceu ao lintar `tests/`:** 0 errors, 1 warning — uma directiva `eslint-disable no-console` inútil em `tests/e2e/csv-import.spec.ts:90` (o flat config não activa `no-console`). Removida no mesmo commit.
+- **Facto:** `eslint src` deixa os 21 `.ts` de `tests/` (9 unit + 11 e2e + setup) fora do lint — o CI herda esse buraco (nota factual na secção "Escopo" da Fase 1). Testes são código: um `await` esquecido num spec passa em silêncio e vira flakiness.
+- **Verificação FEITA:** `npm run lint` local exit 0 com o novo escopo; **CI verde no push** — run `31171391257` (job "Deterministic gate", todos os steps `success`, incl. `npm run lint`). `npm run typecheck` (0) e unit tests (75 passed) também verdes local e no CI.
+
+### B2. Script `test:unit` — um comando canónico em vez de três cópias — PARCIAL 2026-08-07
+
+- [x] Adicionar a `package.json`: `"test:unit": "playwright test -c playwright.unit.config.ts"`. **FEITO** no commit `d10568b` (branch `ci/lint-tests`) — o script foi antecipado aqui porque a condição do goal de B1 o referenciava; decisão consciente do utilizador.
+- [ ] Substituir a invocação literal no `ci.yml` (linha 43) por `npm run test:unit`. **POR FAZER** — o `ci.yml` continua com `npx playwright test -c playwright.unit.config.ts` (intocado de propósito neste goal).
+- **Facto:** o comando `npx playwright test -c playwright.unit.config.ts` está hoje duplicado em `ci.yml`, no TODO e na prática local — três sítios para dessincronizar quando a config mudar de nome.
+
+### B3. Alinhar `@types/node` com o runtime Node 24
+
+- [ ] `package.json` linha 38: `@types/node` `^20` → `^24`. Rodar typecheck local + CI.
+- **Facto:** registado como nota na Tarefa 1 da Fase 1; o typecheck valida hoje contra tipos do Node 20 enquanto o CI corre Node 24 — APIs novas do 24 passariam despercebidas ou dariam falso erro.
+
+### B4. `next build` no CI — investigar e decidir (não implementar às cegas)
+
+- [ ] Investigar se `npm run build` corre sem secrets reais (as env `NEXT_PUBLIC_SUPABASE_URL`/anon key podem ser exigidas no build; testar com valores dummy). Se correr limpo: adicionar como job separado (não-required no início) — o build apanha erros que typecheck não vê (violações de fronteira server/client, imports de `server-only` em Client Components — exactamente as regras de segurança do CLAUDE.md). Se exigir secrets ou for instável: registar a conclusão aqui e fechar o item como "não vale".
+- **Custo estimado:** +2-4 min de CI grátis por push. **Decisão consciente, com prova, antes de gatear.**
+
+## Bloco C — Desbloquear E2E em CI (os pré-requisitos concretos da Fase 2)
+
+> A Fase 1 declarou E2E-em-CI fora de escopo por 4 bloqueadores. Esta leva ataca-os um a um, por ordem. **Nenhum E2E entra no gate required enquanto for flaky** — vermelho por instabilidade mina a confiança no gate.
+
+### C1. Migrar `csv-import.spec.ts` para a fixture sintética
+
+- [ ] `tests/e2e/csv-import.spec.ts:31` lê `positions_export/trading212.csv` (gitignored, dados pessoais). Trocar para `tests/fixtures/trading212.sample.csv` (sintética, versionada — os unit tests já a usam desde 2026-08-07) e ajustar as asserções aos valores da fixture.
+- **É o último spec com dependência de dados pessoais** — depois disto, todos os specs correm de um checkout limpo.
+
+### C2. Unificar as variáveis de ambiente do E2E — eliminar o drift
+
+- [ ] **Facto (drift real):** `auth.setup.ts:15-18` exige `E2E_EMAIL` **e** `E2E_PASSPHRASE` (aborta sem ambas), mas `qa.md` (Fase 3, passo 13) instrui apenas `E2E_PASSPHRASE=fintrack` — funciona só porque `E2E_EMAIL` vive em `.env.local`, invisível ao comando. Num checkout de CI, nada disto existe.
+- [ ] Definir UMA fonte de verdade: `.env.test` versionado com o utilizador de teste dedicado (email de teste + passphrase de teste — validar que NÃO são credenciais de produção antes de versionar; se forem, criar utilizador E2E próprio primeiro). `auth.setup.ts` carrega-o; `qa.md` deixa de prefixar vars à mão; o CI (futuro) usa o mesmo ficheiro.
+- **Verificação:** `npx playwright test tests/e2e/smoke.spec.ts` verde num shell limpo sem prefixo de vars.
+
+### C3. Matar a flakiness G-05 — isolamento de estado por spec
+
+- [ ] Dívida registada desde o AUDIT: specs partilham estado (dados criados por um spec aparecem noutro). Introduzir setup/teardown por spec (criar e apagar os próprios dados via API autenticada) ou reset de banco entre projects do Playwright. Medir: 3 runs completos consecutivos verdes localmente = critério de "estável".
+- **Gate de entrada para C4** — E2E instável não sobe para CI.
+
+### C4. Supabase efémero no runner + smoke E2E no CI
+
+- [ ] Depois de C1-C3: investigar `supabase start` (stack local via Docker) no runner ubuntu como banco efémero por run — elimina a necessidade de projeto Cloud de teste e de secrets no CI. Job novo (não-required) a correr **apenas** `smoke.spec.ts` + `auth.setup.ts` com browser instalado (`npx playwright install chromium --with-deps`).
+- [ ] Só depois de N runs estáveis: decidir alargar aos restantes specs e/ou promover a required. Cada promoção é decisão registada aqui, não automatismo.
+
+## Bloco D — Robustez do processo dos agentes (tokens + reprodutibilidade)
+
+### D1. Dev server do QA — arranque e paragem determinísticos
+
+- [ ] **Facto (memória do projecto):** o QA deixa dev server órfão após os ciclos — processos `next dev` acumulam-se. Corrigir na config e2e do Playwright: usar `webServer` (arranca o dev server se não estiver up, mata-o no fim, `reuseExistingServer: true` para dev local). Actualizar `qa.md` (Fase 2, passo "Sempre execute esta fase") para deixar de assumir servidor pré-existente.
+- **Ganho:** QA reprodutível de ambiente limpo + fim dos órfãos.
+
+### D2. Auditoria periódica do gasto por agente — medir antes de optimizar mais
+
+- [ ] Uma vez por leva: registar tokens consumidos por fase da pipeline (PO/Designer/Frontend/SM/Engineer/QA/Security) no fim de cada feature, numa tabela neste ficheiro. A Fase 1 nasceu de uma medição real (~166k tokens num ciclo de QA); sem números novos, a próxima optimização é palpite.
+- **Regra:** só se optimiza o que se mediu. Se a medição mostrar que o QA visual é agora o maior custo, esse é o próximo alvo — não antes.
+
+## O que NÃO entra nesta leva
+
+- Alterar o self-check do Engineer (typecheck+lint pós-implementação mantém-se — feedback imediato, decisão da Fase 1).
+- Regressão E2E completa no CI (só smoke, e só após C1-C3; alargamento é decisão futura registada).
+- Deploy/CD.
+- Badge de README (continua sem existir README; reabrir se um for criado).
+
+## Ordem de execução recomendada
+
+```
+A1 (utilizador) → A2 → A3 ─┐
+                            ├→ B1 → B2 → B3 → B4 (investigação)
+A4, A5 (paralelo a B)  ────┘
+C1 → C2 → C3 → C4 (sequencial — cada um é gate do seguinte)
+D1 em qualquer altura; D2 no fim de cada feature
+```
+
+Itens A4, A5, B1-B3, C1, D1 são pequenos e maioritariamente independentes — candidatos a uma única sessão de engineer. C2-C4 são a espinha da Fase 2 e merecem pipeline própria.
 
 [ignorar essa linha]
