@@ -196,19 +196,19 @@ Escolhida a alternativa de processo — abrir a PR **enquanto o run do CI do pus
 - [x] `package.json`: `@types/node` `^20` → `^24`. **FEITO E MERGED** (2026-08-07, PR #6 `ci/types-node-24` → `main`, squash `bfb103b`) — instalado `@types/node@24.13.3`, lockfile reconciliado; typecheck+lint+test:unit locais verdes (75 passed), zero erros de tipo revelados pelos tipos do Node 24. **CI verde confirmado** (job "Deterministic gate" do commit `96b77b5` = `success`, lido por GET público). Auto-merge server-side fechou a PR (ver nota A6 abaixo sobre o re-disparo manual que foi preciso).
 - **Facto:** registado como nota na Tarefa 1 da Fase 1; o typecheck valida hoje contra tipos do Node 20 enquanto o CI corre Node 24 — APIs novas do 24 passariam despercebidas ou dariam falso erro.
 
-### B4. `next build` no CI — investigar e decidir (não implementar às cegas)
+### B4. `next build` no CI — investigar e decidir (não implementar às cegas) — FEITO 2026-08-07
 
-- [ ] Investigar se `npm run build` corre sem secrets reais (as env `NEXT_PUBLIC_SUPABASE_URL`/anon key podem ser exigidas no build; testar com valores dummy). Se correr limpo: adicionar como job separado (não-required no início) — o build apanha erros que typecheck não vê (violações de fronteira server/client, imports de `server-only` em Client Components — exactamente as regras de segurança do CLAUDE.md). Se exigir secrets ou for instável: registar a conclusão aqui e fechar o item como "não vale".
+- [x] Investigar se `npm run build` corre sem secrets reais. **VALE A PENA — implementado** (branch `ci/build-investigation`, PR #12, merged). **Prova (2026-08-07):** build com `.env.local` movido de lado e apenas env `NEXT_PUBLIC_*` dummy → **exit 0**, compilação OK, **19 páginas estáticas geradas**, TypeScript verificado. As chaves Supabase/Anthropic só são usadas em runtime (getUser/queries), nunca no build. Novo job `build` (nome "Build") no `ci.yml`, **separado e independente** do "Deterministic gate", **não-required** (informativo). Reutiliza o passo de instalação auto-curável+guard do gate (o build precisa de `node_modules`, ao contrário do `npm audit`). CI verde confirmado por `gh run watch` (Build/Deterministic gate/Security audit = success); auto-merge fechou a PR sem rerun (A6). Promover a required = decisão futura registada.
 - **Custo estimado:** +2-4 min de CI grátis por push. **Decisão consciente, com prova, antes de gatear.**
 
 ## Bloco C — Desbloquear E2E em CI (os pré-requisitos concretos da Fase 2)
 
 > A Fase 1 declarou E2E-em-CI fora de escopo por 4 bloqueadores. Esta leva ataca-os um a um, por ordem. **Nenhum E2E entra no gate required enquanto for flaky** — vermelho por instabilidade mina a confiança no gate.
 
-### C1. Migrar `csv-import.spec.ts` para a fixture sintética
+### C1. Migrar `csv-import.spec.ts` para a fixture sintética — FEITO 2026-08-07
 
-- [ ] `tests/e2e/csv-import.spec.ts:31` lê `positions_export/trading212.csv` (gitignored, dados pessoais). Trocar para `tests/fixtures/trading212.sample.csv` (sintética, versionada — os unit tests já a usam desde 2026-08-07) e ajustar as asserções aos valores da fixture.
-- **É o último spec com dependência de dados pessoais** — depois disto, todos os specs correm de um checkout limpo.
+- [x] `tests/e2e/csv-import.spec.ts` migrado de `positions_export/trading212.csv` (gitignored, dados pessoais) para `tests/fixtures/trading212.sample.csv` (sintética, versionada). **FEITO** (branch `ci/e2e-fixture`, PR #13, merged). Asserções ajustadas aos valores reais da fixture: **8 linhas** (3 buy / 1 sell / 2 cash / 2 div; 0 duplicadas/ignoradas/erros) — espelham as já verificadas em `tests/unit/trading212.spec.ts`. NVDA buy 37.50 EUR e NVDA div 0.04 EUR mantêm-se (presentes na fixture). CI verde confirmado; auto-merge sem rerun.
+- **Era o último spec com dependência de dados pessoais** — depois disto, todos os specs correm de um checkout limpo.
 
 ### C2. Unificar as variáveis de ambiente do E2E — eliminar o drift
 
@@ -228,10 +228,10 @@ Escolhida a alternativa de processo — abrir a PR **enquanto o run do CI do pus
 
 ## Bloco D — Robustez do processo dos agentes (tokens + reprodutibilidade)
 
-### D1. Dev server do QA — arranque e paragem determinísticos
+### D1. Dev server do QA — arranque e paragem determinísticos — FEITO 2026-08-07
 
-- [ ] **Facto (memória do projecto):** o QA deixa dev server órfão após os ciclos — processos `next dev` acumulam-se. Corrigir na config e2e do Playwright: usar `webServer` (arranca o dev server se não estiver up, mata-o no fim, `reuseExistingServer: true` para dev local). Actualizar `qa.md` (Fase 2, passo "Sempre execute esta fase") para deixar de assumir servidor pré-existente.
-- **NOTA FACTUAL (verificado 2026-08-07):** `playwright.config.ts` linhas 34-39 **JÁ TEM** o bloco `webServer` (`command: npm run dev`, `url: localhost:3000`, `reuseExistingServer: true`, `timeout: 60_000`). Logo o D1 é MAIS ESTREITO do que o descrito acima — a base já existe. O que falta investigar/corrigir: (a) a origem real dos órfãos é provavelmente o `qa.md` a arrancar `next dev` À MÃO (fora do Playwright), que fica órfão; verificar e passar o QA a confiar no `webServer` do Playwright; (b) avaliar `reuseExistingServer: !process.env.CI` (em CI convém não reutilizar). NÃO recriar o `webServer` — já está lá.
+- [x] Corrigido (branch `qa/dev-server`, PR #14, merged). **Origem real dos órfãos identificada (facto, não suposição):** `.claude/settings.local.json` whitelistava lançar `npm run dev` numa **janela PowerShell destacada** (`Start-Process -NoExit -WindowStyle Normal`). A janela nunca era morta e o `webServer` do Playwright (`reuseExistingServer: true`) reutilizava-a sem a parar → processos `next dev` acumulavam entre ciclos. **NÃO era** o `qa.md` a arrancar à mão (o texto assumia um server pré-existente).
+- **Mudanças:** (a) `playwright.config.ts`: `reuseExistingServer: !process.env.CI` — local reutiliza um server up; CI arranca fresco por run e mata-o no fim; (b) `qa.md` (Fase 2): server passa a ter dono com fim de vida — QA reutiliza um up ou arranca via `run_in_background` (OWNED), com **teardown obrigatório** (KillShell) no fim da Fase 4; janela destacada proibida; (c) `settings.local.json`: removida a permissão da janela destacada (o enabler do padrão órfão). **Não recriou** o `webServer` — já existia.
 - **Ganho:** QA reprodutível de ambiente limpo + fim dos órfãos.
 
 ### D2. Auditoria periódica do gasto por agente — medir antes de optimizar mais
@@ -256,10 +256,10 @@ C1 → C2 → C3 → C4 (sequencial — cada um é gate do seguinte)
 D1 em qualquer altura; D2 no fim de cada feature
 ```
 
-> **Estado 2026-08-07:** FEITOS e merged — **A2** (gh instalado+autenticado), **A4** (guard supply-chain no auto-heal do lockfile, PR #8), **A5** (job `security-audit`/`npm audit` no CI + reviewer lê do CI, PR #9), **A6** (decidido: opção processo — abrir a PR enquanto o run do push está `in_progress`; sem mudança de infra), **B1** (lint cobre `tests/`, PR #4), **B2** (script `test:unit` + `ci.yml` a usá-lo, PRs #4/#7), **B3** (`@types/node` ^24, PR #6). POR FAZER — **A1** (branch protection, acção do utilizador), **A3** (praticado, falta a regra no CLAUDE.md), **B4** (investigação), bloco **C** (E2E em CI), bloco **D** (robustez do processo).
+> **Estado 2026-08-07:** FEITOS e merged — **A2** (gh instalado+autenticado), **A4** (guard supply-chain no auto-heal do lockfile, PR #8), **A5** (job `security-audit`/`npm audit` no CI + reviewer lê do CI, PR #9), **A6** (decidido: opção processo — abrir a PR enquanto o run do push está `in_progress`; sem mudança de infra), **B1** (lint cobre `tests/`, PR #4), **B2** (script `test:unit` + `ci.yml` a usá-lo, PRs #4/#7), **B3** (`@types/node` ^24, PR #6), **B4** (job `build` não-required no CI, PR #12), **C1** (csv-import.spec migrado para fixture sintética, PR #13), **D1** (dev server do QA determinístico, sem órfãos, PR #14). POR FAZER — **A1** (branch protection, acção do utilizador), **A3** (praticado, falta a regra no CLAUDE.md), bloco **C2-C4** (resto do E2E em CI), **D2** (auditoria de gasto por agente).
 
-Itens B4, C1, D1 são pequenos e maioritariamente independentes — candidatos a uma única sessão de engineer. C2-C4 são a espinha da Fase 2 e merecem pipeline própria.
+C2-C4 são a espinha da Fase 2 e merecem pipeline própria.
 
-> **PRÓXIMO PASSO ESCOLHIDO (2026-08-07):** bundle **B4 + C1 + D1**, cada um em branch+PR próprios (independentes; ordem flexível). Fluxo obrigatório: branch a partir de `main` limpa/sincronizada, 3 checks locais verdes (typecheck/lint/test:unit), PR aberta ENQUANTO o run do push está `in_progress` (regra do A6) para o auto-merge fechar sem rerun, CI verde confirmado por `gh run watch`, main sincronizada e branches apagadas. **NÃO tocar** em A1 (ação do utilizador), A3, self-check do Engineer, nem bloco C2-C4. Referências factuais: B4 = `npm run build` com env dummy → job não-required se limpo; C1 = `tests/e2e/csv-import.spec.ts:31` (`positions_export/trading212.csv` → `tests/fixtures/trading212.sample.csv`, já existe) + ajustar asserções aos valores da fixture; D1 = ver NOTA FACTUAL no item (webServer já existe, focar em `qa.md`).
+> **CONCLUÍDO (2026-08-07):** bundle **B4 + C1 + D1**, cada um em branch+PR próprios (PRs #12/#13/#14), todos merged pelo auto-merge sem rerun (regra A6 aplicada — PR aberta enquanto o run do push estava `in_progress`). 3 checks locais verdes por item + CI verde (Build/Deterministic gate/Security audit) confirmado por `gh run watch`; main sincronizada e branches apagadas a cada item. Não se tocou em A1, A3, self-check do Engineer, nem bloco C2-C4.
 
 [ignorar essa linha]
