@@ -172,7 +172,7 @@ Actualizado 2026-08-07: o CI já está em `main` e verde — o ponto 1 (push) es
 
 ### B3. Alinhar `@types/node` com o runtime Node 24
 
-- [ ] `package.json` linha 38: `@types/node` `^20` → `^24`. Rodar typecheck local + CI.
+- [x] `package.json`: `@types/node` `^20` → `^24`. **FEITO** (2026-08-07, branch `ci/types-node-24`) — instalado `@types/node@24.13.3`, lockfile reconciliado; typecheck+lint+test:unit locais verdes (75 passed), zero erros de tipo revelados pelos tipos do Node 24.
 - **Facto:** registado como nota na Tarefa 1 da Fase 1; o typecheck valida hoje contra tipos do Node 20 enquanto o CI corre Node 24 — APIs novas do 24 passariam despercebidas ou dariam falso erro.
 
 ### B4. `next build` no CI — investigar e decidir (não implementar às cegas)
