@@ -155,6 +155,13 @@ Actualizado 2026-08-07: o CI já está em `main` e verde — o ponto 1 (push) es
 - [ ] Actualizar `.claude/agents/security-reviewer.md` (linhas 46-47, 103): deixa de executar `npm audit`; passa a ler o resultado do último run do CI (via `gh`, depende de A2) e a registá-lo no relatório com a referência do run.
 - **Facto:** o security-reviewer corre `npm audit --audit-level=high` a cada ciclo — determinístico, zero inteligência, pago em tokens. Mesma lógica da Fase 1: muda quem executa, não o que se verifica.
 
+### A6. Auto-merge não dispara para PR aberta DEPOIS do CI correr — descoberto no B3 (2026-08-07)
+
+- [ ] `ci.yml` linha 5 corre só em `on: [push]`. O `automerge.yml` reage a `workflow_run` do CI. Fluxo típico do CLAUDE.md = push da branch → CI corre → **só depois** se abre a PR. Nessa ordem, o `workflow_run` do push já completou quando a PR ainda não existia; o `automerge` correu, não encontrou PR (`gh pr list` vazio), saiu 0 e **nunca mais re-dispara**. Resultado: PR fica aberta, verde e mergeable, mas parada.
+- **Prova (B3):** PR #6 ficou `OPEN/MERGEABLE/CLEAN` com o check `success`; o auto-merge não a tocou. Só fechou após **re-disparo manual** do run do CI (`gh run rerun 31174921198`) → novo `workflow_run` → `automerge` encontrou a PR #6 → squash-merge às 11:49:34.
+- **Fix proposto:** adicionar `pull_request` (para `main`) aos triggers do `ci.yml`, para que abrir a PR gere um run de CI cujo `workflow_run` acorda o `automerge`. Cuidado a validar: (a) o `concurrency: ci-${{ github.ref }}` + `cancel-in-progress` já existe para não duplicar runs push×PR — confirmar que o `ref` da PR e o do push não colidem de forma a cancelar o run errado; (b) o `if` do `automerge` exige `event == 'push'` (linha 27) — um `workflow_run` originado por `pull_request` traz `event == 'pull_request'` e seria **filtrado fora**; portanto o fix precisa de rever esse `if` (ou aceitar ambos os eventos) senão não resolve nada. **Investigar e decidir com prova antes de mexer** — mudança em CI, não às cegas.
+- **Alternativa mais barata:** deixar `ci.yml` como está e mudar o fluxo do orquestrador — abrir a PR **antes** do push, ou re-disparar o CI após abrir a PR (o que foi feito à mão no B3). Documentar a escolha aqui; é decisão de processo vs. infraestrutura.
+
 ## Bloco B — Alargar a cobertura determinística (mesmo gate, mais dentes)
 
 ### B1. Lint cobrir `tests/` — 21 ficheiros de teste sem lint hoje — FEITO 2026-08-07
@@ -167,12 +174,12 @@ Actualizado 2026-08-07: o CI já está em `main` e verde — o ponto 1 (push) es
 ### B2. Script `test:unit` — um comando canónico em vez de três cópias — PARCIAL 2026-08-07
 
 - [x] Adicionar a `package.json`: `"test:unit": "playwright test -c playwright.unit.config.ts"`. **FEITO** no commit `d10568b` (branch `ci/lint-tests`) — o script foi antecipado aqui porque a condição do goal de B1 o referenciava; decisão consciente do utilizador.
-- [ ] Substituir a invocação literal no `ci.yml` (linha 43) por `npm run test:unit`. **POR FAZER** — o `ci.yml` continua com `npx playwright test -c playwright.unit.config.ts` (intocado de propósito neste goal).
+- [x] Substituir a invocação literal no `ci.yml` (linha 43) por `npm run test:unit`. **FEITO E MERGED** (2026-08-07, PR `ci/testunit-canonico` → `main`) — o `ci.yml` passo 6 passa a chamar `npm run test:unit` (script canónico em `package.json:11` desde `d10568b`); os três checks locais verdes (typecheck 0, lint 0, test:unit 75 passed) e CI verde confirmado.
 - **Facto:** o comando `npx playwright test -c playwright.unit.config.ts` está hoje duplicado em `ci.yml`, no TODO e na prática local — três sítios para dessincronizar quando a config mudar de nome.
 
 ### B3. Alinhar `@types/node` com o runtime Node 24
 
-- [x] `package.json`: `@types/node` `^20` → `^24`. **FEITO** (2026-08-07, branch `ci/types-node-24`) — instalado `@types/node@24.13.3`, lockfile reconciliado; typecheck+lint+test:unit locais verdes (75 passed), zero erros de tipo revelados pelos tipos do Node 24.
+- [x] `package.json`: `@types/node` `^20` → `^24`. **FEITO E MERGED** (2026-08-07, PR #6 `ci/types-node-24` → `main`, squash `bfb103b`) — instalado `@types/node@24.13.3`, lockfile reconciliado; typecheck+lint+test:unit locais verdes (75 passed), zero erros de tipo revelados pelos tipos do Node 24. **CI verde confirmado** (job "Deterministic gate" do commit `96b77b5` = `success`, lido por GET público). Auto-merge server-side fechou a PR (ver nota A6 abaixo sobre o re-disparo manual que foi preciso).
 - **Facto:** registado como nota na Tarefa 1 da Fase 1; o typecheck valida hoje contra tipos do Node 20 enquanto o CI corre Node 24 — APIs novas do 24 passariam despercebidas ou dariam falso erro.
 
 ### B4. `next build` no CI — investigar e decidir (não implementar às cegas)
@@ -229,11 +236,11 @@ Actualizado 2026-08-07: o CI já está em `main` e verde — o ponto 1 (push) es
 ```
 A1 (utilizador) → A2 → A3 ─┐
                             ├→ B1 → B2 → B3 → B4 (investigação)
-A4, A5 (paralelo a B)  ────┘
+A4, A5, A6 (paralelo a B) ─┘
 C1 → C2 → C3 → C4 (sequencial — cada um é gate do seguinte)
 D1 em qualquer altura; D2 no fim de cada feature
 ```
 
-Itens A4, A5, B1-B3, C1, D1 são pequenos e maioritariamente independentes — candidatos a uma única sessão de engineer. C2-C4 são a espinha da Fase 2 e merecem pipeline própria.
+Itens A4, A5, A6, B1-B3, C1, D1 são pequenos e maioritariamente independentes — candidatos a uma única sessão de engineer. C2-C4 são a espinha da Fase 2 e merecem pipeline própria.
 
 [ignorar essa linha]
