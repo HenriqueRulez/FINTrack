@@ -27,13 +27,20 @@ jobs:
       # resolvem diferente por OS, dessincronizando o package-lock.json só no Linux.
       # Se e SÓ se o `npm ci` falhar por isso, cai para `npm install` (que reconcilia
       # o lockfile neste run) e segue. Sem commit de volta, sem intervenção manual.
-      - name: Instalar deps (npm ci, com auto-heal do lockfile cross-platform)
+      #
+      # GUARD (A4): o fallback `npm install` aceitava qualquer divergência de
+      # lockfile — mascarava drift real (dep adulterada, versão não commitada).
+      # `lockfile-guard.mjs` inspecciona QUE entradas mudaram e falha o job se o
+      # auto-heal tocar qualquer pacote fora da allowlist wasm conhecida. Só wasm
+      # → verde com warning (comportamento preservado); resto → vermelho com diff.
+      - name: Instalar deps (npm ci, com auto-heal do lockfile cross-platform + guard)
         run: |
           if npm ci; then
             echo "npm ci OK — lockfile em sync"
           else
             echo "::warning::npm ci falhou (lockfile Windows x Linux fora de sync); auto-heal com npm install"
             npm install --no-audit --no-fund
+            node .github/scripts/lockfile-guard.mjs
           fi
 
       - run: npm run typecheck
