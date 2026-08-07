@@ -133,21 +133,23 @@ Actualizado 2026-08-07: o CI já está em `main` e verde — o ponto 1 (push) es
 
 ### A2. Instalar `gh` CLI + autenticar — a base da robustez de automação
 
-- [ ] Instalar GitHub CLI no ambiente dev (Windows) e autenticar (`gh auth login`).
-- **Facto:** verificado 2026-08-06 — `gh` não existe neste ambiente (bash e PowerShell). Consequências actuais: branch protection não automatizável, status do CI não verificável em sessão, PRs criadas às cegas.
+- [x] Instalar GitHub CLI no ambiente dev (Windows) e autenticar (`gh auth login`). **FEITO 2026-08-07** — `gh` 2.97.0 instalado em `C:\Program Files\GitHub CLI\gh.exe` (fora do PATH; invocar por caminho completo) e autenticado no keyring (scopes `gist`/`read:org`/`repo`/`workflow`).
+- **Facto (histórico, já resolvido):** em 2026-08-06 `gh` não existia neste ambiente (bash e PowerShell). Desde 2026-08-07 existe e é usado de facto: PRs #6 e #7 criadas por `gh pr create`, CI confirmado por `gh run watch`/`gh run list`.
 - **O que desbloqueia:** (1) orquestrador confirma "CI verde" com facto (`gh run list --limit 1`) em vez de assumir — 1 comando barato substitui suposição; (2) branch protection configurável via `gh api` (fecha A1 sem UI); (3) fluxo branch→PR→merge automatizável de ponta a ponta.
-- **Verificação:** `gh run list` devolve os runs reais do repo.
+- **Verificação FEITA:** `gh run list --branch <branch>` devolveu os runs reais do repo (usado no B2-parte2, 2026-08-07).
 
 ### A3. Passo pós-push obrigatório do orquestrador: confirmar o CI (depende de A2)
 
 - [ ] Adicionar ao fluxo de trabalho (CLAUDE.md, secção "Gate Determinístico"): após qualquer push, o orquestrador corre `gh run watch` (ou `gh run list --limit 1`) e regista o resultado real. Proibido declarar "CI verde" sem esse output.
+- **Nota 2026-08-07:** o comportamento já foi praticado de facto nos B3 e B2-parte2 (CI confirmado por `gh run watch` antes de declarar verde), mas a **regra escrita no CLAUDE.md continua por adicionar** — é isso que fecha o checkbox.
 - **Porquê:** hoje o resultado do CI só é visível na UI do GitHub — o fecho do loop depende do utilizador ir ver. Robustez = o pipeline confirma-se a si próprio. Custo: ~zero tokens (um comando, output de 3 linhas).
 
 ### A4. Guard no auto-heal do lockfile — não deixar o fallback esconder drift real
 
-- [ ] Endurecer o passo 3 do `ci.yml` (linhas 30-37): o fallback `npm install` hoje aceita **qualquer** divergência de lockfile, não só a wasm. Se um dia o lockfile dessincronizar por outra razão (dep adulterada, versão nova não commitada), o CI "cura" silenciosamente e fica verde com deps diferentes das versionadas.
-- **Como:** após o `npm install` do fallback, correr `git diff --stat package-lock.json` e falhar o job se o diff tocar em pacotes fora da lista conhecida (`@emnapi/*`, `@tailwindcss/oxide-wasm32-wasi`, `@img/sharp-wasm32`, `@unrs/resolver-binding-wasm32-wasi`). Divergência esperada → verde com warning (comportamento actual); divergência inesperada → vermelho com o diff no log.
-- **Porquê:** segurança de supply chain > conveniência. O auto-heal foi desenhado para UM caso crónico (TODO, secção 1b); o guard garante que continua restrito a esse caso.
+- [x] Endurecer o passo 3 do `ci.yml` (linhas 30-37): o fallback `npm install` hoje aceita **qualquer** divergência de lockfile, não só a wasm. Se um dia o lockfile dessincronizar por outra razão (dep adulterada, versão nova não commitada), o CI "cura" silenciosamente e fica verde com deps diferentes das versionadas. **FEITO 2026-08-07** (branch `ci/lockfile-guard`).
+- **Como:** após o `npm install` do fallback, o passo chama `node .github/scripts/lockfile-guard.mjs`. O guard **não** usa `git diff --name-only` (que só diz que o ficheiro mudou) — parseia o mapa `packages` do lockfile commitado (`git show HEAD:package-lock.json`) vs o do disco já reconciliado, compara entrada a entrada, e extrai o nome real de cada pacote alterado (último segmento após o derradeiro `node_modules/`, para apanhar entradas aninhadas como `.../node_modules/@emnapi/core`). Allowlist casada por nome: `@emnapi/*` (core/runtime/wasi-threads), `@tailwindcss/oxide-wasm32-wasi`, `@img/sharp-wasm32`, `@unrs/resolver-binding-wasm32-wasi`. Divergência só nesses → exit 0 com `::warning::` (comportamento actual preservado); qualquer pacote fora → exit 1 com `::error::` + `git diff` do lockfile no log.
+- **Prova local (2026-08-07):** guard exercido em 3 cenários sintéticos contra o lockfile real — (T1) drift só em `@emnapi/wasi-threads` → exit 0 + warning; (T2) drift em `zod` → exit 1 + erro + diff; (T3) `@emnapi/core` aninhado + `zod` juntos → exit 1, `zod` marcado offender e wasm reconhecido como permitido. Lockfile restaurado sem alterações. Os 3 checks determinísticos continuam verdes (typecheck 0, lint 0, test:unit 75 passed) — o guard vive em `.github/scripts/`, fora do escopo de `eslint src tests` e do `tsc`.
+- **Porquê:** segurança de supply chain > conveniência. O auto-heal foi desenhado para UM caso crónico (TODO, secção 1b); o guard garante que continua restrito a esse caso — e como o `npm ci` do CI falha em todo o run (drift wasm), o fallback e o guard são exercidos a cada run.
 
 ### A5. `npm audit` como job do CI — tirar mais um passo determinístico de um agente
 
@@ -241,6 +243,8 @@ C1 → C2 → C3 → C4 (sequencial — cada um é gate do seguinte)
 D1 em qualquer altura; D2 no fim de cada feature
 ```
 
-Itens A4, A5, A6, B1-B3, C1, D1 são pequenos e maioritariamente independentes — candidatos a uma única sessão de engineer. C2-C4 são a espinha da Fase 2 e merecem pipeline própria.
+> **Estado 2026-08-07:** FEITOS e merged — **A2** (gh instalado+autenticado), **B1** (lint cobre `tests/`, PR #4), **B2** (script `test:unit` + `ci.yml` a usá-lo, PRs #4/#7), **B3** (`@types/node` ^24, PR #6). POR FAZER — **A1** (branch protection, acção do utilizador), **A3** (praticado, falta a regra no CLAUDE.md), **A4**, **A5**, **A6**, **B4** (investigação), bloco **C** (E2E em CI), bloco **D** (robustez do processo).
+
+Itens A4, A5, A6, B4, C1, D1 são pequenos e maioritariamente independentes — candidatos a uma única sessão de engineer. C2-C4 são a espinha da Fase 2 e merecem pipeline própria.
 
 [ignorar essa linha]
