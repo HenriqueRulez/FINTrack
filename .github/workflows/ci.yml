@@ -40,4 +40,4 @@ jobs:
 
       - run: npm run lint
 
-      - run: npx playwright test -c playwright.unit.config.ts
+      - run: npm run test:unit
