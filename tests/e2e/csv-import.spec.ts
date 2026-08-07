@@ -7,7 +7,7 @@
  *  CA3  — Contadores visíveis por estado
  *  CA6  — Confirmar grava só as "new"; tabela actualiza sem reload (cash/div incluídos)
  *  CA7  — Reimport do mesmo ficheiro: 0 novas, tudo duplicado (idempotência)
- *  CA8  — Fixture real: 38 buy / 5 sell / 5 cash / 8 div / 0 ignoradas / 0 erros
+ *  CA8  — Fixture sintética: 3 buy / 1 sell / 2 cash / 2 div / 0 ignoradas / 0 erros
  *  CA9  — fx do ficheiro: NVDA buy 2026-05-28 total 37.50 EUR; NVDA div 2026-06-26 total 0.04 EUR
  *  CA10 — Cash com label "Deposit", sinal positivo; dividendos sempre positivos
  *  CA11 — Fluxo manual "Add Manually" não afectado por esta feature (smoke check;
@@ -18,17 +18,22 @@
  * anterior (MSFT buy manual) — não pertence a esta feature. Para satisfazer a
  * pré-condição do CA8 ("ledger vazio"), o beforeAll desta suite APAGA todas as
  * transacções existentes do utilizador de teste antes de importar a fixture.
- * Isto deixa o ledger do utilizador de teste com as 56 entradas do Trading212 no
+ * Isto deixa o ledger do utilizador de teste com as 8 entradas da fixture no
  * fim da suite — qualquer spec de regressão que assuma uma seed diferente (ex.:
  * transactions-ledger.spec.ts espera 13 linhas específicas) fica desactualizado.
  * Reportado no relatório QA para o dono decidir re-seed.
+ *
+ * FIXTURE SINTÉTICA (C1, 2026-08-07): usa tests/fixtures/trading212.sample.csv —
+ * dados fictícios, versionada no repo, já partilhada com os unit tests. Substitui
+ * a dependência anterior de positions_export/trading212.csv (gitignored, dados
+ * pessoais). Era o último spec com dependência de dados pessoais.
  */
 
 import { test, expect, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-const FIXTURE_PATH = resolve(__dirname, "../../positions_export/trading212.csv");
+const FIXTURE_PATH = resolve(__dirname, "../fixtures/trading212.sample.csv");
 
 interface ApiTxRow {
   id: string;
@@ -126,10 +131,10 @@ test.describe.serial("csv-import — Trading212", () => {
     });
 
     // Contadores — a API classifica por status (new/duplicate/ignored/error),
-    // não por tipo. Verificamos o contador "Novas" = 56 (38+5+5+8), resto = 0.
+    // não por tipo. Verificamos o contador "Novas" = 8 (3+1+2+2), resto = 0.
     await expect(
       page.getByRole("button", { name: "Filtrar por Novas" })
-    ).toContainText("56");
+    ).toContainText("8");
     await expect(
       page.getByRole("button", { name: "Filtrar por Duplicadas" })
     ).toContainText("0");
@@ -144,13 +149,13 @@ test.describe.serial("csv-import — Trading212", () => {
     const stillEmpty = await getAllTransactions(page);
     expect(stillEmpty.length).toBe(0);
 
-    // Botão de confirmação mostra "Importar 56 novas"
+    // Botão de confirmação mostra "Importar 8 novas"
     await expect(
-      page.getByRole("button", { name: "Importar 56 novas" })
+      page.getByRole("button", { name: "Importar 8 novas" })
     ).toBeEnabled();
   });
 
-  test("CA6/CA8/CA9/CA10 — confirmar grava as 56 novas; tabela reflecte cash/div; fx do ficheiro", async ({
+  test("CA6/CA8/CA9/CA10 — confirmar grava as 8 novas; tabela reflecte cash/div; fx do ficheiro", async ({
     page,
   }) => {
     const before = await getAllTransactions(page);
@@ -162,35 +167,35 @@ test.describe.serial("csv-import — Trading212", () => {
       timeout: 15_000,
     });
 
-    await page.getByRole("button", { name: "Importar 56 novas" }).click();
+    await page.getByRole("button", { name: "Importar 8 novas" }).click();
 
     // Modal fecha sozinho após commit (sem toast, sem ecrã intermédio)
     await expect(page.getByRole("dialog")).not.toBeVisible({ timeout: 15_000 });
 
-    // CA6 — tabela actualiza sem reload: sobe o page size para 100 (default é
-    // 20 e paginaria as 56 linhas) e usa o "Total: N transactions" do footer,
-    // que reflecte o total filtrado (não o nº de linhas renderizadas na página).
+    // CA6 — tabela actualiza sem reload: sobe o page size para 100 (as 8 linhas
+    // cabem numa página) e usa o "Total: N transactions" do footer, que reflecte
+    // o total filtrado (não o nº de linhas renderizadas na página).
     await page.locator('select[aria-label="Transactions per page"]').selectOption("100");
     await page.getByRole("tab", { name: /All/i }).click();
-    await expect(page.getByText("Total:")).toContainText("56", { timeout: 10_000 });
-    await expect(page.locator("tbody tr")).toHaveCount(56, { timeout: 10_000 });
+    await expect(page.getByText("Total:")).toContainText("8", { timeout: 10_000 });
+    await expect(page.locator("tbody tr")).toHaveCount(8, { timeout: 10_000 });
 
     // CA6 — tabs Cash e Dividend também reflectem as novas entradas
     await page.getByRole("tab", { name: /Cash/i }).click();
-    await expect(page.locator("tbody tr")).toHaveCount(5);
+    await expect(page.locator("tbody tr")).toHaveCount(2);
     await page.getByRole("tab", { name: /Dividend/i }).click();
-    await expect(page.locator("tbody tr")).toHaveCount(8);
+    await expect(page.locator("tbody tr")).toHaveCount(2);
     await page.getByRole("tab", { name: /Buy.*Sell/i }).click();
-    await expect(page.locator("tbody tr")).toHaveCount(43); // 38 buy + 5 sell
+    await expect(page.locator("tbody tr")).toHaveCount(4); // 3 buy + 1 sell
 
     // Confirma via API (fonte de verdade) — contagens finais
     const all = await getAllTransactions(page);
-    expect(all.length).toBe(56);
+    expect(all.length).toBe(8);
     const byType = (t: string) => all.filter((r) => r.type === t);
-    expect(byType("buy").length).toBe(38);
-    expect(byType("sell").length).toBe(5);
-    expect(byType("cash").length).toBe(5);
-    expect(byType("div").length).toBe(8);
+    expect(byType("buy").length).toBe(3);
+    expect(byType("sell").length).toBe(1);
+    expect(byType("cash").length).toBe(2);
+    expect(byType("div").length).toBe(2);
 
     // CA9 — fx do ficheiro: NVDA buy 2026-05-28 total 37.50 EUR
     const nvdaBuy = all.find(
@@ -209,7 +214,7 @@ test.describe.serial("csv-import — Trading212", () => {
 
     // CA10 — cash: sinal positivo, label "Deposit" em vez de ticker
     const deposits = byType("cash");
-    expect(deposits.length).toBe(5);
+    expect(deposits.length).toBe(2);
     for (const d of deposits) {
       expect(d.total).toBeGreaterThan(0);
       expect(d.ticker).toBeNull();
@@ -226,9 +231,9 @@ test.describe.serial("csv-import — Trading212", () => {
   test("CA7 — reimportar o mesmo ficheiro: 0 novas, tudo duplicado", async ({
     page,
   }) => {
-    // Pré-condição: as 56 entradas do teste anterior já estão gravadas.
+    // Pré-condição: as 8 entradas do teste anterior já estão gravadas.
     const before = await getAllTransactions(page);
-    expect(before.length).toBe(56);
+    expect(before.length).toBe(8);
 
     await openImportModal(page);
     await page.locator('input[type="file"]').setInputFiles(FIXTURE_PATH);
@@ -243,7 +248,7 @@ test.describe.serial("csv-import — Trading212", () => {
     ).toContainText("0");
     await expect(
       page.getByRole("button", { name: "Filtrar por Duplicadas" })
-    ).toContainText("56");
+    ).toContainText("8");
     await expect(
       page.getByRole("button", { name: "Filtrar por Ignoradas" })
     ).toContainText("0");
@@ -256,9 +261,9 @@ test.describe.serial("csv-import — Trading212", () => {
     await expect(confirmBtn).toBeVisible();
     await expect(confirmBtn).toBeDisabled();
 
-    // Ledger continua com exactamente 56 — nenhuma duplicação criada
+    // Ledger continua com exactamente 8 — nenhuma duplicação criada
     const after = await getAllTransactions(page);
-    expect(after.length).toBe(56);
+    expect(after.length).toBe(8);
   });
 
   test("CA11 — fluxo manual 'Add Manually' continua a abrir o modal de criação (smoke)", async ({
@@ -293,9 +298,9 @@ test.describe.serial("csv-import — Trading212", () => {
   });
 });
 
-test("fixture real tem exactamente 56 linhas de dados (sanity do ficheiro em disco)", () => {
+test("fixture sintética tem exactamente 8 linhas de dados (sanity do ficheiro em disco)", () => {
   const text = readFileSync(FIXTURE_PATH, "utf8");
   const lines = text.split(/\r\n|\r|\n/).filter((l) => l.trim() !== "");
-  // 1 header + 56 linhas de dados
-  expect(lines.length).toBe(57);
+  // 1 header + 8 linhas de dados
+  expect(lines.length).toBe(9);
 });
