@@ -1,5 +1,6 @@
 // Testes unitários do mapper Trading212 (src/lib/import/trading212.ts) contra a
-// fixture real positions_export/trading212.csv. Funções puras, sem banco.
+// fixture sintética tests/fixtures/trading212.sample.csv — dados fictícios,
+// versionada no repo (roda no CI). Funções puras, sem banco.
 // Correr com: npx playwright test -c playwright.unit.config.ts
 
 import { readFileSync } from "node:fs";
@@ -13,7 +14,7 @@ import {
   type MapResult,
 } from "../../src/lib/import/trading212";
 
-const FIXTURE = resolve(__dirname, "../../positions_export/trading212.csv");
+const FIXTURE = resolve(__dirname, "../fixtures/trading212.sample.csv");
 
 function loadResults(): MapResult[] {
   const text = readFileSync(FIXTURE, "utf8");
@@ -37,23 +38,23 @@ test("actionToType cobre as correspondências fechadas", () => {
   expect(actionToType("Interest on cash")).toBeNull();
 });
 
-test("fixture real: contagens exactas 38 buy / 5 sell / 5 cash / 8 div / 0 ign / 0 err", () => {
+test("fixture: contagens exactas 3 buy / 1 sell / 2 cash / 2 div / 0 ign / 0 err", () => {
   const results = loadResults();
 
-  expect(results.length).toBe(56); // 56 linhas de dados
+  expect(results.length).toBe(8); // 8 linhas de dados
 
   const byStatus = { ok: 0, ignored: 0, error: 0 };
   for (const r of results) byStatus[r.status]++;
   expect(byStatus.ignored).toBe(0);
   expect(byStatus.error).toBe(0);
-  expect(byStatus.ok).toBe(56);
+  expect(byStatus.ok).toBe(8);
 
   const cs = candidates(results);
   const count = (t: string) => cs.filter((c) => c.type === t).length;
-  expect(count("buy")).toBe(38);
-  expect(count("sell")).toBe(5);
-  expect(count("cash")).toBe(5);
-  expect(count("div")).toBe(8);
+  expect(count("buy")).toBe(3);
+  expect(count("sell")).toBe(1);
+  expect(count("cash")).toBe(2);
+  expect(count("div")).toBe(2);
 });
 
 test("CA9: NVDA buy 2026-05-28 grava total 37.50 EUR", () => {
@@ -102,7 +103,7 @@ test("fx normalizado: dividend USD directo (~0.86 EUR/USD)", () => {
 test("cash: sem ticker, label descritivo, fx=1, total positivo", () => {
   const cs = candidates(loadResults());
   const deposits = cs.filter((c) => c.type === "cash");
-  expect(deposits.length).toBe(5);
+  expect(deposits.length).toBe(2);
   for (const d of deposits) {
     expect(d.ticker).toBeNull();
     expect(d.label).toBe("Deposit");
@@ -119,7 +120,7 @@ test("dividendos: total positivo, líquido, external_id sintético e estável", 
   const first = candidates(loadResults()).filter((c) => c.type === "div");
   const second = candidates(loadResults()).filter((c) => c.type === "div");
 
-  expect(first.length).toBe(8);
+  expect(first.length).toBe(2);
   for (const d of first) {
     expect(d.total).toBeGreaterThan(0);
     expect(d.withholding_tax).toBeGreaterThanOrEqual(0);

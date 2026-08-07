@@ -16,7 +16,8 @@
 //    próprio no ficheiro → external_id sintético e determinístico.
 //  - Arredondamentos: qty 8 casas; price/fee/total/withholding 4 casas.
 //
-// Testes unitários em tests/unit/trading212.spec.ts (fixture real).
+// Testes unitários em tests/unit/trading212.spec.ts (fixture sintética
+// versionada tests/fixtures/trading212.sample.csv).
 
 export type ImportLedgerType = "buy" | "sell" | "cash" | "div";
 

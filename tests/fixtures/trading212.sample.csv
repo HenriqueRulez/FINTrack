@@ -1,0 +1,9 @@
+Action,Time (UTC),ISIN,Ticker,Name,Notes,ID,No. of shares,Price / share,Currency (Price / share),Exchange rate,Result,Currency (Result),Total,Currency (Total),Withholding tax,Currency (Withholding tax),Charge amount,Currency (Charge amount),Deposit fee,Currency (Deposit fee),Currency conversion fee,Currency (Currency conversion fee)
+Deposit,2026-05-15 08:05:40+00:00,,,,Transaction ID: T1,DEP1,,,,,,,500.00,EUR,,,,,,,,
+Deposit,2026-05-20 09:00:00+00:00,,,,Transaction ID: T2,DEP2,,,,,,,1626.00,EUR,,,,,-0.89,EUR,,
+Market buy,2026-05-15 08:07:55+00:00,IE0003XJA0J9,WEBN,Amundi Prime All Country World (Acc),,B_WEBN,40.5910050300,12.3180000000,EUR,1.00000000,,,500.00,EUR,,,,,,,,
+Market buy,2026-05-28 14:30:00+00:00,US67066G1040,NVDA,NVIDIA,,B_NVDA,0.2500000000,174.0000000000,USD,1.16000000,,,37.50,EUR,,,,,,,,
+Market buy,2026-05-28 15:00:00+00:00,US7960508882,SMSN,Samsung Electronics (GDR),,B_SMSN,1.0000000000,34.8300000000,USD,1.16087974,,,30.00,EUR,,,,,,,,
+Market sell,2026-06-01 10:00:00+00:00,IE0003XJA0J9,WEBN,Amundi Prime All Country World (Acc),,S_WEBN,10.0000000000,13.0000000000,EUR,1.00000000,,,130.00,EUR,,,,,,,,
+Dividend (Dividend),2026-06-15 12:00:00+00:00,US02079K3059,GOOGL,Alphabet (Class A),,,5.0000000000,0.5000000000,USD,0.86077800,,,2.15,EUR,0.32,USD,,,,,,
+Dividend (Dividend),2026-06-26 12:00:00+00:00,US67066G1040,NVDA,NVIDIA,,,0.5000000000,0.1000000000,USD,0.86000000,,,0.04,EUR,,,,,,,,
