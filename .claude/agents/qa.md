@@ -8,6 +8,7 @@ tools:
   - Grep
   - Bash
   - Write
+  - Edit
   - ToolSearch
   - mcp__claude-in-chrome__tabs_context_mcp
   - mcp__claude-in-chrome__tabs_create_mcp
@@ -96,7 +97,7 @@ Se o servidor estiver online:
    ToolSearch: select:mcp__claude-in-chrome__browser_batch
    ```
 7. Obtenha o contexto do browser (`tabs_context_mcp`) e crie um novo tab (`tabs_create_mcp`)
-8. Faça login: navegue para `http://localhost:3000/passphrase`, escreva `fintrack`, clique Entrar
+8. Faça login: navegue para `http://localhost:3000/passphrase`, escreva a passphrase de teste — o valor de `E2E_PASSPHRASE` em `E:\Projetos\FINTrack\.env.test.local` (leia o ficheiro; se não existir, crie-o a partir de `.env.example`) — e clique Entrar
    - **Após cada `navigate`, confirme com `javascript_tool` que `window.location.href` é o esperado antes de prosseguir.** Tabs em `chrome://newtab/` não aceitam navegação directa e o `javascript_tool` falha com "Cannot access a chrome:// URL". Se o tab ficar em `chrome://`, crie um novo tab e tente de novo — não prossiga assumindo que a navegação tomou.
 9. Limpe os erros de console: `read_console_messages` com `clear: true` imediatamente após login
 10. Para cada CA visual identificado na Fase 0, navegue para a página relevante e verifique:
@@ -104,7 +105,7 @@ Se o servidor estiver online:
     - **Layout e visibilidade:** Use `find` para localizar elementos por selector ou texto; registe o resultado como evidência
     - **Presença de elementos:** Use `javascript_tool` para contar elementos, verificar classes CSS, ler propriedades computadas
     - **Erros de runtime:** Após cada interacção, leia `read_console_messages` com `onlyErrors: true`
-      - **Distinga ruído pré-existente de erros da feature:** erros não relacionados com a feature em teste — ex: `yahoo-finance` (`InvalidOptionsError`, `historical called with invalid options`), chaves duplicadas no Dashboard — **NÃO** reprovam esta feature. Registe-os como `[BUG]` no `TODO.md` (se ainda não existirem lá) e prossiga. Só erros causados pelos ficheiros desta feature contam para FAIL.
+      - **Distinga ruído pré-existente de erros da feature:** erros não relacionados com a feature em teste — ex: `yahoo-finance` (`InvalidOptionsError`, `historical called with invalid options`), chaves duplicadas no Dashboard — **NÃO** reprovam esta feature. Registe-os como linha em `E:\Projetos\FINTrack\.issues\bugs.md` (se ainda não existirem lá — `BUG-n` = `max+1`, colunas conforme `linear/docs/trabalhando-com-linear.md`) e prossiga. Só erros causados pelos ficheiros desta feature contam para FAIL.
     - **Animações:** Verifique se classes CSS mudam via `javascript_tool` antes e depois de interacções
     - Use `browser_batch` para agrupar acções sequenciais e ser eficiente
     - **NÃO usar `computer` nem `resize_window`** — estas ferramentas afectam o ecrã inteiro e podem interferir com outras janelas
@@ -115,12 +116,9 @@ Se o servidor estiver online:
 
 - Marque todos os CAs visuais como ⚠️ CHROME_SKIP
 - **O status máximo da feature é PARCIAL** — nunca APROVADO sem verificação visual
-- Adicione uma entrada no `TODO.md` em `E:\Projetos\FINTrack\TODO.md`, na secção `## Bugs`, com o formato:
+- Adicione uma linha em `E:\Projetos\FINTrack\.issues\bugs.md` (se ainda não existir; `BUG-n` = `max+1`), com o formato:
   ```
-  - [ ] **[QA-VISUAL]** Verificação visual pendente — [nome-da-feature]
-    - **O que falta:** Chrome Extension indisponível durante QA — CAs visuais não verificados: [lista de CAs]
-    - **Como resolver:** correr `/verify-feature [slug]` com Chrome Extension activa
-    - **Severity:** medium
+  | BUG-n | Verificação visual pendente — [nome-da-feature]: CAs não verificados [lista]; resolver com /verify-feature [slug] com Chrome Extension activa | Média | Aberto | [área da feature] | - |
   ```
 
 ### Fase 3 — Playwright (verificação funcional)
@@ -204,7 +202,7 @@ Produza **exactamente** este template:
 
 # QA Report — [Nome da Feature]
 
-**Working Item:** `.claude/working-items/[nome].md`
+**Working Item:** `.issues/details/[ID].md`
 **Relatório do Engineer:** `.claude/reports/[nome].md`
 **Testes Playwright criados:** `tests/e2e/[nome-da-feature].spec.ts`
 **Status Geral:** ✅ APROVADO / ❌ REPROVADO / ⚠️ PARCIAL

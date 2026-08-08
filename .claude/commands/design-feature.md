@@ -27,7 +27,7 @@ PIPELINE_MODE=true
 
 **Validação — guardar como `working_item_path`:**
 - `BLOCKED:` → "❌ **PO BLOQUEADO** — [motivo]. Fase interrompida." e pare.
-- Sem `.claude/working-items/` → "❌ **PO FALHOU** — [resposta completa]. Fase interrompida." e pare.
+- Sem `.issues/details/` → "❌ **PO FALHOU** — [resposta completa]. Fase interrompida." e pare.
 - Ficheiro não existe em disco → "❌ **PO FALHOU** — ficheiro não encontrado: [path]. Fase interrompida." e pare.
 
 ---

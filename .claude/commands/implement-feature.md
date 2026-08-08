@@ -11,7 +11,7 @@ O argumento recebido é o **slug da feature** (ex: `dashboard-charts`). Corra es
 Antes de qualquer passo, localizar os ficheiros deixados pela Fase 1 usando o slug recebido:
 
 ```
-working_item_path   → Glob ".claude/working-items/*[slug]*.md" → primeiro resultado
+working_item_path   → Glob ".issues/details/*[slug]*.md" → primeiro resultado
 design_report_path  → Glob ".claude/reports/design-*[slug]*.md" → primeiro resultado
 frontend_report_path→ Glob ".claude/reports/frontend-*[slug]*.md" → primeiro resultado
 ```

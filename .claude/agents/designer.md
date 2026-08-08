@@ -50,7 +50,7 @@ Produza **exactamente** este template:
 
 # Especificação Visual — [Nome da Feature]
 
-**Working Item:** `.claude/working-items/[nome].md`
+**Working Item:** `.issues/details/[ID].md`
 **DESIGN.md:** consultado ✅
 
 ## Resumo Visual

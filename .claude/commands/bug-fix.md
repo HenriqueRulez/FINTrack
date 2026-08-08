@@ -6,7 +6,8 @@ Execute o ciclo de correcção de bug para o problema descrito pelo utilizador. 
 
 O input pode ser:
 - Descrição directa do bug no argumento do comando
-- Referência a um item `[BUG]` no `TODO.md` — nesse caso, leia o ficheiro e extraia o primeiro item `- [ ] **[BUG]**` não concluído
+- Um ID `BUG-n` de `.issues/bugs.md` — nesse caso, leia a linha do índice e o detalhe `.issues/details/BUG-n-*.md` se existir
+- Sem argumento: use o primeiro `BUG-` de `.issues/bugs.md` com `Estado` = `Aberto`
 
 ## Variáveis de estado a manter entre passos
 
@@ -20,11 +21,11 @@ Informe: "**Bug Reporter — a estruturar relatório...**"
 
 Use o agente `bug-reporter` (subagent_type: "bug-reporter") passando a descrição do bug como input.
 
-- Output esperado: caminho no formato `.claude/bug-reports/*.md`
+- Output esperado: caminho no formato `.issues/details/BUG-*.md`
 
 **Validação obrigatória — guardar como `bug_report_path`:**
 - Se a resposta começar com `BLOCKED:` → emita "❌ **Bug Reporter BLOQUEADO** — [motivo exacto do BLOCKED]. A descrição do bug pode estar incompleta. Ciclo interrompido." e pare.
-- Se a resposta não contiver `.claude/bug-reports/` → emita "❌ **Bug Reporter FALHOU** — resposta inesperada: [resposta recebida completa]. Ciclo interrompido." e pare.
+- Se a resposta não contiver `.issues/details/BUG-` → emita "❌ **Bug Reporter FALHOU** — resposta inesperada: [resposta recebida completa]. Ciclo interrompido." e pare.
 - Tenta ler o ficheiro retornado. Se não existir → emita "❌ **Bug Reporter FALHOU** — path retornado mas ficheiro não encontrado em disco: [path]. Ciclo interrompido." e pare.
 - Se passou: guarda o path como `bug_report_path`.
 
@@ -33,7 +34,7 @@ Informe: "**Engineer — a corrigir o bug...**"
 
 Use o agente `engineer` (subagent_type: "engineer"). No prompt, inclua:
 - O `bug_report_path`
-- Instrução explícita: **"Está em modo BUG-FIX. O input não é um plano de tarefas do SM — é um bug report em `.claude/bug-reports/`. Leia o bug report no caminho indicado, identifique a root cause no codebase, corrija o problema, e produza o relatório em `.claude/reports/fix-[slug].md`."**
+- Instrução explícita: **"Está em modo BUG-FIX. O input não é um plano de tarefas do SM — é um bug report em `.issues/details/`. Leia o bug report no caminho indicado, identifique a root cause no codebase, corrija o problema, e produza o relatório em `.claude/reports/fix-[slug].md`."**
 
 - Output esperado: caminho no formato `.claude/reports/fix-*.md`
 
@@ -51,7 +52,7 @@ Informe: "**QA — a verificar a correcção...**"
 Use o agente `qa` (subagent_type: "qa"). No prompt, inclua:
 - O `engineer_report_path`
 - O `bug_report_path` **no lugar do working_item_path** — o bug report contém os critérios de aceite para a correcção
-- Instrução explícita: **"Está em modo BUG-FIX. O 'working item' é o bug report em `.claude/bug-reports/`. Verifique se os critérios de aceite do bug report foram satisfeitos e se não há regressões."**
+- Instrução explícita: **"Está em modo BUG-FIX. O 'working item' é o bug report em `.issues/details/`. Verifique se os critérios de aceite do bug report foram satisfeitos e se não há regressões."**
 
 - Output esperado: caminho `.claude/reports/qa-fix-*.md` + exactamente uma das palavras: `APROVADO`, `PARCIAL` ou `REPROVADO`
 
@@ -64,7 +65,7 @@ Use o agente `qa` (subagent_type: "qa"). No prompt, inclua:
 
 **Contagem de ciclos:** O ciclo Engineer→QA pode correr no máximo **3 vezes no total** (a primeira tentativa conta como ciclo 1).
 
-**Se APROVADO:** avançar para o resumo final.
+**Se APROVADO:** actualizar o `Estado` do bug na tabela `.issues/bugs.md` para `Resolvido` (com `*` — ex. `Resolvido*` — se a linha já tiver Linear ID preenchido; ver `linear/docs/trabalhando-com-linear.md`). Depois avançar para o resumo final. **Não** sincronizar com o Linear — o sync é sempre acção explícita do utilizador.
 
 **Se PARCIAL ou REPROVADO e ciclos < 3:**
 - Informe: "⚠️ **QA encontrou problemas — Engineer a corrigir (ciclo N de 3)...**"

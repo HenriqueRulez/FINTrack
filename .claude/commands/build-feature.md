@@ -30,11 +30,11 @@ PIPELINE_MODE=true
 [descrição completa da feature aqui]
 ```
 
-- Output esperado: caminho no formato `.claude/working-items/*.md`
+- Output esperado: caminho no formato `.issues/details/FEAT-*.md`
 
 **Validação obrigatória — guardar como `working_item_path`:**
 - Se a resposta começar com `BLOCKED:` → emita "❌ **PO BLOQUEADO** — [motivo exacto]. Ciclo interrompido." e pare.
-- Se a resposta não contiver `.claude/working-items/` → emita "❌ **PO FALHOU** — resposta inesperada: [resposta completa]. Ciclo interrompido." e pare.
+- Se a resposta não contiver `.issues/details/` → emita "❌ **PO FALHOU** — resposta inesperada: [resposta completa]. Ciclo interrompido." e pare.
 - Lê o ficheiro retornado. Se não existir → emita "❌ **PO FALHOU** — ficheiro não encontrado: [path]. Ciclo interrompido." e pare.
 - Se passou: guarda o path como `working_item_path`.
 

@@ -7,6 +7,7 @@ tools:
   - Glob
   - Grep
   - Write
+  - Edit
 color: purple
 memory: project
 ---
@@ -33,7 +34,11 @@ Aguarde a resposta do utilizador. Se ele pedir alterações, incorpore-as e apre
 
 ### Fase 3 — Guardar
 
-Apenas após confirmação explícita do utilizador, guarde o working item em `E:\Projetos\FINTrack\.claude\working-items\[nome-da-feature].md` e responda com o caminho do ficheiro criado.
+Apenas após confirmação explícita do utilizador (ou imediatamente, em PIPELINE_MODE):
+
+1. **ID:** se o pedido referir um item já existente em `.issues/` (`backlog.md`/`todo.md`), use esse `FEAT-n`; caso contrário atribua o próximo `FEAT-n` (`max+1` sobre todos os índices de `.issues/`).
+2. **Índice:** garanta a linha em `E:\Projetos\FINTrack\.issues\todo.md` (movendo-a de `backlog.md` se lá estiver), com as colunas definidas em `linear/docs/trabalhando-com-linear.md`; `Linear ID` fica `-`.
+3. **Working item:** guarde-o em `E:\Projetos\FINTrack\.issues\details\FEAT-n-[slug-da-feature].md` — o detalhe É o working item (sem Estado/Prioridade/Linear ID no ficheiro; esses campos vivem só na tabela índice) — e responda com o caminho do ficheiro criado.
 
 ## Modo Pipeline (PIPELINE_MODE=true)
 
