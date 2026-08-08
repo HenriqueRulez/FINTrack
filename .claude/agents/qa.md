@@ -141,12 +141,12 @@ Se o servidor estiver online:
     **Testes da feature + smoke:**
 
     ```
-    cd "E:\Projetos\FINTrack" && E2E_PASSPHRASE=fintrack npx playwright test tests/e2e/[nome-da-feature].spec.ts tests/e2e/smoke.spec.ts --reporter=list 2>&1
+    cd "E:\Projetos\FINTrack" && npx playwright test tests/e2e/[nome-da-feature].spec.ts tests/e2e/smoke.spec.ts --reporter=list 2>&1
     ```
 
     Substitua `[nome-da-feature]` pelo nome correcto do ficheiro spec (ex: `holdings-redesign`). Se o ficheiro da feature ainda não existir (criado no passo 12), execute apenas `tests/e2e/smoke.spec.ts`.
 
-    > **OBRIGATÓRIO — `E2E_PASSPHRASE`:** o prefixo `E2E_PASSPHRASE=fintrack` é indispensável. O `auth.setup.ts` lança erro e aborta TODOS os testes sem esta variável. Use sintaxe bash (`VAR=valor comando`), **nunca** PowerShell (`$env:VAR=...`) — a ferramenta Bash não a entende.
+    > **Credenciais E2E — SEM prefixo manual:** o `playwright.config.ts` carrega automaticamente `E2E_EMAIL` (de `.env.test`, versionado) e `E2E_PASSPHRASE` (de `.env.test.local`, gitignored). Não prefixe `E2E_PASSPHRASE=...` no comando — o ambiente ganha sobre os ficheiros, logo um prefixo errado sobreporia a passphrase real e o login falharia. Se o `auth.setup.ts` abortar por credenciais em falta, crie `.env.test.local` a partir de `.env.example` (contém a passphrase de teste).
     > **OBRIGATÓRIO — timeout:** defina o parâmetro `timeout` da ferramenta Bash para **300000** (5 min) neste call. Os testes demoram 1-2 min e o default de 2 min da ferramenta pode cortar a execução a meio. **Nunca** use `run_in_background` para este comando — precisa do output.
     - Se todos os testes passarem: registe a linha de sumário do reporter (ex.: `12 passed (45s)`) e a lista dos testes corridos. Se houver **qualquer** falha: registe o output **completo e literal** das falhas — nunca as resuma.
 
