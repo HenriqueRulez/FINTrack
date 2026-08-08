@@ -213,7 +213,8 @@ Escolhida a alternativa de processo — abrir a PR **enquanto o run do CI do pus
 ### C2. Unificar as variáveis de ambiente do E2E — eliminar o drift
 
 - [ ] **Facto (drift real):** `auth.setup.ts:15-18` exige `E2E_EMAIL` **e** `E2E_PASSPHRASE` (aborta sem ambas), mas `qa.md` (Fase 3, passo 13) instrui apenas `E2E_PASSPHRASE=fintrack` — funciona só porque `E2E_EMAIL` vive em `.env.local`, invisível ao comando. Num checkout de CI, nada disto existe.
-- [ ] Definir UMA fonte de verdade: `.env.test` versionado com o utilizador de teste dedicado (email de teste + passphrase de teste — validar que NÃO são credenciais de produção antes de versionar; se forem, criar utilizador E2E próprio primeiro). `auth.setup.ts` carrega-o; `qa.md` deixa de prefixar vars à mão; o CI (futuro) usa o mesmo ficheiro.
+- [ ] Definir UMA fonte de verdade: `.env.test` versionado com o utilizador de teste dedicado (email de teste + passphrase de teste). `auth.setup.ts` carrega-o; `qa.md` deixa de prefixar vars à mão; o CI (futuro) usa o mesmo ficheiro.
+- **BLOQUEADOR DE SEGURANÇA (facto verificado 2026-08-07):** `auth.setup.ts:14-15,39` faz `signInWithPassword` com `E2E_EMAIL`/`E2E_PASSPHRASE` contra o **Supabase Cloud real** (usa `NEXT_PUBLIC_SUPABASE_URL`/anon key). Ou seja, essas vars são **credenciais reais de um utilizador Cloud**, não uma passphrase inócua. O **repo é público** e o `.gitignore` (linhas 34-39) ignora `.env`/`.env.local`/`.env.test.local` mas **NÃO** `.env.test`. Logo, versionar `.env.test` com essas credenciais = **leak de credenciais funcionais** num repo público — viola a regra "never commit secrets" do CLAUDE.md. **Resolução correcta:** o `.env.test` só é seguro versionado se a passphrase for descartável e apontar ao **Supabase efémero local do C4** (utilizador semeado por migration/seed, sem valor contra o Cloud) — o que acopla C2 a C4. Alternativa até lá: `.env.test` versiona só `E2E_EMAIL` + defaults não-secretos; a `E2E_PASSPHRASE` real vem de `.env.test.local` (gitignored) localmente e de secret no CI. **Decidir antes de versionar qualquer credencial.**
 - **Verificação:** `npx playwright test tests/e2e/smoke.spec.ts` verde num shell limpo sem prefixo de vars.
 
 ### C3. Matar a flakiness G-05 — isolamento de estado por spec
@@ -261,5 +262,13 @@ D1 em qualquer altura; D2 no fim de cada feature
 C2-C4 são a espinha da Fase 2 e merecem pipeline própria.
 
 > **CONCLUÍDO (2026-08-07):** bundle **B4 + C1 + D1**, cada um em branch+PR próprios (PRs #12/#13/#14), todos merged pelo auto-merge sem rerun (regra A6 aplicada — PR aberta enquanto o run do push estava `in_progress`). 3 checks locais verdes por item + CI verde (Build/Deterministic gate/Security audit) confirmado por `gh run watch`; main sincronizada e branches apagadas a cada item. Não se tocou em A1, A3, self-check do Engineer, nem bloco C2-C4.
+
+> **PRÓXIMO PASSO ESCOLHIDO (2026-08-07):** **bloco C completo — C2 → C3 → C4** (E2E em CI de ponta a ponta), agora desbloqueado pelo C1 (todos os specs correm de checkout limpo). É sequencial: cada item é gate do seguinte. Pipeline própria, não um bundle de PRs paralelos como o anterior.
+>
+> - **C2 (unificar env do E2E):** resolver o BLOQUEADOR DE SEGURANÇA acima ANTES de versionar qualquer credencial (repo público + `auth.setup.ts` autentica no Cloud real). Provável decisão: adiar o `.env.test` com passphrase real para o C4 (Supabase efémero local com utilizador semeado) e, até lá, versionar só `E2E_EMAIL`/defaults não-secretos. Fim do drift `qa.md` × `auth.setup.ts`. Verificação: `smoke.spec.ts` verde num shell limpo sem prefixo de vars.
+> - **C3 (matar flakiness G-05):** isolamento de estado por spec (setup/teardown próprios ou reset entre projects). Critério de estável: 3 runs completos consecutivos verdes localmente. Gate de entrada do C4.
+> - **C4 (Supabase efémero + smoke E2E no CI):** `supabase start` (Docker) no runner ubuntu como banco por run; job novo NÃO-required a correr só `auth.setup.ts` + `smoke.spec.ts` com `npx playwright install chromium --with-deps`. Promoção a required = decisão futura registada, nunca automática.
+>
+> **Fluxo obrigatório (inalterado):** branch a partir de `main` limpa/sincronizada por passo, 3 checks locais verdes (typecheck/lint/test:unit), PR aberta ENQUANTO o run do push está `in_progress` (regra A6) para o auto-merge fechar sem rerun, CI verde confirmado por `gh run watch`, main sincronizada e branches apagadas. `gh` em `C:\Program Files\GitHub CLI\gh.exe` (fora do PATH). **NÃO tocar** em A1 (acção do utilizador), A3, self-check do Engineer, nem bloco D.
 
 [ignorar essa linha]
