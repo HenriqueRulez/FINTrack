@@ -33,7 +33,6 @@ Ao fechar um achado, adicionar: `→ Resolvido em: [nome da feature] (YYYY-MM-DD
 | B-05 | `src/lib/yahoo-finance/client.ts:45` | `historyCache` (Map) para dados históricos sem limite de entradas — memory leak potencial idêntico ao B-04. Negligível para app pessoal com <100 tickers | Portfolio Aggregated View | 2026-05-23 |
 | B-06 | `src/lib/yahoo-finance/client.ts:104` | `console.error` em `getHistory` loga ticker + objecto de erro completo do Yahoo Finance (stack trace) nos logs do servidor. Risco baixo: ticker é validado por Zod, log é server-side | Portfolio Aggregated View | 2026-05-23 |
 | B-09 | `src/hooks/useAnimations.ts:8`, `src/components/settings/AnimationsToggle.tsx:8` | `useState(true)` como valor inicial antes de ler localStorage — flash visual de animações durante hidratação SSR→client se utilizador as tiver desactivado. Sem impacto de segurança | Dashboard Visual Redesign | 2026-05-26 |
-| B-12 | `src/lib/supabase/middleware.ts:33` | Protecção de rotas usa `pathname.startsWith(r)` — um match por prefixo. Para `/tax-calculator` não há sobreposição (nenhuma rota pública partilha o prefixo), mas o padrão é frágil se no futuro existir uma rota pública cujo caminho comece por um prefixo protegido (ex.: `/settings-public`). Recomenda-se match exacto ou com fronteira de segmento (`=== r || startsWith(r + "/")`). Risco actual negligível — registado como informacional, não introduzido por esta feature | Tax Calculator | 2026-06-03 |
 | B-13 | `src/app/(dashboard)/dashboard/page.tsx:119`, `api/portfolio/{holdings:96,summary:58,movers:44,chart:57,performance:84}/route.ts` | Double-cast `(data ?? []) as unknown as TransactionRow[]` no resultado do `.select()` do ledger em 6 ficheiros — contorna a inferência de tipos do Supabase e pode mascarar drift de schema em compile time. NÃO é bypass de segurança (RLS de `transactions` + `.eq("user_id", user.id)` activos). Sucessor higiénico do B-08/B-11; resolver regenerando `database.ts` e tipando o retorno | Etapa 3 AUDIT (portfólio derivado) | 2026-08-05 |
 | B-14 | `src/lib/yahoo-finance/client.ts:199`, `client.ts:54` | Nova `getHistoryRange`: `console.error` loga ticker + objecto de erro completo do Yahoo (mesmo padrão do B-06) e `historyRangeCache` (Map) é acumulado sem limite de entradas (mesmo padrão do B-04/B-05). Server-side; ticker vem do ledger do próprio utilizador (não input arbitrário). Memory leak negligível para app pessoal | Etapa 3 AUDIT (portfólio derivado) | 2026-08-05 |
 | B-15 | `src/lib/portfolio/prices.ts:51-53`, `prices.ts:106` | Higiene de tipos: double-cast `(data ?? []) as Array<...>` na leitura e `(supabase as any)` no upsert de `price_cache`. NÃO é bypass de segurança — RLS de `price_cache` activo + GRANT limitado a `authenticated`. Mesma família do B-13/B-08(resolvido); causa raiz = `database.ts` mantido à mão sem o marcador `__InternalSupabase` da inferência do postgrest-js v2. Resolve regenerando `database.ts` via Supabase CLI | M-03 AUDIT (cache persistente de preços) | 2026-08-06 |
@@ -65,6 +64,7 @@ Ao fechar um achado, adicionar: `→ Resolvido em: [nome da feature] (YYYY-MM-DD
 | B-10 | `src/app/api/portfolio/holdings/route.ts:90` | `select("*")` em `portfolio_positions` | Etapa 3 AUDIT — route reescrita com selecção explícita (`LEDGER_COLUMNS`); tabela DROPPED (commit `973bcc0`) | 2026-08-05 |
 | B-11 | `src/app/api/portfolio/holdings/route.ts:88` | `(supabase as any)` type cast | Etapa 3 AUDIT — cast removido na reescrita da route (commit `973bcc0`) | 2026-08-05 |
 | B-01 | `next` (dependência transitiva) | `postcss@8.4.31` interno do Next.js — GHSA-qx2v-qp2m-jg93 (XSS build-time) | Patch do Next.js — `npm audit` (full) reporta **0 vulnerabilidades**; verificado na auditoria da feature CSV Import | 2026-08-06 |
+| B-12 | `src/lib/supabase/middleware.ts:33` | Protecção de rotas usava `pathname.startsWith(r)` (match por prefixo puro, frágil a `/settings-public` vs `/settings`) | Match por fronteira de segmento (`pathname === r \|\| pathname.startsWith(r + "/")`) implementado no commit `7413266` (AUDIT M-02). **NÃO** resolvido pela transactions-redesign; correcção de entrada obsoleta do ledger, verificada nesta auditoria (código actual em `middleware.ts:35-37`) | 2026-08-05 |
 
 ---
 
@@ -86,5 +86,5 @@ A cada ciclo de desenvolvimento, após a auditoria:
 | Crítico   | 0       | 0          | 0       |
 | Alto      | 0       | 0          | 0       |
 | Médio     | 1       | 2          | 0       |
-| Baixo     | 12      | 6          | 3       |
-| **Total** | **13**  | **8**      | **3**   |
+| Baixo     | 11      | 7          | 3       |
+| **Total** | **12**  | **9**      | **3**   |
