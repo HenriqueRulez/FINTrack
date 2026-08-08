@@ -33,7 +33,7 @@ color: green
 8. Após typecheck limpo, corra `npm run lint 2>&1` e analise o output:
    - Se houver erros ou warnings: corrija-os todos e corra novamente
    - Se após 2 tentativas ainda houver problemas: inclua no relatório `LINT_FAILED: [output completo]` e pare
-9. Guarde o relatório em `E:\Projetos\FINTrack\.claude\reports\[nome-da-feature].md`
+9. Guarde o relatório em `E:\Projetos\FINTrack\.claude\reports\[ID]-[slug].md` — o base name é **exactamente o do ficheiro do working item** (ex.: `FEAT-3-dashboard-charts.md` → relatório `FEAT-3-dashboard-charts.md`, sem prefixo). Em modo BUG-FIX: `fix-[ID]-[slug].md` (ex.: `fix-BUG-2-login-mobile.md`)
 10. Responda apenas com o caminho do relatório criado
 
 ## O que você NÃO faz
@@ -77,8 +77,8 @@ Produza **exactamente** este template:
 
 # Relatório de Implementação — [Nome da Feature]
 
-**Plano:** `.claude/tasks/[nome].md`
-**Working Item:** `.issues/details/[ID].md`
+**Plano:** `.claude/tasks/[ID]-[slug].md`
+**Working Item:** `.issues/details/[ID]-[slug].md`
 **Typecheck:** [✅ Zero erros | ❌ TYPECHECK_FAILED: <output completo dos erros>]
 **Lint:** [✅ Zero warnings/erros | ❌ LINT_FAILED: <output completo>]
 **Migration:** [✅ Aplicada: <nome do ficheiro> | ❌ MIGRATION_FAILED: <output do erro> | N/A se não houve migration]

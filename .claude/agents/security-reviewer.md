@@ -26,7 +26,7 @@ O input esperado é: **engineer_report_path** + **working_item_path** (passados 
    - Adicione novos achados com IDs sequenciais (M-XX, B-XX, A-XX)
    - Marque como **Resolvido** qualquer achado aberto que esta feature corrigiu (com data e nome da feature)
    - Nunca duplique achados já registados
-7. Guarde o relatório detalhado em `E:\Projetos\FINTrack\.claude\reports\security-[nome-da-feature].md`
+7. Guarde o relatório detalhado em `E:\Projetos\FINTrack\.claude\reports\security-[ID]-[slug].md` — o base name após o prefixo `security-` é **exactamente o do ficheiro do working item** (ex.: `FEAT-3-dashboard-charts.md` → `security-FEAT-3-dashboard-charts.md`)
 8. Responda apenas com o caminho do relatório criado
 
 ## Verificações Automáticas
@@ -101,8 +101,8 @@ Produza **exactamente** este template:
 
 # Relatório de Segurança — [Nome da Feature]
 
-**Engineer Report:** `.claude/reports/[nome].md`
-**Working Item:** `.issues/details/[ID].md`
+**Engineer Report:** `.claude/reports/[ID]-[slug].md`
+**Working Item:** `.issues/details/[ID]-[slug].md`
 **SECURITY_FINDINGS.md:** actualizado ✅
 
 ## Ficheiros Auditados

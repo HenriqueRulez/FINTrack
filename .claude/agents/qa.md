@@ -67,7 +67,7 @@ O input esperado é: **engineer_report_path** + **working_item_path** (ambos pas
 
 ### Fase 2 — Chrome Extension (verificação visual)
 
-**Detecção de Retry:** Antes de iniciar, use `Glob` para verificar se existem relatórios QA anteriores desta feature (padrão: `.claude/reports/qa-[nome-da-feature]*.md`). Se existir pelo menos um:
+**Detecção de Retry:** Antes de iniciar, use `Glob` para verificar se existem relatórios QA anteriores desta feature (padrão: `.claude/reports/qa-[ID]*.md`, onde `[ID]` vem do base name do working item). Se existir pelo menos um:
 
 - Leia o mais recente e extraia os CAs com status `❌ FAIL` ou `⚠️ NÃO TESTADO`
 - Nesta fase, verifique **apenas esses CAs** — salte os que já tiveram `✅ PASS` no ciclo anterior
@@ -127,7 +127,7 @@ Se o servidor estiver online:
     - Foque nos CAs que precisam de correr em CI: fluxos, dados, auth, navegação programática
     - Não duplique o que a Chrome Extension já verificou visualmente
     - **Responsividade** é sempre testada aqui via `page.setViewportSize({ width: 375, height: 812 })` (mobile) e `{ width: 1280, height: 800 }` (desktop) — nunca via `resize_window`
-    - Salve em `E:\Projetos\FINTrack\tests\e2e\[nome-da-feature].spec.ts`
+    - Salve em `E:\Projetos\FINTrack\tests\e2e\[slug].spec.ts` — **só o slug, sem o ID** (ex.: `dashboard-charts.spec.ts`): os specs são artefactos permanentes do produto, não do backlog
     - Use `storageState` do ficheiro de auth existente (os testes do projecto já têm auth configurado)
     - Princípios: testar o **requisito** (CA), não a implementação; selectores semânticos (`getByRole`, `getByText`, `getByLabel`)
     - Para CAs de auth (redirect, logout): use `browser.newContext()` sem storageState para contexto limpo
@@ -139,10 +139,10 @@ Se o servidor estiver online:
     **Testes da feature + smoke:**
 
     ```
-    cd "E:\Projetos\FINTrack" && npx playwright test tests/e2e/[nome-da-feature].spec.ts tests/e2e/smoke.spec.ts --reporter=list 2>&1
+    cd "E:\Projetos\FINTrack" && npx playwright test tests/e2e/[slug].spec.ts tests/e2e/smoke.spec.ts --reporter=list 2>&1
     ```
 
-    Substitua `[nome-da-feature]` pelo nome correcto do ficheiro spec (ex: `holdings-redesign`). Se o ficheiro da feature ainda não existir (criado no passo 12), execute apenas `tests/e2e/smoke.spec.ts`.
+    Substitua `[slug]` pelo nome correcto do ficheiro spec — só o slug, sem ID (ex: `holdings-redesign`). Se o ficheiro da feature ainda não existir (criado no passo 12), execute apenas `tests/e2e/smoke.spec.ts`.
 
     > **Credenciais E2E — SEM prefixo manual:** o `playwright.config.ts` carrega automaticamente `E2E_EMAIL` (de `.env.test`, versionado) e `E2E_PASSPHRASE` (de `.env.test.local`, gitignored). Não prefixe `E2E_PASSPHRASE=...` no comando — o ambiente ganha sobre os ficheiros, logo um prefixo errado sobreporia a passphrase real e o login falharia. Se o `auth.setup.ts` abortar por credenciais em falta, crie `.env.test.local` a partir de `.env.example` (contém a passphrase de teste).
     > **OBRIGATÓRIO — timeout:** defina o parâmetro `timeout` da ferramenta Bash para **300000** (5 min) neste call. Os testes demoram 1-2 min e o default de 2 min da ferramenta pode cortar a execução a meio. **Nunca** use `run_in_background` para este comando — precisa do output.
@@ -165,7 +165,7 @@ Se o servidor estiver online:
     > **Regra de ouro:** `APROVADO` exige evidência real da Chrome Extension. Se a extensão não correu, o máximo é `PARCIAL` — independentemente dos resultados Playwright.
 
 16. **Teardown do servidor:** se você arrancou o dev server na Fase 2 (`run_in_background`), pare-o agora (KillShell no id guardado). Se o server já estava up antes de você (reutilizado), não lhe toque. Nunca deixe `next dev` órfão.
-17. Guarde o relatório em `E:\Projetos\FINTrack\.claude\reports\qa-[nome-da-feature].md`
+17. Guarde o relatório em `E:\Projetos\FINTrack\.claude\reports\qa-[ID]-[slug].md` — o base name após o prefixo `qa-` é **exactamente o do ficheiro do working item** (ex.: `FEAT-3-dashboard-charts.md` → `qa-FEAT-3-dashboard-charts.md`; retries: sufixo `-ciclo2`, `-ciclo3`). Em modo BUG-FIX: `qa-fix-[ID]-[slug].md`
 18. Responda apenas com o caminho do relatório e o status geral: `APROVADO`, `PARCIAL` ou `REPROVADO`
 
 ## O que você NÃO faz
@@ -202,9 +202,9 @@ Produza **exactamente** este template:
 
 # QA Report — [Nome da Feature]
 
-**Working Item:** `.issues/details/[ID].md`
-**Relatório do Engineer:** `.claude/reports/[nome].md`
-**Testes Playwright criados:** `tests/e2e/[nome-da-feature].spec.ts`
+**Working Item:** `.issues/details/[ID]-[slug].md`
+**Relatório do Engineer:** `.claude/reports/[ID]-[slug].md`
+**Testes Playwright criados:** `tests/e2e/[slug].spec.ts`
 **Status Geral:** ✅ APROVADO / ❌ REPROVADO / ⚠️ PARCIAL
 
 ## Gate Determinístico (fonte: flags do Engineer + CI — o QA não executa)
