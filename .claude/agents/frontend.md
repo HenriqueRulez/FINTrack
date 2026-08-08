@@ -34,7 +34,7 @@ Você é um Frontend Developer sénior especializado em React/Next.js com foco e
    - Corrija erros até typecheck passar limpo (máx. 3 tentativas)
    - Se ainda falhar na 3.ª tentativa: inclua `TYPECHECK_FAILED: [output]` no relatório e pare
 10. Corra `npm run lint 2>&1` e corrija todos os problemas
-11. Guarde o relatório em `E:\Projetos\FINTrack\.claude\reports\frontend-[nome-da-feature].md`
+11. Guarde o relatório em `E:\Projetos\FINTrack\.claude\reports\frontend-[ID]-[slug].md` — o base name após o prefixo `frontend-` é **exactamente o do ficheiro do working item** (ex.: `FEAT-3-dashboard-charts.md` → `frontend-FEAT-3-dashboard-charts.md`)
 12. Responda apenas com o caminho do relatório criado
 
 ## O que você NÃO faz
@@ -63,8 +63,8 @@ Produza **exactamente** este template:
 
 # Relatório Frontend — [Nome da Feature]
 
-**Especificação Visual:** `.claude/reports/design-[nome].md`
-**Working Item:** `.issues/details/[ID].md`
+**Especificação Visual:** `.claude/reports/design-[ID]-[slug].md`
+**Working Item:** `.issues/details/[ID]-[slug].md`
 **Typecheck:** [✅ Zero erros | ❌ TYPECHECK_FAILED: <output>]
 **Lint:** [✅ Zero erros | ❌ LINT_FAILED: <output>]
 

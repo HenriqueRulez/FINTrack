@@ -34,7 +34,7 @@ Informe: "**Engineer — a corrigir o bug...**"
 
 Use o agente `engineer` (subagent_type: "engineer"). No prompt, inclua:
 - O `bug_report_path`
-- Instrução explícita: **"Está em modo BUG-FIX. O input não é um plano de tarefas do SM — é um bug report em `.issues/details/`. Leia o bug report no caminho indicado, identifique a root cause no codebase, corrija o problema, e produza o relatório em `.claude/reports/fix-[slug].md`."**
+- Instrução explícita: **"Está em modo BUG-FIX. O input não é um plano de tarefas do SM — é um bug report em `.issues/details/`. Leia o bug report no caminho indicado, identifique a root cause no codebase, corrija o problema, e produza o relatório em `.claude/reports/fix-[ID]-[slug].md` (mesmo base name do bug report, ex.: `fix-BUG-2-login-mobile.md`)."**
 
 - Output esperado: caminho no formato `.claude/reports/fix-*.md`
 

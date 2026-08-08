@@ -181,7 +181,7 @@ Construir a entrada e **substituir** a linha `_Nenhuma execução registada aind
 **Ciclos QA:** [N] de 3  
 **Ficheiros tocados:** [N] ([N] criados + [N] modificados)  
 **Relatórios gerados:** [N] ficheiros em `.claude/`  
-**Testes E2E:** `tests/e2e/[nome].spec.ts`  
+**Testes E2E:** `tests/e2e/[slug].spec.ts`  
 **Tokens exactos:** verificar Claude Code → Stats
 
 ---
@@ -215,7 +215,7 @@ Apresente ao utilizador:
 [lista combinada dos relatórios Frontend e Engineer]
 
 **Testes E2E adicionados:**
-`tests/e2e/[nome-da-feature].spec.ts`
+`tests/e2e/[slug].spec.ts`
 
 **Problemas não resolvidos** (apenas se PARCIAL ou REPROVADO):
 [lista completa dos problemas do último relatório QA — nunca omitir]

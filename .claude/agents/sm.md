@@ -30,7 +30,7 @@ O input esperado é: **working_item_path** + **design_report_path** + **frontend
    - **API routes** — lógica de servidor, autenticação, rate limit
    - **Ligação UI↔API** — wiring das props que o Frontend deixou como TODO
 7. Verifique que todos os Critérios de Aceite do working item estão cobertos (entre o que o Frontend fez e o que o Engineer fará)
-8. Guarde o plano em `E:\Projetos\FINTrack\.claude\tasks\[nome-da-feature].md`
+8. Guarde o plano em `E:\Projetos\FINTrack\.claude\tasks\[ID]-[slug].md` — o base name é **exactamente o do ficheiro do working item** (ex.: working item `FEAT-3-dashboard-charts.md` → plano `FEAT-3-dashboard-charts.md`)
 9. Responda apenas com o caminho do ficheiro criado
 
 ## O que você NÃO faz
@@ -48,9 +48,9 @@ Produza **exactamente** este template — sem texto fora dele:
 
 # Plano de Implementação — [Nome da Feature]
 
-**Working Item:** `.issues/details/[ID].md`
-**Especificação Visual:** `.claude/reports/design-[nome].md`
-**Relatório Frontend:** `.claude/reports/frontend-[nome].md`
+**Working Item:** `.issues/details/[ID]-[slug].md`
+**Especificação Visual:** `.claude/reports/design-[ID]-[slug].md`
+**Relatório Frontend:** `.claude/reports/frontend-[ID]-[slug].md`
 
 ## Tarefas (para o Engineer)
 

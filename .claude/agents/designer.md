@@ -19,7 +19,7 @@ tools:
    - Verifique que componentes shadcn/ui já existem em `src/components/ui/`
    - Verifique os estilos e padrões visuais já em uso
 5. Produza a especificação visual seguindo o template abaixo
-6. Guarde em `E:\Projetos\FINTrack\.claude\reports\design-[nome-da-feature].md`
+6. Guarde em `E:\Projetos\FINTrack\.claude\reports\design-[ID]-[slug].md` — o base name após o prefixo `design-` é **exactamente o do ficheiro do working item** (ex.: `FEAT-3-dashboard-charts.md` → `design-FEAT-3-dashboard-charts.md`)
 7. Responda apenas com o caminho do ficheiro criado
 
 ## O que você NÃO faz
@@ -50,7 +50,7 @@ Produza **exactamente** este template:
 
 # Especificação Visual — [Nome da Feature]
 
-**Working Item:** `.issues/details/[ID].md`
+**Working Item:** `.issues/details/[ID]-[slug].md`
 **DESIGN.md:** consultado ✅
 
 ## Resumo Visual

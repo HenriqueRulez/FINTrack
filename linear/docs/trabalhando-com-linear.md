@@ -107,6 +107,7 @@ Leitura inversa (só em reconciliação): `In Review` conta como `Em progresso`;
 - **`bug-reporter`**: atribui `BUG-n`, escreve a linha em `bugs.md` e o relatório em `details/BUG-n-{slug}.md`.
 - **`/bug-fix`**: lê de `bugs.md`; quando a correcção é aprovada, `Estado` → `Resolvido` (local; `*` se já sincronizado).
 - **`TODO.md`** não regista bugs nem backlog — é apenas o plano da fase de trabalho em curso.
+- **Nomenclatura dos artefactos da pipeline:** tasks e reports usam o mesmo base name `{ID}-{slug}` do detalhe (ex.: `.claude/tasks/FEAT-3-dashboard-charts.md`, `.claude/reports/qa-FEAT-3-dashboard-charts.md`) — rastreabilidade directa ficheiro ↔ índice ↔ Linear. Excepção: specs E2E usam só `{slug}.spec.ts`.
 
 ## Por que este fluxo
 

@@ -10,7 +10,8 @@ O argumento recebido é o **slug da feature** (ex: `dashboard-charts`). Corra es
 
 ```
 working_item_path    → Glob ".issues/details/*[slug]*.md" → primeiro resultado
-engineer_report_path → Glob ".claude/reports/[slug]*.md" (excluindo qa-*, design-*, frontend-*, security-*) → resultado mais recente
+engineer_report_path → Glob ".claude/reports/*[slug]*.md" (excluindo qa-*, design-*, frontend-*, security-*, fix-*) → resultado mais recente
+    (o relatório do Engineer chama-se `{ID}-{slug}.md`, ex.: `FEAT-3-dashboard-charts.md`)
 ```
 
 Se algum não for encontrado → "❌ **Fases anteriores não encontradas** — execute `/design-feature` e `/implement-feature` primeiro." e pare.

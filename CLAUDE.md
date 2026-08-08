@@ -132,17 +132,19 @@ O gate determinístico (`typecheck` + `lint` + unit tests) é responsabilidade d
 PO → Designer → Frontend → SM → Engineer → QA → Security Review
 ```
 
-| Passo | Agente              | Local                                 | Responsabilidade                                          | Output                          |
-| ----- | ------------------- | ------------------------------------- | --------------------------------------------------------- | ------------------------------- |
-| 1     | `po`                | `.claude/agents/po.md`                | Define requisitos e critérios de aceite                   | `.issues/details/FEAT-*.md`     |
-| 2     | `designer`          | `.claude/agents/designer.md`          | Especifica visualmente usando DESIGN.md                   | `.claude/reports/design-*.md`   |
-| 3     | `frontend`          | `.claude/agents/frontend.md`          | Implementa UI (componentes, estilos, estados)             | `.claude/reports/frontend-*.md` |
-| 4     | `sm`                | `.claude/agents/sm.md`                | Planeia tarefas de lógica/API para o Engineer             | `.claude/tasks/*.md`            |
-| 5     | `engineer`          | `.claude/agents/engineer.md`          | Implementa API routes, DB, wiring UI↔API                  | `.claude/reports/*.md`          |
-| 6     | `qa`                | `.claude/agents/qa.md`                | Escreve testes Playwright por CA + executa todos          | `.claude/reports/qa-*.md`       |
-| 7     | `security-reviewer` | `.claude/agents/security-reviewer.md` | Audita OWASP + npm audit + actualiza SECURITY_FINDINGS.md | `.claude/reports/security-*.md` |
+| Passo | Agente              | Local                                 | Responsabilidade                                          | Output                                     |
+| ----- | ------------------- | ------------------------------------- | --------------------------------------------------------- | ------------------------------------------ |
+| 1     | `po`                | `.claude/agents/po.md`                | Define requisitos e critérios de aceite                   | `.issues/details/{ID}-{slug}.md`           |
+| 2     | `designer`          | `.claude/agents/designer.md`          | Especifica visualmente usando DESIGN.md                   | `.claude/reports/design-{ID}-{slug}.md`    |
+| 3     | `frontend`          | `.claude/agents/frontend.md`          | Implementa UI (componentes, estilos, estados)             | `.claude/reports/frontend-{ID}-{slug}.md`  |
+| 4     | `sm`                | `.claude/agents/sm.md`                | Planeia tarefas de lógica/API para o Engineer             | `.claude/tasks/{ID}-{slug}.md`             |
+| 5     | `engineer`          | `.claude/agents/engineer.md`          | Implementa API routes, DB, wiring UI↔API                  | `.claude/reports/{ID}-{slug}.md`           |
+| 6     | `qa`                | `.claude/agents/qa.md`                | Escreve testes Playwright por CA + executa todos          | `.claude/reports/qa-{ID}-{slug}.md`        |
+| 7     | `security-reviewer` | `.claude/agents/security-reviewer.md` | Audita OWASP + npm audit + actualiza SECURITY_FINDINGS.md | `.claude/reports/security-{ID}-{slug}.md`  |
 
 **Regra:** Todo agente criado deve estar explicitamente posicionado nesta tabela. Nunca criar agentes fora da pipeline sem actualizar este documento.
+
+**Nomenclatura dos artefactos (obrigatória):** o base name de TODOS os artefactos da pipeline é o do working item — `{ID}-{slug}` (ex.: `FEAT-3-dashboard-charts`), igual ao item no Linear (`{ID}: {Título}`). Prefixos por papel: `design-`, `frontend-`, `qa-`, `security-`; Engineer sem prefixo; bug-fix usa `fix-`/`qa-fix-` com base name do bug (`BUG-n-{slug}`). Excepção: specs E2E em `tests/e2e/` usam só `{slug}.spec.ts` — são artefactos permanentes do produto, não do backlog.
 
 **Loop de retry:** Engineer ↔ QA (máx. 3 ciclos). Security Review corre sempre após aprovação ou após 3 ciclos.
 
