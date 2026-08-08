@@ -1,8 +1,12 @@
 import { defineConfig, devices } from "@playwright/test";
 import { loadTestEnv } from "./tests/support/test-env";
 
-// Fonte única de env para o E2E (.env.local + .env.test/.env.test.local),
-// partilhada com playwright.smoke.config.ts. Ver tests/support/test-env.ts.
+// Config E2E MÍNIMA e ISOLADA — corre apenas `auth.setup.ts` + `smoke.spec.ts`.
+// É o subconjunto que o C4 leva ao CI (banco efémero por run). Estes specs NÃO
+// mutam o ledger: o smoke só verifica redirect sem sessão, a página de
+// passphrase e o carregamento do /dashboard autenticado — logo é imune ao
+// estado partilhado (dívida G-05) que afeta os specs que escrevem dados.
+// Mesma fonte de env que playwright.config.ts (tests/support/test-env.ts).
 loadTestEnv();
 
 export default defineConfig({
@@ -20,10 +24,11 @@ export default defineConfig({
   projects: [
     {
       name: "setup",
-      testMatch: /.*\.setup\.ts/,
+      testMatch: /auth\.setup\.ts/,
     },
     {
-      name: "chromium",
+      name: "smoke",
+      testMatch: /smoke\.spec\.ts/,
       use: {
         ...devices["Desktop Chrome"],
         storageState: "tests/e2e/.auth/user.json",
@@ -34,10 +39,8 @@ export default defineConfig({
   webServer: {
     command: "npm run dev",
     url: "http://localhost:3000",
-    // Local: reutiliza um dev server já a correr (evita arrancar um segundo e
-    // colidir na porta 3000). CI: NUNCA reutiliza — arranca um server fresco por
-    // run e o Playwright mata-o no fim, garantindo ambiente limpo e determinístico
-    // (sem estado partilhado entre runs, sem processos órfãos).
+    // Igual à config principal: local reutiliza um server up; CI arranca fresco
+    // por run e o Playwright mata-o no fim (ambiente determinístico, sem órfãos).
     reuseExistingServer: !process.env.CI,
     timeout: 60_000,
   },
