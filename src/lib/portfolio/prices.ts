@@ -46,11 +46,11 @@ export const yahooPriceProvider: PriceProvider = async (tickers) => {
       .select("ticker, price, currency, name, fetched_at")
       .in("ticker", tickers);
     if (error) throw error;
-    // Cast necessário: postgrest-js v2 infere `never` nas linhas sem o marcador
-    // __InternalSupabase na Database type (database.ts mantido à mão).
-    const rows = (data ?? []) as Array<
-      CachedQuote & { ticker: string; fetched_at: string }
-    >;
+    // Anotação de tipo em vez de cast: o read do ssr infere `never[]` (ver
+    // FIN-7/TD-6, incompat. @supabase/ssr@0.6.1 × supabase-js@2.112.1), e `never[]`
+    // é atribuível a este tipo — mesmo padrão dos reads em api/portfolio/*.
+    const rows: Array<CachedQuote & { ticker: string; fetched_at: string }> =
+      data ?? [];
     for (const row of rows) {
       if (now - new Date(row.fetched_at).getTime() < PRICE_CACHE_TTL_MS) {
         quotes[row.ticker] = {
@@ -100,8 +100,8 @@ export const yahooPriceProvider: PriceProvider = async (tickers) => {
     // 3. Persistir as quotes frescas (best-effort; falha não rebenta o fluxo).
     if (supabase && toUpsert.length > 0) {
       try {
-        // Cast necessário: postgrest-js v2 infere `never` no payload de write sem
-        // o marcador __InternalSupabase na Database type (mantida à mão).
+        // Cast necessário: @supabase/ssr@0.6.1 colapsa o Schema para `never` com
+        // o @supabase/supabase-js@2.112.1 (ver FIN-7/TD-6).
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { error } = await (supabase as any)
           .from("price_cache")

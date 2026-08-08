@@ -180,8 +180,9 @@ export async function PATCH(request: NextRequest, ctx: Ctx) {
     updated_at: new Date().toISOString(),
   };
 
-  // Cast necessário: postgrest-js v2 infere `never` no payload de update sem o
-  // marcador __InternalSupabase na Database type (database.ts mantido à mão).
+  // Cast necessário: @supabase/ssr@0.6.1 tipa o client com a ordem de genéricos
+  // antiga, incompatível com a nova assinatura de SupabaseClient do
+  // @supabase/supabase-js@2.112.1 — o Schema colapsa para `never` (ver FIN-7/TD-6).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: updated, error: updErr } = await (supabase as any)
     .from("transactions")

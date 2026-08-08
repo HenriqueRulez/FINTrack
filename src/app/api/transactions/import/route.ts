@@ -195,8 +195,10 @@ export async function POST(request: NextRequest) {
     withholding_tax: c.withholding_tax,
   }));
 
-  // Cast necessário: postgrest-js v2 infere `never` no payload sem o marcador
-  // __InternalSupabase (database.ts é mantido à mão). Batch insert sem .single().
+  // Cast necessário: @supabase/ssr@0.6.1 tipa o client com a ordem de genéricos
+  // antiga, incompatível com a nova assinatura de SupabaseClient do
+  // @supabase/supabase-js@2.112.1 — o Schema colapsa para `never` e o marcador
+  // __InternalSupabase do database.ts nunca chega à inferência (ver FIN-7/TD-6).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: inserted, error: insErr } = await (supabase as any)
     .from("transactions")
