@@ -18,12 +18,6 @@ Ao fechar um achado, adicionar: `→ Resolvido em: [nome da feature] (YYYY-MM-DD
 
 ## Achados Abertos
 
-### MÉDIO
-
-| ID | Arquivo | Problema | Feature de origem | Data |
-|----|---------|----------|-------------------|------|
-| M-01 | `src/app/(auth)/passphrase/page.tsx:21` | Email `owner@fintrack.local` hardcoded no bundle do browser — reduz o ataque à só a password | Dark Mode Visual Fix | 2026-05-23 |
-
 ### BAIXO / INFORMACIONAL
 
 | ID | Arquivo | Problema | Feature de origem | Data |
@@ -56,6 +50,7 @@ Ao fechar um achado, adicionar: `→ Resolvido em: [nome da feature] (YYYY-MM-DD
 
 | ID | Arquivo (original) | Problema | Resolvido por | Data |
 |----|--------------------|----------|---------------|------|
+| M-01 | `src/app/(auth)/passphrase/page.tsx:21` | Email `owner@fintrack.local` hardcoded no bundle do browser — reduz o ataque à só a password | BUG-1/FIN-8 — auth movido para server-side: nova rota `POST /api/auth/login` (rate limit + Zod + server client) lê o email de env server-only `AUTH_OWNER_EMAIL`; o Client Component passou a fazer `fetch` sem email. `grep "owner@fintrack" src/` já não retorna nenhum Client Component | 2026-08-08 |
 | M-02 | `src/components/portfolio/portfolio-client.tsx:45` | `body.error` da API logado em `console.error` | Delete da página `/portfolio` — ficheiro removido (commit `4873021`) na sessão da feature Reformular Holdings (Fase 1) | 2026-06-09 |
 | M-03 | `src/components/portfolio/portfolio-client.tsx:37,56` | `id` em URLs de PATCH/DELETE sem `encodeURIComponent` | Delete da página `/portfolio` — componente e rotas PATCH/DELETE removidos (commit `4873021`) | 2026-06-09 |
 | B-02 | `src/components/portfolio/portfolio-client.tsx:27` | `console.error` expõe stack trace na consola do browser | Delete da página `/portfolio` — ficheiro removido (commit `4873021`) | 2026-06-09 |
@@ -85,6 +80,6 @@ A cada ciclo de desenvolvimento, após a auditoria:
 |-----------|---------|------------|---------|
 | Crítico   | 0       | 0          | 0       |
 | Alto      | 0       | 0          | 0       |
-| Médio     | 1       | 2          | 0       |
+| Médio     | 0       | 3          | 0       |
 | Baixo     | 11      | 7          | 3       |
-| **Total** | **12**  | **9**      | **3**   |
+| **Total** | **11**  | **10**     | **3**   |
