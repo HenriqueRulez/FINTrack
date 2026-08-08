@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 
 export default function PassphrasePage() {
   const router = useRouter();
@@ -10,19 +9,18 @@ export default function PassphrasePage() {
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const supabase = createClient();
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError(false);
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email: "owner@fintrack.local",
-      password: passphrase,
+    const res = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ passphrase }),
     });
 
-    if (error) {
+    if (!res.ok) {
       setError(true);
       setLoading(false);
       return;
