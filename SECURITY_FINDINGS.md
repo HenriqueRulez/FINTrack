@@ -63,6 +63,14 @@ Ao fechar um achado, adicionar: `→ Resolvido em: [nome da feature] (YYYY-MM-DD
 
 ---
 
+## Auditorias sem novos achados
+
+| Feature | Ficheiros auditados | Resultado | Data |
+|---------|---------------------|-----------|------|
+| logout-settings-page (TD-3 / FIN-4) | `src/components/settings/logout-button.tsx`, `src/app/(dashboard)/settings/page.tsx` (contexto: `src/lib/auth.ts`, `src/lib/supabase/client.ts`) | **Zero achados.** Client Component sem imports server-only, usa `client.ts` (só `NEXT_PUBLIC_*`); página protegida por `requireUser()` (usa `getUser()`, redirect p/ `/passphrase`); `user.email`/`user.id` mostrados só ao próprio dono autenticado (single-user); sem XSS sinks, sem secrets. `npm audit` (job CI "Security audit") = `success` | 2026-08-08 |
+
+---
+
 ## Instruções para o Security Reviewer
 
 A cada ciclo de desenvolvimento, após a auditoria:
