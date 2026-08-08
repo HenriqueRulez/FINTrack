@@ -243,8 +243,29 @@ Escolhida a alternativa de processo — abrir a PR **enquanto o run do CI do pus
 
 ### D2. Auditoria periódica do gasto por agente — medir antes de optimizar mais
 
-- [ ] Uma vez por leva: registar tokens consumidos por fase da pipeline (PO/Designer/Frontend/SM/Engineer/QA/Security) no fim de cada feature, numa tabela neste ficheiro. A Fase 1 nasceu de uma medição real (~166k tokens num ciclo de QA); sem números novos, a próxima optimização é palpite.
+- [~] Uma vez por leva: registar tokens consumidos por fase da pipeline (PO/Designer/Frontend/SM/Engineer/QA/Security) no fim de cada feature, numa tabela neste ficheiro. A Fase 1 nasceu de uma medição real (~166k tokens num ciclo de QA); sem números novos, a próxima optimização é palpite. **ESTRUTURA CRIADA 2026-08-08** (branch `docs/d2-token-table`): template abaixo, pronto a preencher no fim de uma feature. Zero números inventados — só se preenche com medição real.
 - **Regra:** só se optimiza o que se mediu. Se a medição mostrar que o QA visual é agora o maior custo, esse é o próximo alvo — não antes.
+
+#### Template de auditoria de tokens (preencher no fim de cada feature)
+
+> **Como preencher:** uma linha por fase executada da pipeline. `Ciclos` = nº de invocações do agente nessa feature (ex.: Engineer↔QA em 2 idas e voltas → Engineer 2, QA 2). `Tokens` = soma real reportada pelo runtime para essa fase (input+output). Deixar `—` na fase que não correu (ex.: feature de infra sem Designer/Frontend). NÃO estimar: célula sem medição fica `—`, não um palpite.
+
+**Feature:** `<slug>` · **Data:** `<AAAA-MM-DD>` · **Origem dos números:** `<runtime / relatório do agente>`
+
+| Fase        | Agente              | Ciclos | Tokens | % do total | Notas |
+| ----------- | ------------------- | ------ | ------ | ---------- | ----- |
+| PO          | `po`                |        |        |            |       |
+| Designer    | `designer`          |        |        |            |       |
+| Frontend    | `frontend`          |        |        |            |       |
+| SM          | `sm`                |        |        |            |       |
+| Engineer    | `engineer`          |        |        |            |       |
+| QA          | `qa`                |        |        |            |       |
+| Security    | `security-reviewer` |        |        |            |       |
+| **Total**   | —                   | —      |        | 100%       |       |
+
+**Maior custo desta feature:** `<fase>` — **próximo alvo de optimização (se houver):** `<fase ou "nenhum — dentro do esperado">`
+
+_Baseline histórico conhecido (única medição real até hoje): ~166k tokens num único ciclo de QA da feature csv-import (motivou a Fase 1 — mover o gate determinístico para o CI). É o ponto de comparação até haver mais linhas preenchidas._
 
 ## O que NÃO entra nesta leva
 
@@ -279,6 +300,8 @@ C2-C4 são a espinha da Fase 2 e merecem pipeline própria.
 
 > **CONCLUÍDO (2026-08-08): bloco C completo — C2 → C3 → C4**, sequencial, cada um em branch+PR próprios (PRs #17/#19/#20), todos merged pelo auto-merge SEM rerun (regra A6). 3 checks locais verdes por item + CI verde confirmado por `gh run watch`; main sincronizada e branches apagadas a cada item. **Correcção arquitectural importante da sessão:** a premissa do C4 (Supabase efémero via Docker no runner) era FALSA — o projeto é **Cloud-only, sem Supabase local nem Docker** (confirmado pelo utilizador). Toda a abordagem efémera-local foi descartada antes de qualquer push. Escolhido o **escopo A**: smoke E2E no CI **sem login** (`playwright.smoke-public.config.ts` + job `e2e-smoke` `continue-on-error`) com env Supabase dummy — zero Docker, zero banco, zero secrets. Opção B (projeto Cloud de teste + secrets no CI) **rejeitada** pelo utilizador. Limpeza incluída: `CLAUDE.md` "Supabase local" → "Cloud", `gen types --local` → `--linked`. Não se tocou em A1, A3, self-check do Engineer, nem bloco D. **Artefactos novos:** `.env.test`/`.env.test.local` (C2), `tests/support/test-env.ts` + `playwright.smoke.config.ts` + `test:e2e:smoke` (C3), `playwright.smoke-public.config.ts` + `test:e2e:smoke:public` + job `e2e-smoke` (C4).
 
-> **PRÓXIMO (em aberto, sem ordem obrigatória):** **A1** (branch protection em `main` — SÓ o utilizador consegue, via GitHub UI/`gh api`); **A3** (escrever no `CLAUDE.md`, secção "Gate Determinístico", a regra de confirmar o CI com `gh run watch`/`gh run list` após cada push — praticado toda a sessão, falta só a regra escrita); **D2** (auditoria de gasto de tokens por agente, no fim de uma feature). **Dívida só-local (fora do CI):** reconciliar os ~11 specs E2E legados que partilham a base Cloud e são mutuamente destrutivos (G-05) — só faz sentido com um banco de teste (opção B/efémero), hoje inexistente.
+> **CONCLUÍDO (2026-08-08): A3 + D2**, cada um em branch+PR próprios (A3 = `docs/a3-ci-rule`, PR #22, merged pelo automerge sem rerun — regra A6; D2 = `docs/d2-token-table`). **A3:** regra escrita no `CLAUDE.md` (secção "Gate Determinístico") — após cada push, confirmar o CI com `gh run watch`/`gh run list` e registar o output; proibido declarar "CI verde" sem ele. **D2:** template de auditoria de tokens por fase da pipeline criado no Bloco D (tabela pronta a preencher no fim de uma feature; zero números inventados; baseline histórico ~166k do ciclo de QA da csv-import registado como comparação). 3 checks locais verdes por item (typecheck 0, lint 0, test:unit 75) + CI verde confirmado por `gh run watch`.
+
+> **PRÓXIMO (em aberto, sem ordem obrigatória):** **A1** (branch protection em `main` — SÓ o utilizador consegue, via GitHub UI/`gh api`); **D2 preenchimento** (a estrutura existe; preencher com medição real no fim da próxima feature — nunca estimar). **Dívida só-local (fora do CI):** reconciliar os ~11 specs E2E legados que partilham a base Cloud e são mutuamente destrutivos (G-05) — só faz sentido com um banco de teste (opção B/efémero), hoje inexistente.
 
 [ignorar essa linha]
