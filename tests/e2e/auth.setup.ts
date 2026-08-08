@@ -4,8 +4,10 @@ import path from "path";
 
 const authFile = path.join(__dirname, ".auth/user.json");
 
-// Autentica um utilizador de teste dedicado (E2E_EMAIL/E2E_PASSPHRASE do
-// .env.local) SEM passar pela UI de login: a página /passphrase tem o email
+// Autentica um utilizador de teste dedicado SEM passar pela UI de login. As
+// credenciais são a fonte única de verdade carregada por playwright.config.ts:
+// E2E_EMAIL vem de .env.test (versionado) e E2E_PASSPHRASE de .env.test.local
+// (gitignored) localmente ou de um secret no CI. A página /passphrase tem o email
 // fixo `owner@fintrack.local` (passphrase/page.tsx:21), por isso o login por
 // formulário só serve a conta real. Aqui geramos a sessão com o próprio
 // @supabase/ssr — o mesmo encoding de cookies que a app usa (à prova de versão)
@@ -15,7 +17,9 @@ setup("autenticar utilizador de teste", async ({ context, page }) => {
   const password = process.env.E2E_PASSPHRASE;
   if (!email || !password) {
     throw new Error(
-      "E2E_EMAIL e/ou E2E_PASSPHRASE não definidas. Adicione ambas ao .env.local."
+      "E2E_EMAIL e/ou E2E_PASSPHRASE não definidas. E2E_EMAIL vem de .env.test " +
+        "(versionado); E2E_PASSPHRASE de .env.test.local (gitignored) — crie-o a " +
+        "partir de .env.example. No CI, E2E_PASSPHRASE vem de um secret."
     );
   }
 
@@ -42,7 +46,7 @@ setup("autenticar utilizador de teste", async ({ context, page }) => {
   }
   if (captured.length === 0) {
     throw new Error(
-      "Login sem cookies de sessão — verifique as credenciais de teste no .env.local."
+      "Login sem cookies de sessão — verifique as credenciais de teste em .env.test/.env.test.local."
     );
   }
 
