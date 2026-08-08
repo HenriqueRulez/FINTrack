@@ -140,7 +140,7 @@ Actualizado 2026-08-07: o CI já está em `main` e verde — o ponto 1 (push) es
 
 ### A3. Passo pós-push obrigatório do orquestrador: confirmar o CI (depende de A2)
 
-- [ ] Adicionar ao fluxo de trabalho (CLAUDE.md, secção "Gate Determinístico"): após qualquer push, o orquestrador corre `gh run watch` (ou `gh run list --limit 1`) e regista o resultado real. Proibido declarar "CI verde" sem esse output.
+- [x] Adicionar ao fluxo de trabalho (CLAUDE.md, secção "Gate Determinístico"): após qualquer push, o orquestrador corre `gh run watch` (ou `gh run list --limit 1`) e regista o resultado real. Proibido declarar "CI verde" sem esse output. **FEITO 2026-08-08** (branch `docs/a3-ci-rule`): novo bullet na secção "Gate Determinístico — responsabilidade do CI (não do QA)" do `CLAUDE.md` com a regra + o caminho do `gh` fora do PATH.
 - **Nota 2026-08-07:** o comportamento já foi praticado de facto nos B3 e B2-parte2 (CI confirmado por `gh run watch` antes de declarar verde), mas a **regra escrita no CLAUDE.md continua por adicionar** — é isso que fecha o checkbox.
 - **Porquê:** hoje o resultado do CI só é visível na UI do GitHub — o fecho do loop depende do utilizador ir ver. Robustez = o pipeline confirma-se a si próprio. Custo: ~zero tokens (um comando, output de 3 linhas).
 

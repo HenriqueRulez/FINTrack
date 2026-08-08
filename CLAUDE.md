@@ -123,6 +123,7 @@ O gate determinístico (`typecheck` + `lint` + unit tests) é responsabilidade d
 - **QA** deixa de correr qualquer verificação determinística — foca-se no que exige agente: verificação visual (Chrome Extension) e E2E/funcional (Playwright e2e). Lê os flags do relatório do Engineer (`TYPECHECK_FAILED`/`LINT_FAILED`/`MIGRATION_FAILED`) em vez de reexecutar.
 - **Engineer** mantém o self-check próprio de typecheck+lint pós-implementação (feedback imediato, não o gate).
 - **Merge em `main`** passa a ser via PR com o check de CI verde (required status check). Trabalho de feature acontece em branch; push directo a `main` deixa de ser o caminho normal.
+- **Confirmação obrigatória do CI após cada push (orquestrador):** depois de qualquer `git push`, o orquestrador confirma o resultado real do CI com `gh run watch` (ou `gh run list --limit 1`) e **regista esse output**. É **proibido declarar "CI verde" sem esse output** — sem a confirmação factual, o estado do CI é desconhecido, não verde. O `gh` está em `C:\Program Files\GitHub CLI\gh.exe` (fora do PATH; invocar por caminho completo). Custo ~zero (um comando, poucas linhas de output); fecha o loop sem depender de o utilizador ir à UI do GitHub.
 - **Porquê:** mover o determinístico para CI grátis/reprodutível minimiza gasto de tokens sem relaxar nada — o gate é o mesmo conjunto de verificações, só muda quem as executa.
 
 ## Pipeline de Agentes — Ordem Obrigatória
