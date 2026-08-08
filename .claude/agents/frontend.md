@@ -64,7 +64,7 @@ Produza **exactamente** este template:
 # Relatório Frontend — [Nome da Feature]
 
 **Especificação Visual:** `.claude/reports/design-[nome].md`
-**Working Item:** `.claude/working-items/[nome].md`
+**Working Item:** `.issues/details/[ID].md`
 **Typecheck:** [✅ Zero erros | ❌ TYPECHECK_FAILED: <output>]
 **Lint:** [✅ Zero erros | ❌ LINT_FAILED: <output>]
 

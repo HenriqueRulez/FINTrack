@@ -6,7 +6,7 @@ App web pessoal de acompanhamento de portfólio de investimentos: portfólio de 
 
 ## Stack
 
-- **Framework**: Next.js 15, App Router, TypeScript strict, React 19
+- **Framework**: Next.js 16, App Router, TypeScript strict, React 19
 - **Banco**: Supabase Cloud (PostgreSQL + Row Level Security + Auth)
 - **Estilo**: TailwindCSS v4 + shadcn/ui (componentes em `src/components/ui/`)
 - **Validação**: Zod — schemas em `src/lib/validations/`
@@ -134,7 +134,7 @@ PO → Designer → Frontend → SM → Engineer → QA → Security Review
 
 | Passo | Agente              | Local                                 | Responsabilidade                                          | Output                          |
 | ----- | ------------------- | ------------------------------------- | --------------------------------------------------------- | ------------------------------- |
-| 1     | `po`                | `.claude/agents/po.md`                | Define requisitos e critérios de aceite                   | `.claude/working-items/*.md`    |
+| 1     | `po`                | `.claude/agents/po.md`                | Define requisitos e critérios de aceite                   | `.issues/details/FEAT-*.md`     |
 | 2     | `designer`          | `.claude/agents/designer.md`          | Especifica visualmente usando DESIGN.md                   | `.claude/reports/design-*.md`   |
 | 3     | `frontend`          | `.claude/agents/frontend.md`          | Implementa UI (componentes, estilos, estados)             | `.claude/reports/frontend-*.md` |
 | 4     | `sm`                | `.claude/agents/sm.md`                | Planeia tarefas de lógica/API para o Engineer             | `.claude/tasks/*.md`            |
@@ -174,3 +174,8 @@ Os agentes do projecto vivem em `.claude/agents/*.md` e são descobertos pelo ru
 # Trabalhando com Linear
 
 Leia o documento ./linear/docs/trabalhando-com-linear.md
+
+- O backlog local vive em `.issues/` (índices + `details/`) — fonte de verdade para Estado/Prioridade/Linear ID é a tabela índice.
+- Working items do PO e bug reports vivem em `.issues/details/{ID}-{slug}.md` — `.claude/working-items/` e `.claude/bug-reports/` são legado (só histórico).
+- O `TODO.md` não regista bugs nem backlog — é apenas o plano da fase de trabalho em curso.
+- Sync com o Linear é sempre explícito — nunca automático.

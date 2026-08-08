@@ -9,7 +9,7 @@ O argumento recebido é o **slug da feature** (ex: `dashboard-charts`). Corra es
 ## Localizar artefactos das Fases anteriores
 
 ```
-working_item_path    → Glob ".claude/working-items/*[slug]*.md" → primeiro resultado
+working_item_path    → Glob ".issues/details/*[slug]*.md" → primeiro resultado
 engineer_report_path → Glob ".claude/reports/[slug]*.md" (excluindo qa-*, design-*, frontend-*, security-*) → resultado mais recente
 ```
 

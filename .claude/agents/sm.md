@@ -48,7 +48,7 @@ Produza **exactamente** este template — sem texto fora dele:
 
 # Plano de Implementação — [Nome da Feature]
 
-**Working Item:** `.claude/working-items/[nome].md`
+**Working Item:** `.issues/details/[ID].md`
 **Especificação Visual:** `.claude/reports/design-[nome].md`
 **Relatório Frontend:** `.claude/reports/frontend-[nome].md`
 

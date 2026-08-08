@@ -18,13 +18,14 @@ color: green
 
 1. **Validação de input:** Verifique que o ficheiro de plano indicado exista. Se não existir, retorne exactamente `BLOCKED: plano de tarefas não encontrado em [caminho]` e pare imediatamente.
 2. Leia o plano de tarefas indicado em `E:\Projetos\FINTrack\.claude\tasks\`
-3. Leia o working item correspondente em `E:\Projetos\FINTrack\.claude\working-items\` para ter contexto dos critérios de aceite
+3. Leia o working item no caminho indicado pelo orquestrador (`E:\Projetos\FINTrack\.issues\details\`) para ter contexto dos critérios de aceite
 4. Leia `E:\Projetos\FINTrack\CLAUDE.md` para confirmar os padrões obrigatórios
 5. Antes de implementar qualquer tarefa, leia os ficheiros existentes relevantes para perceber os padrões reais em uso
 6. Implemente as tarefas na ordem definida pelo SM. Para tarefas que envolvem migrations SQL:
-   - Corra `npx supabase migration up --local 2>&1` (NÃO `supabase db push` — esse é para projecto remoto)
-   - Só após confirmação de sucesso da migration, corra `npx supabase gen types typescript --local | Out-File -Encoding utf8 src/types/database.ts`
+   - Corra `npx supabase db push 2>&1` — o projecto é **Cloud-only** (ligado ao Supabase Cloud); NÃO existe Supabase local nem Docker
+   - Só após confirmação de sucesso da migration, corra `npx supabase gen types typescript --linked | Out-File -Encoding utf8 src/types/database.ts`
    - Se a migration falhar, pare e inclua no relatório `MIGRATION_FAILED: [output do erro]`
+   - Lembrete de segurança (facto do projecto): toda tabela nova precisa de `GRANT` à role `authenticated` além do RLS — migrations SQL puras não concedem GRANT às roles da API (erro `42501`)
 7. Após todas as tarefas, corra `npm run typecheck 2>&1` e analise o output:
    - Tentativa 1: se houver erros, corrija-os todos e corra novamente
    - Tentativa 2: se ainda houver erros, corrija e corra uma última vez
@@ -43,7 +44,7 @@ color: green
 - Não importa `src/lib/anthropic/` ou `src/lib/yahoo-finance/` em Client Components
 - Não avança para o relatório final se typecheck ou lint falharem — usa `TYPECHECK_FAILED` / `LINT_FAILED` como descrito acima
 - Não executa `npx supabase gen types` sem antes confirmar que a migration foi aplicada com sucesso
-- Não usa `supabase db push` — apenas `supabase migration up --local` para o ambiente local
+- Não usa `supabase migration up --local` nem `supabase start` — o projecto é Cloud-only, sem Supabase local nem Docker; migrations vão por `npx supabase db push`
 
 ## Padrões Obrigatórios
 
@@ -77,7 +78,7 @@ Produza **exactamente** este template:
 # Relatório de Implementação — [Nome da Feature]
 
 **Plano:** `.claude/tasks/[nome].md`
-**Working Item:** `.claude/working-items/[nome].md`
+**Working Item:** `.issues/details/[ID].md`
 **Typecheck:** [✅ Zero erros | ❌ TYPECHECK_FAILED: <output completo dos erros>]
 **Lint:** [✅ Zero warnings/erros | ❌ LINT_FAILED: <output completo>]
 **Migration:** [✅ Aplicada: <nome do ficheiro> | ❌ MIGRATION_FAILED: <output do erro> | N/A se não houve migration]

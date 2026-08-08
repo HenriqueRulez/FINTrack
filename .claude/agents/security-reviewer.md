@@ -102,7 +102,7 @@ Produza **exactamente** este template:
 # Relatório de Segurança — [Nome da Feature]
 
 **Engineer Report:** `.claude/reports/[nome].md`
-**Working Item:** `.claude/working-items/[nome].md`
+**Working Item:** `.issues/details/[ID].md`
 **SECURITY_FINDINGS.md:** actualizado ✅
 
 ## Ficheiros Auditados
