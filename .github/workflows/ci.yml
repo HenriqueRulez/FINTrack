@@ -117,3 +117,54 @@ jobs:
           fi
 
       - run: npm run build
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # E2E smoke PÚBLICO (C4, escopo A). Job novo, NÃO-required / informativo.
+  #
+  # O projeto é Cloud-only — não há Supabase local nem Docker. Por isso o CI NÃO
+  # arranca banco nenhum e NÃO usa secrets: a app corre com env Supabase DUMMY
+  # (igual ao job Build) e o smoke verifica só o que NÃO precisa de base nem de
+  # login — o middleware, ao falhar `getUser` contra o URL dummy, redireciona
+  # /dashboard → /passphrase (auth-guard), e a página de passphrase renderiza.
+  # O teste `@authed` (dashboard após login) é excluído (grepInvert) e fica
+  # local-only. Sem browser real de dados, sem rede externa a bases → estável.
+  #
+  # `continue-on-error: true` (NÍVEL DO JOB): a falha NÃO falha a conclusão do
+  # workflow. É deliberado e mais forte do que "Build"/"Security audit": o
+  # automerge exige `workflow_run.conclusion == 'success'`, por isso um job normal
+  # vermelho bloquearia TODOS os merges. Como E2E tem mais superfície de
+  # flakiness, fica isolado a informativo — vermelho aqui pinta só este job.
+  # Promover a bloqueante/required = decisão futura registada no TODO (C4).
+  e2e-smoke:
+    name: E2E smoke (public, no login)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    continue-on-error: true
+    env:
+      # DUMMY — o smoke público não faz login nem toca base real. O middleware
+      # falha getUser contra este URL e redireciona, que é o comportamento testado.
+      NEXT_PUBLIC_SUPABASE_URL: https://dummy.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: dummy-anon-key
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Instalar deps (npm ci, com auto-heal do lockfile cross-platform + guard)
+        run: |
+          if npm ci; then
+            echo "npm ci OK — lockfile em sync"
+          else
+            echo "::warning::npm ci falhou (lockfile Windows x Linux fora de sync); auto-heal com npm install"
+            npm install --no-audit --no-fund
+            node .github/scripts/lockfile-guard.mjs
+          fi
+
+      - name: Instalar browser do Playwright (chromium)
+        run: npx playwright install chromium --with-deps
+
+      - name: Smoke E2E público (sem login, env Supabase dummy)
+        run: npm run test:e2e:smoke:public

@@ -7,7 +7,7 @@ App web pessoal de acompanhamento de portfólio de investimentos: portfólio de 
 ## Stack
 
 - **Framework**: Next.js 15, App Router, TypeScript strict, React 19
-- **Banco**: Supabase local (PostgreSQL + Row Level Security + Auth)
+- **Banco**: Supabase Cloud (PostgreSQL + Row Level Security + Auth)
 - **Estilo**: TailwindCSS v4 + shadcn/ui (componentes em `src/components/ui/`)
 - **Validação**: Zod — schemas em `src/lib/validations/`
 - **AI**: Anthropic SDK (`claude-sonnet-4-6`) — server-only em `src/lib/anthropic/`
@@ -51,8 +51,8 @@ npm run lint
 # Após escrever nova migration SQL:
 npx supabase db push
 
-# Gerar tipos TypeScript do schema atual:
-npx supabase gen types typescript --local > src/types/database.ts
+# Gerar tipos TypeScript do schema atual (projeto Cloud ligado):
+npx supabase gen types typescript --linked > src/types/database.ts
 ```
 
 ### Python — usar `python`, NUNCA `python3` (obrigatório, Claude e subagentes)

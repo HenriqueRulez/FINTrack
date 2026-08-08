@@ -17,7 +17,10 @@ test("passphrase page renderiza correctamente", async ({ browser }) => {
   await ctx.close();
 });
 
-test("dashboard carrega após autenticação", async ({ page }) => {
+// @authed: exige login real (base Supabase) — corre localmente (config smoke),
+// fica FORA do smoke público do CI (grepInvert /@authed/), que é Cloud-only e
+// sem base de teste.
+test("dashboard carrega após autenticação", { tag: "@authed" }, async ({ page }) => {
   await page.goto("/dashboard");
   await expect(page).toHaveURL(/dashboard/);
   await expect(page.locator("h1, h2").first()).toBeVisible();
