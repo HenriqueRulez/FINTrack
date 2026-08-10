@@ -83,3 +83,43 @@ Como melhorar:
 - Governança: proibir auto-confirm de `db push` para migrações não-aditivas; exigir revisão de `db diff` + confirmação manual (já recomendado em B-16 — elevar de recomendação a regra no CLAUDE.md se o dono concordar).
 - Reconciliar `E2E_PASSPHRASE`: alinhar docs/config de teste com o `.env.local` real antes da próxima corrida E2E.
 Arquivo: `src/lib/import/trading212.ts`, `SECURITY_FINDINGS.md` (B-16, B-17, B-18), `.env.local`
+
+---
+
+[MÉDIO] - Sessão: 10-08-26 às 09:33
+Quais são os pontos que você está menos confiante?
+Resposta:
+- **O caminho de login REAL do dono nunca foi exercido de ponta a ponta.** No FIN-8 movi a auth para `POST /api/auth/login` (server-side). O QA provou por curl que um login válido devolve `200` + cookie de sessão e que `/dashboard` fica acessível — MAS usando a conta de teste `e2e@fintrack.local` (aliasada temporariamente em `AUTH_OWNER_EMAIL`), não a passphrase real de `owner@fintrack.local` (que não existe em nenhum ficheiro acessível), e sem browser real (Chrome Extension offline). Logo, o fluxo que o dono usa de facto — email fixo do owner + a sua passphrase, na UI — não foi verificado nesta sessão. Confiança na lógica do código: alta; no fluxo do owner em produção: não verificado.
+- **Zero cobertura de CI da nova rota de login.** Verifiquei que o `e2e-smoke` do CI corre APENAS `smoke.spec.ts` (`playwright.smoke-public.config.ts`, `testMatch: /smoke\.spec\.ts/`), que testa redirect + render da passphrase, NÃO um POST real a `/api/auth/login`. O gate required (Deterministic gate) é typecheck+lint+unit. O meu spec novo é local-only. Resultado: a rota de auth mais crítica da app não tem nenhum teste automático em CI — uma regressão no cookie/sessão do server client passaria verde.
+- **A premissa do FIN-9 (que `@supabase/ssr@0.12.4` corrige o colapso para `never`) é inferência, não facto.** Baseia-se na peerDependency `supabase-js ^2.111.0` declarada pela 0.12.4; NÃO fiz o upgrade nem testei. É uma hipótese razoável, não verificada.
+Como melhorar:
+- Para mudanças de auth, exigir prova do fluxo real (conta do owner, browser real) OU um teste de CI dedicado à rota de login antes de merge — curl com conta aliasada é evidência parcial, não suficiente para o gate.
+- Antes de abrir um item de "upgrade X corrige Y", validar a hipótese num branch descartável (upgrade + typecheck) e anexar o resultado ao item, em vez de inferir do peer range.
+Arquivo: `src/app/api/auth/login/route.ts`, `playwright.smoke-public.config.ts`, `tests/e2e/fix-email-hardcoded-passphrase.spec.ts`
+
+---
+
+[ALTO] - Sessão: 10-08-26 às 09:33
+Qual é o maior ponto que eu estou deixando passar sobre a situação no momento? O que eu não compreendo?
+Resposta:
+- **O braço de QA visual da pipeline está NÃO-FUNCIONAL e mesmo assim continuámos a fazer merge.** A Chrome Extension esteve indisponível ("Browser extension is not connected") nas DUAS execuções de QA desta sessão (FIN-8 e FIN-4). Como a verificação visual é o único gate visual da pipeline, ambas as features foram para `main` com QA PARCIAL — nunca vistas num browser real. Registei BUG-2 e BUG-3, mas o ponto sistémico é maior: fundi DUAS mudanças de UI de autenticação (login e logout) sem uma única verificação visual real, e o padrão "extensão offline → PARCIAL → merge na mesma" repetiu-se sem eu questionar se o gate está de facto operacional.
+- **Combinado, o risco é auth sem rede de segurança de runtime.** O gate required do CI não corre login/logout; o smoke não cobre a nova rota; o QA de browser esteve cego. Para um refactor de auth numa app de dinheiro, o comportamento em runtime foi validado só por curl headless com conta aliasada. Não compreendo ainda a CAUSA da extensão estar offline (config? sessão? processo do QA?) — e sem isso, o gate visual continuará a falhar silenciosamente na próxima feature.
+Como melhorar:
+- Tratar "Chrome Extension indisponível" como FALHA de gate, não como PARCIAL-que-se-funde: ou se resolve a ligação antes do merge, ou o dono decide explicitamente aceitar o risco por escrito. Não normalizar o merge-à-volta-do-gate.
+- Diagnosticar de raiz porque é que `tabs_context_mcp` devolve "not connected" nesta máquina antes da próxima feature com UI — é a 2ª sessão consecutiva afectada.
+Arquivo: `.claude/agents/qa.md`, `.issues/bugs.md` (BUG-2, BUG-3)
+
+---
+
+[ALTO] - Sessão: 10-08-26 às 09:33
+Levando em consideração o que foi feito nesse último /goal, existe algum ponto importante que estou deixando passar? (regra de negócio, segurança, inconsistência de requirements)
+Resposta:
+- **Segurança — o rate limit que "validei" no login é ineficaz no deploy real.** O FIN-8 protege `/api/auth/login` com `rateLimit()` por IP (10/min). Mas `src/lib/rate-limit.ts:12-14` é um `Map` em memória, com comentário do próprio autor: "resets on server restart / Replace with Upstash Redis in v2 for multi-instance deployments". Num ambiente serverless/multi-instância (típico de Next em produção), o limite é POR INSTÂNCIA, não global — cada cold start tem o seu Map, e a passphrase é o ÚNICO segredo da app. Ou seja, a única defesa anti-brute-force do login pode ser largamente contornável em produção, e eu tratei-a como "presente e correcta" sem qualificar isto. Não é regressão desta sessão (o rate-limit já era assim), mas ao mover a auth para esta rota tornei-o a defesa central sem o sinalizar.
+- **Inconsistência de requirements — a AC do FIN-8 nomeia um teste que não testa o que afirma.** A AC2 dizia "Login por passphrase continua funcional (smoke E2E verde)", mas o smoke público NUNCA faz login (só redirect/render). A própria AC prescreve uma prova que o teste nomeado não pode dar; o QA teve de contornar com curl. AC sub-especificada — cruzar com a lição de 06-08 ("não reportar verde a partir de teste que não cobre o caminho").
+- **Reclassificação de achados de segurança para Backlog.** Fechei o FIN-7 movendo B-15/B-18 para o FIN-9, que ficou em **Backlog** (não Todo). São higiene de tipos (o próprio finding diz "não é bypass de segurança"), logo severidade real baixa — mas o padrão de mover findings tagueados de segurança para Backlog ao marcar o pai "Done" merece atenção para não os perder de vista.
+- **Cross-reference (padrão recorrente, 3ª sessão):** o BUG-4 que o QA do FIN-4 encontrou — `signOut()` scope=global a envenenar a sessão partilhada dos specs @authed — é EXACTAMENTE o problema descrito nas entradas de 06-08 (10:14 e 13:26) como `logout-button.tsx:16` / G-05. Continua aberto (TD-1/FIN-2 + BUG-4). Um problema previsto há dias, reconfirmado, e ainda sem correcção num app financeiro — a dívida de E2E não está a ser tratada como gate.
+Como melhorar:
+- Elevar o rate-limit em memória a achado explícito no `SECURITY_FINDINGS.md` (defesa anti-brute-force não-global no login single-secret) e decidir: store distribuído (Upstash) OU aceitar o risco documentado. Não deixar "validei o rate limit" sem a ressalva serverless.
+- Ao escrever ACs, garantir que o teste nomeado cobre o caminho afirmado; se não cobre, mudar a AC ou o teste — não deixar o QA contornar.
+- Puxar o TD-1/FIN-2 (suite E2E + `signOut` local vs global) para cima: é a 3ª sessão a registá-lo; ou se resolve, ou o dono aceita explicitamente conviver com ele.
+Arquivo: `src/lib/rate-limit.ts`, `src/app/api/auth/login/route.ts`, `SECURITY_FINDINGS.md`, `.issues/tech-debt.md` (TD-1/FIN-2), `.issues/bugs.md` (BUG-4)
