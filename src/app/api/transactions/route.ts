@@ -154,11 +154,7 @@ export async function POST(request: NextRequest) {
     label: label ?? null,
   };
 
-  // Cast necessário: @supabase/ssr@0.6.1 tipa o client com a ordem de genéricos
-  // antiga, incompatível com a nova assinatura de SupabaseClient do
-  // @supabase/supabase-js@2.112.1 — o Schema colapsa para `never` (ver FIN-7/TD-6).
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: created, error: insErr } = await (supabase as any)
+  const { data: created, error: insErr } = await supabase
     .from("transactions")
     .insert(insertPayload)
     .select(SELECT_COLUMNS)

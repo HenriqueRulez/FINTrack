@@ -180,11 +180,7 @@ export async function PATCH(request: NextRequest, ctx: Ctx) {
     updated_at: new Date().toISOString(),
   };
 
-  // Cast necessário: @supabase/ssr@0.6.1 tipa o client com a ordem de genéricos
-  // antiga, incompatível com a nova assinatura de SupabaseClient do
-  // @supabase/supabase-js@2.112.1 — o Schema colapsa para `never` (ver FIN-7/TD-6).
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: updated, error: updErr } = await (supabase as any)
+  const { data: updated, error: updErr } = await supabase
     .from("transactions")
     .update(updatePayload)
     .eq("id", id)
