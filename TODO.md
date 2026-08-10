@@ -243,7 +243,7 @@ Escolhida a alternativa de processo — abrir a PR **enquanto o run do CI do pus
 
 ### D2. Auditoria periódica do gasto por agente — medir antes de optimizar mais
 
-- [~] Uma vez por leva: registar tokens consumidos por fase da pipeline (PO/Designer/Frontend/SM/Engineer/QA/Security) no fim de cada feature, numa tabela neste ficheiro. A Fase 1 nasceu de uma medição real (~166k tokens num ciclo de QA); sem números novos, a próxima optimização é palpite. **ESTRUTURA CRIADA 2026-08-08** (branch `docs/d2-token-table`): template abaixo, pronto a preencher no fim de uma feature. Zero números inventados — só se preenche com medição real.
+- [x] Uma vez por leva: registar tokens consumidos por fase da pipeline (PO/Designer/Frontend/SM/Engineer/QA/Security) no fim de cada feature, numa tabela neste ficheiro. A Fase 1 nasceu de uma medição real (~166k tokens num ciclo de QA); sem números novos, a próxima optimização é palpite. **ESTRUTURA CRIADA 2026-08-08** (branch `docs/d2-token-table`): template abaixo, pronto a preencher no fim de uma feature. Zero números inventados — só se preenche com medição real. **PREENCHIDO 2026-08-10** (TD-5/FIN-6): duas features medidas (TD-7/FIN-9 e BUG-6/FIN-14) na subsecção "Medições reais" — QA é a fase mais cara (50-56%); alvo estrutural = banco de teste efémero para migrar mais E2E ao CI (TD-1/G-05).
 - **Regra:** só se optimiza o que se mediu. Se a medição mostrar que o QA visual é agora o maior custo, esse é o próximo alvo — não antes.
 
 #### Template de auditoria de tokens (preencher no fim de cada feature)
@@ -264,6 +264,37 @@ Escolhida a alternativa de processo — abrir a PR **enquanto o run do CI do pus
 | **Total**   | —                   | —      |        | 100%       |       |
 
 **Maior custo desta feature:** `<fase>` — **próximo alvo de optimização (se houver):** `<fase ou "nenhum — dentro do esperado">`
+
+#### Medições reais
+
+**Feature:** `td-7-bump-supabase-ssr` (FIN-9) · **Data:** `2026-08-10` · **Origem dos números:** runtime (`subagent_tokens` reportado por cada agente, input+output)
+
+| Fase        | Agente              | Ciclos | Tokens  | % do total | Notas |
+| ----------- | ------------------- | ------ | ------- | ---------- | ----- |
+| PO          | `po`                | —      | —       | —          | Tech-debt (bump de dependência); PO não corre |
+| Designer    | `designer`          | —      | —       | —          | Sem UI |
+| Frontend    | `frontend`          | —      | —       | —          | Sem UI |
+| SM          | `sm`                | —      | —       | —          | Planeamento feito pelo orquestrador (task precisa) |
+| Engineer    | `engineer`          | 1      | 31 110  | 18,2%      | Bump + remoção de 4 casts `as any` |
+| QA          | `qa`                | 1      | 86 055  | 50,2%      | 43/43 Playwright @authed (login, sessão, rotas, CRUD) |
+| Security    | `security-reviewer` | 1      | 54 208  | 31,6%      | Fronteira de auth + supply-chain; correu em paralelo com QA |
+| **Total**   | —                   | —      | 171 373 | 100%       | — |
+
+**Maior custo desta feature:** QA (86 055, 50,2%) — **próximo alvo de optimização (se houver):** QA E2E `@authed` só desce quando existir banco de teste descartável para mover mais specs funcionais para o CI (bloqueado — TD-1/G-05). O determinístico (typecheck/lint/unit) já está no CI, fora do QA.
+
+**Feature:** `fix-bug-6-gethistory-chart` (FIN-14) · **Data:** `2026-08-10` · **Origem dos números:** runtime (`subagent_tokens` por agente, input+output) · **Pipeline:** `/bug-fix` (Bug Reporter → Engineer → QA)
+
+| Fase          | Agente              | Ciclos | Tokens  | % do total | Notas |
+| ------------- | ------------------- | ------ | ------- | ---------- | ----- |
+| Bug Reporter  | `bug-reporter`      | 1      | 23 267  | 21,3%      | Papel de PO no pipeline de bug |
+| Engineer      | `engineer`          | 1      | 24 460  | 22,4%      | `getHistory` → `chart()` |
+| QA            | `qa`                | 1      | 61 585  | 56,3%      | Playwright funcional + runtime node; sem verificação visual (TD-10) |
+| Security      | `security-reviewer` | —      | —       | —          | N/A — sem API route tocada (código server-only) |
+| **Total**     | —                   | —      | 109 312 | 100%       | — |
+
+**Maior custo desta feature:** QA (61 585, 56,3%) — **próximo alvo de optimização (se houver):** nenhum novo — mesmo padrão do TD-7 (QA domina por correr Playwright funcional que exige sessão real). O cleanup do CA4 foi feito à mão pelo orquestrador (0 tokens de agente).
+
+**Padrão observado (2 features):** o QA é consistentemente a fase mais cara (50-56% do total) porque corre a suite Playwright funcional/`@authed`, que precisa de sessão real e não pode migrar para o CI sem banco de teste descartável. Engineer e Security são estáveis (~18-32%). Confirma a tese da Fase 1 (determinístico → CI) e aponta o único alvo estrutural restante: banco de teste efémero para desbloquear mais E2E no CI (TD-1/G-05).
 
 _Baseline histórico conhecido (única medição real até hoje): ~166k tokens num único ciclo de QA da feature csv-import (motivou a Fase 1 — mover o gate determinístico para o CI). É o ponto de comparação até haver mais linhas preenchidas._
 
