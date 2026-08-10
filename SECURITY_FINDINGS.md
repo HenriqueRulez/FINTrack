@@ -18,6 +18,12 @@ Ao fechar um achado, adicionar: `→ Resolvido em: [nome da feature] (YYYY-MM-DD
 
 ## Achados Abertos
 
+### MÉDIO
+
+| ID | Arquivo | Problema | Feature de origem | Data |
+|----|---------|----------|-------------------|------|
+| M-04 | `src/lib/rate-limit.ts:12-14`, `src/app/api/auth/login/route.ts:17` | Rate limit anti-brute-force do login é um `Map` em MEMÓRIA (o próprio autor anota "Replace with Upstash Redis in v2 for multi-instance deployments"). Em serverless/multi-instância o limite é **por instância**, não global → contornável por rotação de instâncias / atacante distribuído. Após FIN-8, este rate limit é a defesa central de um login cujo único segredo é a passphrase. Distinto do B-03 (que cobre só o memory leak do purge, não a eficácia do limite). Rastreado em TD-8/FIN-10. | Self-improvement (pós-FIN-8) | 2026-08-10 |
+
 ### BAIXO / INFORMACIONAL
 
 | ID | Arquivo | Problema | Feature de origem | Data |
@@ -88,6 +94,6 @@ A cada ciclo de desenvolvimento, após a auditoria:
 |-----------|---------|------------|---------|
 | Crítico   | 0       | 0          | 0       |
 | Alto      | 0       | 0          | 0       |
-| Médio     | 0       | 3          | 0       |
+| Médio     | 1       | 3          | 0       |
 | Baixo     | 10      | 8          | 3       |
-| **Total** | **10**  | **11**     | **3**   |
+| **Total** | **11**  | **11**     | **3**   |

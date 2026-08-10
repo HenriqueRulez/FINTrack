@@ -12,6 +12,20 @@
  */
 
 import { test, expect } from "@playwright/test";
+import { resetLedger } from "../support/ledger";
+import { LEDGER_SEED_13 } from "../support/ledger-seed";
+
+// Este spec exige um estado FIXO de 13 transacções (All=13, Buy/Sell=7, Cash=2,
+// Conv=1, Div=2, Int=1) com tickers/datas específicos. Semeia esse baseline via
+// service role (bypass da API/rate limit) antes de toda a suite e limpa no fim —
+// deixa de depender de um seed global que csv-import apaga. Ordem irrelevante.
+test.beforeAll(async () => {
+  await resetLedger(LEDGER_SEED_13);
+});
+
+test.afterAll(async () => {
+  await resetLedger([]);
+});
 
 // ---------------------------------------------------------------------------
 // CA-01 — Auth: 401 sem sessão, 200 com sessão

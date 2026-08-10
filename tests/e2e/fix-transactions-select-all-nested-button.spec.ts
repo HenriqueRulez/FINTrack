@@ -12,8 +12,20 @@
  */
 
 import { test, expect } from "@playwright/test";
+import { resetLedger } from "../support/ledger";
+import { LEDGER_SEED_13 } from "../support/ledger-seed";
 
 test.describe("Fix › Select All sem botão aninhado (authenticated)", () => {
+  // Precisa de linhas na tabela (rowCount > 1, checkboxes de linha). Semeia o
+  // baseline de 13 via service role e limpa no fim — imune à ordem dos specs.
+  test.beforeAll(async () => {
+    await resetLedger(LEDGER_SEED_13);
+  });
+
+  test.afterAll(async () => {
+    await resetLedger([]);
+  });
+
   // CA1 — sem erros de hidratação / JS ao entrar em edit mode
   test("CA1 › edit mode não emite erros de hidratação <button> in <button>", async ({
     page,

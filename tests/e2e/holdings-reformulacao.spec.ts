@@ -29,6 +29,7 @@
  */
 
 import { test, expect, type APIRequestContext, type BrowserContext } from "@playwright/test";
+import { resetLedger } from "../support/ledger";
 
 const AUTH_STATE = "tests/e2e/.auth/user.json";
 
@@ -55,6 +56,8 @@ test.describe("Holdings Reformulacao — comportamento ainda válido", () => {
   let fixtureId: string;
 
   test.beforeAll(async ({ browser }) => {
+    // Baseline vazio (via service role) para que a página derive SÓ do fixture.
+    await resetLedger([]);
     context = await browser.newContext({ storageState: AUTH_STATE });
     fixtureId = await createFixture(context.request);
   });
