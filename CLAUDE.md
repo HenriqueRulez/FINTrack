@@ -10,7 +10,6 @@ App web pessoal de acompanhamento de portfólio de investimentos: portfólio de 
 - **Banco**: Supabase Cloud (PostgreSQL + Row Level Security + Auth)
 - **Estilo**: TailwindCSS v4 + shadcn/ui (componentes em `src/components/ui/`)
 - **Validação**: Zod — schemas em `src/lib/validations/`
-- **AI**: Anthropic SDK (`claude-sonnet-4-6`) — server-only em `src/lib/anthropic/`
 - **Preços**: yahoo-finance2 — server-only em `src/lib/yahoo-finance/`
 - **Charts**: Recharts
 
@@ -28,13 +27,12 @@ App web pessoal de acompanhamento de portfólio de investimentos: portfólio de 
 
 - `src/lib/supabase/server.ts` → Server Components, API Routes
 - `src/lib/supabase/client.ts` → Client Components (`'use client'`) APENAS
-- `src/lib/anthropic/` → server-only, NUNCA importar em Client Components
 - `src/lib/yahoo-finance/` → server-only, NUNCA importar em Client Components
 
 ### Variáveis de ambiente
 
 - `NEXT_PUBLIC_*` → vai para o bundle do browser (OK: URL e anon key do Supabase)
-- Sem prefixo → server-only OBRIGATÓRIO (`ANTHROPIC_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`)
+- Sem prefixo → server-only OBRIGATÓRIO (`SUPABASE_SERVICE_ROLE_KEY`)
 
 ## Comandos Comuns
 
@@ -73,7 +71,6 @@ src/
 │   └── {feature}/       # Componentes por funcionalidade
 ├── lib/
 │   ├── supabase/        # Clientes Supabase (server, client, middleware)
-│   ├── anthropic/       # SDK Anthropic — server-only
 │   ├── yahoo-finance/   # Yahoo Finance — server-only
 │   ├── validations/     # Schemas Zod compartilhados
 │   ├── rate-limit.ts    # Rate limiter em memória
@@ -93,8 +90,13 @@ src/
 - `sm` — Scrum Master: planeia tarefas de lógica/API para o Engineer (após o Frontend)
 - `engineer` — implementa API routes, DB, lógica de negócio, wiring UI↔API
 - `qa` — escreve testes Playwright por CA + executa todos os testes no browser real
-- `security-reviewer` — auditor OWASP + npm audit + actualiza `SECURITY_FINDINGS.md`
+- `security-reviewer` — auditor OWASP + actualiza `SECURITY_FINDINGS.md` (lê o `npm audit` do CI, não o executa)
 - `db-schema-designer` — designer de schema PostgreSQL + RLS para o Supabase. **USO SOB DEMANDA APENAS** — ver regra abaixo
+
+### Agentes utilitários (fora da pipeline de feature)
+
+- `bug-reporter` — estrutura descrições de bug em relatório formal; usado pelo `/bug-fix` antes do Engineer
+- `searcher` — explorador read-only do código e documentação; buscas rápidas a pedido
 
 ### `db-schema-designer` — uso sob demanda (NUNCA automático)
 
@@ -105,16 +107,6 @@ O `db-schema-designer` está **fora da pipeline** e **não é invocado por nenhu
 - Inseri-lo no `/build-feature`, `/implement-feature` ou outra skill.
 
 Se uma feature precisar de schema novo, isso deve estar escrito no working item do PO/plano do SM; mesmo assim, a invocação do `db-schema-designer` é uma decisão consciente, não um gate.
-
-## Pipeline de Desenvolvimento
-
-```
-PO → Designer → frontend-design skill → SM → Engineer → QA → Security Review
-```
-
-- **Toda feature passa por esse pipeline completo** — sem exceções, incluindo as que eram "Simple Tasks"
-- **Security Review é gate obrigatório**: inclui auditoria OWASP + `npm audit` + verificação de pacotes suspeitos
-- **Security Reviewer deve actualizar `SECURITY_FINDINGS.md`** a cada ciclo: adicionar novos achados, marcar resolvidos, não duplicar
 
 ## Gate Determinístico — responsabilidade do CI (não do QA)
 
@@ -132,6 +124,10 @@ O gate determinístico (`typecheck` + `lint` + unit tests) é responsabilidade d
 PO → Designer → Frontend → SM → Engineer → QA → Security Review
 ```
 
+- **Toda feature passa por esta pipeline completa** — sem exceções, incluindo as que eram "Simple Tasks".
+- **Security Review é gate obrigatório** (auditoria OWASP + verificação de pacotes suspeitos); o `npm audit` corre no CI, não no agente.
+- **Security Reviewer actualiza `SECURITY_FINDINGS.md`** a cada ciclo: novos achados, marcar resolvidos, não duplicar.
+
 | Passo | Agente              | Local                                 | Responsabilidade                                          | Output                                     |
 | ----- | ------------------- | ------------------------------------- | --------------------------------------------------------- | ------------------------------------------ |
 | 1     | `po`                | `.claude/agents/po.md`                | Define requisitos e critérios de aceite                   | `.issues/details/{ID}-{slug}.md`           |
@@ -140,9 +136,9 @@ PO → Designer → Frontend → SM → Engineer → QA → Security Review
 | 4     | `sm`                | `.claude/agents/sm.md`                | Planeia tarefas de lógica/API para o Engineer             | `.claude/tasks/{ID}-{slug}.md`             |
 | 5     | `engineer`          | `.claude/agents/engineer.md`          | Implementa API routes, DB, wiring UI↔API                  | `.claude/reports/{ID}-{slug}.md`           |
 | 6     | `qa`                | `.claude/agents/qa.md`                | Escreve testes Playwright por CA + executa todos          | `.claude/reports/qa-{ID}-{slug}.md`        |
-| 7     | `security-reviewer` | `.claude/agents/security-reviewer.md` | Audita OWASP + npm audit + actualiza SECURITY_FINDINGS.md | `.claude/reports/security-{ID}-{slug}.md`  |
+| 7     | `security-reviewer` | `.claude/agents/security-reviewer.md` | Audita OWASP + actualiza SECURITY_FINDINGS.md (lê npm audit do CI) | `.claude/reports/security-{ID}-{slug}.md`  |
 
-**Regra:** Todo agente criado deve estar explicitamente posicionado nesta tabela. Nunca criar agentes fora da pipeline sem actualizar este documento.
+**Regra:** Todo agente criado deve estar documentado — nesta tabela se for passo da pipeline de feature, ou na secção "Agentes utilitários (fora da pipeline de feature)" caso contrário (ex.: `bug-reporter`, `searcher`, `db-schema-designer`). Nunca criar um agente sem o registar neste documento.
 
 **Nomenclatura dos artefactos (obrigatória):** o base name de TODOS os artefactos da pipeline é o do working item — `{ID}-{slug}` (ex.: `FEAT-3-dashboard-charts`), igual ao item no Linear (`{ID}: {Título}`). Prefixos por papel: `design-`, `frontend-`, `qa-`, `security-`; Engineer sem prefixo; bug-fix usa `fix-`/`qa-fix-` com base name do bug (`BUG-n-{slug}`). Excepção: specs E2E em `tests/e2e/` usam só `{slug}.spec.ts` — são artefactos permanentes do produto, não do backlog.
 
@@ -158,10 +154,13 @@ Os agentes do projecto vivem em `.claude/agents/*.md` e são descobertos pelo ru
 
 ### Skills (slash commands)
 
-- `/build-feature` — pipeline completo PO → Designer → Frontend → SM → Engineer → QA → Security Review
+- `/build-feature` — pipeline completo numa sessão: PO → Designer → Frontend → SM → Engineer → QA → Security Review
+- `/design-feature` — Fase 1/3: PO → Designer → Frontend (sessão dedicada)
+- `/implement-feature <slug>` — Fase 2/3: SM → Engineer (sessão dedicada)
+- `/verify-feature <slug>` — Fase 3/3: QA → Security Review, com retry Engineer↔QA
+- `/bug-fix` — pipeline de correcção de bugs: Bug Reporter → Engineer → QA
 - `/frontend-design` — plugin para UI de alta qualidade (uso manual ou pelo agente Frontend)
-- `/review-security` — auditoria OWASP nos arquivos modificados + `npm audit`
-- `/add-feature` — workflow guiado para adicionar features com segurança
+- `/review-security` — auditoria OWASP nos arquivos modificados (lê o `npm audit` do CI)
 
 ## Design System
 

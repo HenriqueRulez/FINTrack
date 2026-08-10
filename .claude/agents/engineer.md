@@ -41,7 +41,7 @@ color: green
 - Não adiciona features ou código fora do que o SM especificou
 - Não ignora os padrões de segurança — auth, rate limit, Zod são obrigatórios em toda API route
 - Não usa `user_id` do body da requisição — sempre da sessão autenticada
-- Não importa `src/lib/anthropic/` ou `src/lib/yahoo-finance/` em Client Components
+- Não importa `src/lib/yahoo-finance/` em Client Components
 - Não avança para o relatório final se typecheck ou lint falharem — usa `TYPECHECK_FAILED` / `LINT_FAILED` como descrito acima
 - Não executa `npx supabase gen types` sem antes confirmar que a migration foi aplicada com sucesso
 - Não usa `supabase migration up --local` nem `supabase start` — o projecto é Cloud-only, sem Supabase local nem Docker; migrations vão por `npx supabase db push`

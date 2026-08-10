@@ -41,7 +41,7 @@ Você é um Frontend Developer sénior especializado em React/Next.js com foco e
 
 - Não cria API routes nem lógica de negócio
 - Não usa `user_id` do body nem chama `supabase.auth`
-- Não importa `src/lib/anthropic/` nem `src/lib/yahoo-finance/`
+- Não importa `src/lib/yahoo-finance/` em Client Components
 - Não ignora tokens do DESIGN.md e usa cores hardcoded
 - Não avança para o relatório final se typecheck ou lint falharem
 

@@ -4,6 +4,11 @@ description: "Auditoria de segurança OWASP nos arquivos modificados do FINTrack
 
 Você está realizando uma revisão de segurança focada nos arquivos Next.js/Supabase deste app financeiro.
 
+> **Determinístico é do CI, não daqui.** `typecheck`, `lint` e `npm audit` correm no
+> `.github/workflows/ci.yml` a cada push. **Não os reexecute** — leia o resultado do último
+> run do CI e registe-o. Esta revisão foca-se apenas no que exige análise humana (checklist
+> OWASP + os greps abaixo).
+
 ## Checklist por tipo de arquivo
 
 ### API Routes (`src/app/api/**/route.ts`)
@@ -21,7 +26,7 @@ Você está realizando uma revisão de segurança focada nos arquivos Next.js/Su
 - [ ] Nenhum secret ou API key referenciado
 
 ### Client Components (`'use client'`)
-- [ ] Nenhum import de `@/lib/anthropic/` ou `@/lib/supabase/server`
+- [ ] Nenhum import de `@/lib/yahoo-finance/` ou `@/lib/supabase/server`
 - [ ] Nenhum secret ou chave hardcoded
 - [ ] Formulários validam com Zod antes de chamar a API
 
@@ -30,21 +35,30 @@ Você está realizando uma revisão de segurança focada nos arquivos Next.js/Su
 - [ ] Políticas usam `(SELECT auth.uid())` — não `auth.uid()` diretamente
 - [ ] Novas colunas não expõem dados de outros usuários
 
-## Executar verificações automáticas
+## Verificações automáticas (só as que exigem análise, não o gate do CI)
 
 ```bash
-# Type check
-npm run typecheck
+# Secrets expostos em arquivos client
+grep -r "SERVICE_ROLE_KEY" src/app --include="*.tsx" --include="*.ts"
 
-# Lint
-npm run lint
-
-# Buscar secrets expostos em arquivos client
-grep -r "ANTHROPIC_API_KEY\|SERVICE_ROLE_KEY" src/app --include="*.tsx" --include="*.ts"
-
-# Verificar routes sem auth guard
+# Routes sem auth guard
 grep -rL "auth.getUser" src/app/api --include="route.ts"
+
+# Routes sem rate limit
+grep -rL "rateLimit" src/app/api --include="route.ts"
 ```
+
+Para o `npm audit`, leia o job **"Security audit"** do último run do CI (não o execute localmente):
+
+```bash
+GH="/c/Program Files/GitHub CLI/gh.exe"
+"$GH" run list --workflow=ci.yml --limit 1
+```
+
+## Registo obrigatório
+
+Actualize `SECURITY_FINDINGS.md`: adicione novos achados com IDs sequenciais, marque como
+**Resolvido** os que esta mudança corrigiu (com data), e nunca duplique achados existentes.
 
 ## Formato do relatório
 
