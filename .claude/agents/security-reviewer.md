@@ -35,7 +35,7 @@ Execute em sequência e registe o output completo:
 
 ```bash
 # Secrets expostos em ficheiros client
-grep -r "ANTHROPIC_API_KEY\|SERVICE_ROLE_KEY" src/app --include="*.tsx" --include="*.ts" 2>&1
+grep -r "SERVICE_ROLE_KEY" src/app --include="*.tsx" --include="*.ts" 2>&1
 
 # API routes sem auth guard
 grep -rL "auth.getUser" src/app/api --include="route.ts" 2>&1
@@ -77,7 +77,7 @@ Registe no relatório: a conclusão do job (`success` = zero vulnerabilidades hi
 
 ### Client Components (`'use client'`)
 
-- [ ] Sem imports de `src/lib/anthropic/` ou `src/lib/yahoo-finance/`
+- [ ] Sem imports de `src/lib/yahoo-finance/`
 - [ ] Sem secrets ou chaves hardcoded no bundle
 - [ ] Usa `src/lib/supabase/client.ts` — nunca `server.ts`
 
