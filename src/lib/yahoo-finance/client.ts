@@ -12,10 +12,6 @@ const YahooFinanceClass = require("yahoo-finance2").default as new (opts?: {
     longName?: string;
     shortName?: string;
   }>;
-  historical: (
-    symbol: string,
-    options: { period1: Date | string; interval?: string }
-  ) => Promise<Array<{ date: Date; close: number; [key: string]: unknown }>>;
   chart: (
     symbol: string,
     options: { period1: Date | string; period2?: Date | string; interval?: string }
