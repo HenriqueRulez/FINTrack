@@ -256,13 +256,18 @@ export async function getHistory(ticker: string): Promise<HistoryPoint[]> {
 
   try {
     const period1 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    const raw = await yahooFinance.historical(ticker, { period1, interval: "1d" });
+    const period2 = new Date();
+    const { quotes } = await yahooFinance.chart(ticker, {
+      period1,
+      period2,
+      interval: "1d",
+    });
 
-    const data: HistoryPoint[] = raw
-      .filter((item) => typeof item.close === "number" && !isNaN(item.close))
-      .map((item) => ({
-        date: item.date.toISOString().split("T")[0],
-        close: item.close,
+    const data: HistoryPoint[] = quotes
+      .filter((q) => q.close != null && !Number.isNaN(q.close))
+      .map((q) => ({
+        date: q.date.toISOString().split("T")[0],
+        close: q.close as number,
       }));
 
     pruneCache(historyCache, Date.now(), (v) => v.fetchedAt, HISTORY_CACHE_TTL_MS);
