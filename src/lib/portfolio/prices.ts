@@ -100,10 +100,7 @@ export const yahooPriceProvider: PriceProvider = async (tickers) => {
     // 3. Persistir as quotes frescas (best-effort; falha não rebenta o fluxo).
     if (supabase && toUpsert.length > 0) {
       try {
-        // Cast necessário: @supabase/ssr@0.6.1 colapsa o Schema para `never` com
-        // o @supabase/supabase-js@2.112.1 (ver FIN-7/TD-6).
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error } = await (supabase as any)
+        const { error } = await supabase
           .from("price_cache")
           .upsert(toUpsert, { onConflict: "ticker" });
         if (error) throw error;
