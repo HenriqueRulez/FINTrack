@@ -32,6 +32,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { resetLedger } from "../support/ledger";
 
 const FIXTURE_PATH = resolve(__dirname, "../fixtures/trading212.sample.csv");
 
@@ -56,23 +57,6 @@ async function getAllTransactions(page: Page): Promise<ApiTxRow[]> {
   return body.data;
 }
 
-// DELETE /api/transactions/[id] partilha o rate limit "transactions:write"
-// (30/60s) com o resto da escrita manual — ao limpar mais de 30 linhas
-// sequencialmente batemos nesse limite. Espera o reset da janela e continua
-// em vez de falhar (é setup de teste, não parte do fluxo sob teste).
-async function wipeLedger(page: Page): Promise<number> {
-  const rows = await getAllTransactions(page);
-  for (const row of rows) {
-    let resp = await page.request.delete(`/api/transactions/${row.id}`);
-    if (resp.status() === 429) {
-      await new Promise((r) => setTimeout(r, 61_000));
-      resp = await page.request.delete(`/api/transactions/${row.id}`);
-    }
-    expect(resp.status()).toBe(200);
-  }
-  return rows.length;
-}
-
 async function openImportModal(page: Page) {
   await page.goto("/transactions");
   await page.waitForLoadState("networkidle");
@@ -84,16 +68,16 @@ async function openImportModal(page: Page) {
 }
 
 test.describe.serial("csv-import — Trading212", () => {
-  test.beforeAll(async ({ browser }) => {
-    // Pode esperar o reset do rate limit (61s) se houver >30 linhas a apagar.
-    test.setTimeout(120_000);
-    // Limpa o ledger do utilizador de teste UMA VEZ antes de toda a suite —
-    // garante a pré-condição "ledger vazio" do CA8.
-    const ctx = await browser.newContext();
-    const page = await ctx.newPage();
-    const deleted = await wipeLedger(page);
-    console.log(`[csv-import setup] ledger limpo: ${deleted} transacção(ões) pré-existente(s) apagada(s).`);
-    await ctx.close();
+  // Baseline determinístico: ledger vazio (pré-condição do CA8). Feito via service
+  // role (bypass da API e do rate limit "transactions:write") — sem a espera de
+  // ~61s do wipe antigo. Independente da ordem: mesmo que outro spec deixe seed.
+  test.beforeAll(async () => {
+    await resetLedger([]);
+  });
+
+  // Deixa o ledger limpo no fim para não poluir o utilizador de teste.
+  test.afterAll(async () => {
+    await resetLedger([]);
   });
 
   test("CA1 — modal abre e só aceite .csv", async ({ page }) => {

@@ -19,6 +19,8 @@
  */
 
 import { test, expect } from "@playwright/test";
+import { resetLedger } from "../support/ledger";
+import { LEDGER_SEED_13 } from "../support/ledger-seed";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CA-13 — Auth redirect (unauthenticated context, no storageState)
@@ -50,6 +52,16 @@ test("CA-13 auth › /transactions sem sessão: middleware redireciona para pass
 // ─────────────────────────────────────────────────────────────────────────────
 
 test.describe("Transactions Page — authenticated", () => {
+  // Estado FIXO de 13 transacções (All=13, Buy/Sell=7, Cash=2) exigido pelos
+  // contadores/tabela. Semeado via service role; limpo no fim. Ordem irrelevante.
+  test.beforeAll(async () => {
+    await resetLedger(LEDGER_SEED_13);
+  });
+
+  test.afterAll(async () => {
+    await resetLedger([]);
+  });
+
   test.beforeEach(async ({ page }) => {
     await page.goto("/transactions");
     await page.waitForLoadState("networkidle");

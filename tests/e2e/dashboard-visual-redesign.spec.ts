@@ -12,7 +12,24 @@
  *  CA-07 — Design system: IBM Plex Mono font, Teal accent, dark mode class on <html>
  */
 
-import { test, expect } from "@playwright/test";
+import { test, expect, type BrowserContext } from "@playwright/test";
+import {
+  createIsolatedAuthedContext,
+  refreshSharedAuthState,
+} from "../support/auth-session";
+import { resetLedger } from "../support/ledger";
+import { LEDGER_SEED_13 } from "../support/ledger-seed";
+
+// Baseline não-vazio para que KPIs e o chart "Portfolio over time" tenham dados
+// (não caiam em empty state) independentemente do que outro spec deixou. Semeado
+// via service role; limpo no fim. Não afecta o describe de logout (sessão isolada).
+test.beforeAll(async () => {
+  await resetLedger(LEDGER_SEED_13);
+});
+
+test.afterAll(async () => {
+  await resetLedger([]);
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CA-01 — Sidebar
@@ -343,20 +360,36 @@ test.describe("CA-07 — Design System", () => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CA-06 — Logout em Settings
-// Moved to the end of the suite so the session invalidation from the logout
-// action does not affect any subsequent describe blocks.
+// A acção real de logout usa scope=global (produção) e revoga sessões no servidor
+// por user_id — invalidaria o storageState partilhado e partiria os specs
+// seguintes (BUG-4). Por isso corre numa sessão ISOLADA e o afterAll re-semeia o
+// storageState partilhado, tornando a ordem dos specs irrelevante.
 // ─────────────────────────────────────────────────────────────────────────────
 
-test.describe("CA-06 — Logout em Settings", () => {
-  test("botão de logout existe na página /settings", async ({ page }) => {
+test.describe("CA-06 — Logout em Settings (sessão isolada)", () => {
+  let isolated: BrowserContext;
+
+  test.beforeAll(async ({ browser }) => {
+    isolated = await createIsolatedAuthedContext(browser);
+  });
+
+  test.afterAll(async ({ browser }) => {
+    await isolated.close();
+    await refreshSharedAuthState(browser);
+  });
+
+  test("botão de logout existe na página /settings", async () => {
+    const page = await isolated.newPage();
     await page.goto("/settings");
     await page.waitForLoadState("networkidle");
 
     const logoutBtn = page.getByRole("button", { name: /terminar sessão/i });
     await expect(logoutBtn).toBeVisible();
+    await page.close();
   });
 
-  test("acção de logout invalida sessão e redireciona para /passphrase", async ({ page }) => {
+  test("acção de logout invalida sessão e redireciona para /passphrase", async () => {
+    const page = await isolated.newPage();
     await page.goto("/settings");
     await page.waitForLoadState("networkidle");
 
@@ -367,5 +400,6 @@ test.describe("CA-06 — Logout em Settings", () => {
 
     // Should redirect to /passphrase after logout
     await expect(page).toHaveURL(/passphrase/, { timeout: 10_000 });
+    await page.close();
   });
 });

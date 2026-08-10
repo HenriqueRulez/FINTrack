@@ -23,6 +23,7 @@
  */
 
 import { test, expect, type APIRequestContext, type BrowserContext } from "@playwright/test";
+import { resetLedger } from "../support/ledger";
 
 const AUTH_STATE = "tests/e2e/.auth/user.json";
 
@@ -146,6 +147,8 @@ test.describe("Performance — com dados reais do ledger", () => {
   let fixtureIds: string[];
 
   test.beforeAll(async ({ browser }) => {
+    // Baseline vazio (via service role) para que a página derive SÓ dos fixtures.
+    await resetLedger([]);
     context = await browser.newContext({ storageState: AUTH_STATE });
     fixtureIds = await createFixtures(context.request);
   });
