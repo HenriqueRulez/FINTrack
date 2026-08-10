@@ -18,12 +18,6 @@ Ao fechar um achado, adicionar: `→ Resolvido em: [nome da feature] (YYYY-MM-DD
 
 ## Achados Abertos
 
-### MÉDIO
-
-| ID | Arquivo | Problema | Feature de origem | Data |
-|----|---------|----------|-------------------|------|
-| M-04 | `src/lib/rate-limit.ts:12-14`, `src/app/api/auth/login/route.ts:17` | Rate limit anti-brute-force do login é um `Map` em MEMÓRIA (o próprio autor anota "Replace with Upstash Redis in v2 for multi-instance deployments"). Em serverless/multi-instância o limite é **por instância**, não global → contornável por rotação de instâncias / atacante distribuído. Após FIN-8, este rate limit é a defesa central de um login cujo único segredo é a passphrase. Distinto do B-03 (que cobre só o memory leak do purge, não a eficácia do limite). Rastreado em TD-8/FIN-10. | Self-improvement (pós-FIN-8) | 2026-08-10 |
-
 ### BAIXO / INFORMACIONAL
 
 | ID | Arquivo | Problema | Feature de origem | Data |
@@ -48,6 +42,7 @@ Ao fechar um achado, adicionar: `→ Resolvido em: [nome da feature] (YYYY-MM-DD
 | A-01 | `src/app/(auth)/passphrase/page.tsx:57` | Mensagem "Palavra-passe incorrecta" confirma existência do utilizador (user enumeration) | App single-user por design — risco desprezível | 2026-05-23 |
 | A-02 | `src/proxy.ts:15` | CSP com `style-src 'self' 'unsafe-inline'` — permite estilos inline, vector teórico de exfiltração via CSS injection | Necessário para o runtime do TailwindCSS v4 (injecta estilos inline); o resto do CSP é forte (script-src com nonce + strict-dynamic, object-src none, frame-ancestors none, HSTS via upgrade-insecure-requests). Sem input de utilizador renderizado como HTML/CSS não sanitizado. Achado M-04 do AUDIT. | 2026-08-05 |
 | A-03 | `supabase/migrations/0013_price_cache.sql:38-48` | RLS permissiva em `price_cache`: policies `TO authenticated USING(true)/WITH CHECK(true)` sem `user_id` — qualquer utilizador autenticado pode INSERT/UPDATE/DELETE qualquer linha (cache poisoning: alterar preço/nome de um ticker afecta o valor de portfólio mostrado a todos, até ao TTL). SEM vazamento de dados de utilizador: tabela não tem `user_id` nem PII; preço/nome de ticker são dados de mercado PÚBLICOS. | Aceite por design: app single-user (o único principal autenticado é o dono → poisoning é auto-infligido). Impacto adicional bounded: TTL de 15 min regenera a linha no próximo fetch ao Yahoo, CHECKs validam a linha (`price>0`, tamanhos de `currency`/`name`/`ticker`), GRANT só a `authenticated` (nada a `anon`). Restringir writes ao nível de RLS exigiria caminho de escrita via `service_role` (mudança arquitectural), sem ganho para app single-user. | 2026-08-06 |
+| M-04 | `src/lib/rate-limit.ts:12-14`, `src/app/api/auth/login/route.ts:17` | Rate limit anti-brute-force do login é um `Map` em MEMÓRIA. Em serverless/multi-instância seria por-instância, não global → contornável. Após FIN-8, é a defesa central de um login cujo único segredo é a passphrase. | **Aceite ENQUANTO o deploy for local / instância única** (decisão do dono, FIN-10, 2026-08-10: app ainda não deployada). Nesse modelo o `Map` é global ao processo → o limite funciona como esperado. **Reavaliar OBRIGATORIAMENTE se deployar em serverless/multi-instância** (ex.: Vercel): aí o limite passa a ser por-instância e a opção Upstash/Supabase-backed (FIN-10) deve ser reaberta. Mitigação real entretanto: força da passphrase. Distinto do B-03 (memory leak do purge, não a eficácia do limite). | 2026-08-10 |
 
 ---
 
@@ -94,6 +89,6 @@ A cada ciclo de desenvolvimento, após a auditoria:
 |-----------|---------|------------|---------|
 | Crítico   | 0       | 0          | 0       |
 | Alto      | 0       | 0          | 0       |
-| Médio     | 1       | 3          | 0       |
+| Médio     | 0       | 3          | 1       |
 | Baixo     | 10      | 8          | 3       |
-| **Total** | **11**  | **11**     | **3**   |
+| **Total** | **10**  | **11**     | **4**   |
