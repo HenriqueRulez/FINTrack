@@ -17,7 +17,10 @@ const YahooFinanceClass = require("yahoo-finance2").default as new (opts?: {
   chart: (
     symbol: string,
     options: { period1: Date | string; period2?: Date | string; interval?: string }
-  ) => Promise<{ quotes: Array<{ date: Date; close: number | null }> }>;
+  ) => Promise<{
+    meta?: { currency?: string };
+    quotes: Array<{ date: Date; close: number | null }>;
+  }>;
   search: (
     query: string,
     queryOptions?: { quotesCount?: number; newsCount?: number },
@@ -172,6 +175,35 @@ export async function getFxOnDate(
   }
 }
 
+// --- Normalização de moeda na fronteira (unidades menores) -----------------
+// Algumas bolsas cotam na UNIDADE MENOR da moeda, não na maior: Londres em GBp
+// (pence), JSE em ZAc (cêntimos), Tel Aviv em ILA (agorot). Não é câmbio — a
+// relação é FIXA e definicional (1 GBP = 100 GBp, tal como 1 EUR = 100 cêntimos),
+// por isso o factor é exacto. O Yahoo devolve estes códigos em `quote.currency`
+// e em `chart().meta.currency`. Normaliza-se AQUI, na entrada dos dados, para
+// que o resto da app só lide com a moeda maior (fx, display, cache, histórico).
+const MINOR_UNITS: Record<string, { major: string; factor: number }> = {
+  GBp: { major: "GBP", factor: 0.01 },
+  GBX: { major: "GBP", factor: 0.01 },
+  ZAc: { major: "ZAR", factor: 0.01 },
+  ILA: { major: "ILS", factor: 0.01 },
+};
+
+// Factor para converter um valor na unidade cotada para a unidade maior (1 se já
+// for unidade maior). Usado onde só há o número solto (closes do histórico).
+export function minorUnitFactor(currency: string | undefined): number {
+  return currency && MINOR_UNITS[currency] ? MINOR_UNITS[currency].factor : 1;
+}
+
+// Normaliza (preço, moeda) do Yahoo para a unidade maior. Aplicar na fronteira.
+export function normalizeYahooMoney(
+  price: number,
+  currency: string
+): { price: number; currency: string } {
+  const u = MINOR_UNITS[currency];
+  return u ? { price: price * u.factor, currency: u.major } : { price, currency };
+}
+
 export async function getQuote(ticker: string): Promise<QuoteResult | null> {
   const cached = cache.get(ticker);
   if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
@@ -184,9 +216,16 @@ export async function getQuote(ticker: string): Promise<QuoteResult | null> {
 
     if (!quote.regularMarketPrice) return null;
 
+    // Normaliza unidades menores (ex.: LSE cota em GBp/pence) para a moeda maior
+    // na fronteira — sem isto o câmbio GBP→EUR inflaria o valor ~100x.
+    const { price, currency } = normalizeYahooMoney(
+      quote.regularMarketPrice,
+      quote.currency ?? "USD"
+    );
+
     const result: QuoteResult = {
-      price: quote.regularMarketPrice,
-      currency: quote.currency ?? "USD",
+      price,
+      currency,
       name: quote.longName ?? quote.shortName ?? ticker,
       fetchedAt: Date.now(),
     };
@@ -257,17 +296,18 @@ export async function getHistoryRange(
   }
 
   try {
-    const { quotes } = await yahooFinance.chart(ticker, {
+    const { meta, quotes } = await yahooFinance.chart(ticker, {
       period1,
       period2,
       interval: "1d",
     });
 
+    const scale = minorUnitFactor(meta?.currency);
     const data: HistoryPoint[] = quotes
       .filter((q) => q.close != null && !Number.isNaN(q.close))
       .map((q) => ({
         date: q.date.toISOString().split("T")[0],
-        close: q.close as number,
+        close: (q.close as number) * scale,
       }));
 
     pruneCache(historyRangeCache, Date.now(), (v) => v.fetchedAt, HISTORY_CACHE_TTL_MS);
@@ -293,17 +333,18 @@ export async function getHistory(ticker: string): Promise<HistoryPoint[]> {
   try {
     const period1 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const period2 = new Date();
-    const { quotes } = await yahooFinance.chart(ticker, {
+    const { meta, quotes } = await yahooFinance.chart(ticker, {
       period1,
       period2,
       interval: "1d",
     });
 
+    const scale = minorUnitFactor(meta?.currency);
     const data: HistoryPoint[] = quotes
       .filter((q) => q.close != null && !Number.isNaN(q.close))
       .map((q) => ({
         date: q.date.toISOString().split("T")[0],
-        close: q.close as number,
+        close: (q.close as number) * scale,
       }));
 
     pruneCache(historyCache, Date.now(), (v) => v.fetchedAt, HISTORY_CACHE_TTL_MS);
