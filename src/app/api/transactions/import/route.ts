@@ -11,6 +11,7 @@ import {
   type MapResult,
 } from "@/lib/import/trading212";
 import { ledgerErrorFor } from "@/lib/portfolio/write-guard";
+import { resolveYahooSymbol } from "@/lib/yahoo-finance/resolve-symbol";
 import type { TransactionRow as LedgerRow } from "@/lib/portfolio/derive";
 import type { TablesInsert } from "@/types/database";
 
@@ -103,6 +104,9 @@ export async function POST(request: NextRequest) {
   // duplicadas (dedupe também dentro do próprio ficheiro).
   const rows: ResponseRow[] = [];
   const newCandidates: ImportCandidate[] = [];
+  // Linha de resposta de cada candidata nova, paralela a newCandidates — permite
+  // reflectir o símbolo Yahoo resolvido também na pré-visualização.
+  const newRows: ResponseRow[] = [];
   const seenInFile = new Set<string>();
   const summary: Summary = { total: mapped.length, new: 0, duplicate: 0, ignored: 0, error: 0 };
 
@@ -125,9 +129,46 @@ export async function POST(request: NextRequest) {
       rows.push({ status: "duplicate", ...display });
       summary.duplicate++;
     } else {
-      rows.push({ status: "new", ...display });
+      const newRow: ResponseRow = { status: "new", ...display };
+      rows.push(newRow);
+      newRows.push(newRow);
       summary.new++;
       newCandidates.push(c);
+    }
+  }
+
+  // 5b. Resolução de símbolo Yahoo por ISIN (BUG-7/FIN-15). Instrumentos
+  // europeus chegam com o ticker cru do T212 (ex.: "VWRA"), que não é quotável
+  // no Yahoo (precisa de sufixo de bolsa: VWRA.L). Resolve-se por ISIN cada
+  // ticker DISTINTO das candidatas novas buy/sell (dedupe → limita chamadas),
+  // remapeando 1:1 (todas as linhas do mesmo ticker → mesmo símbolo). Aplica-se
+  // tanto ao preview como ao commit. Falha de resolução → fallback ao ticker
+  // original; NUNCA rebenta o import. O isin da candidata é preservado.
+  const tickerToIsin = new Map<string, string | null>();
+  for (const c of newCandidates) {
+    if ((c.type === "buy" || c.type === "sell") && c.ticker) {
+      if (!tickerToIsin.has(c.ticker)) tickerToIsin.set(c.ticker, c.isin);
+    }
+  }
+  const resolvedByTicker = new Map<string, string>();
+  await Promise.all(
+    [...tickerToIsin].map(async ([ticker, isin]) => {
+      try {
+        resolvedByTicker.set(ticker, await resolveYahooSymbol(ticker, isin));
+      } catch {
+        resolvedByTicker.set(ticker, ticker); // fallback — nunca 500
+      }
+    })
+  );
+  // Aplica a remapeação às candidatas novas e às respectivas linhas de preview.
+  // A chave é o ticker ORIGINAL, por isso lê-se antes de mutar c.ticker.
+  for (let i = 0; i < newCandidates.length; i++) {
+    const c = newCandidates[i];
+    if (!c.ticker) continue;
+    const resolved = resolvedByTicker.get(c.ticker);
+    if (resolved && resolved !== c.ticker) {
+      newRows[i].ticker = resolved;
+      c.ticker = resolved;
     }
   }
 
