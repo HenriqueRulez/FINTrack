@@ -10,7 +10,7 @@
 
 - `src/lib/yahoo-finance/resolve-symbol.ts` — resolver de símbolo Yahoo por ISIN, server-only, com core puro injectável + wrapper com cache em memória por `ticker|isin`.
 - `scripts/backfill-ticker-symbols.mjs` — backfill das posições já importadas: remapeia por (ticker, isin), dry-run por defeito + `--commit`, idempotente, carrega `.env.local`.
-- `tests/unit/resolve-symbol.spec.ts` — 12 testes do resolver com `quote`/`search` mockados (sem rede), cobrindo os 4 casos do spec + regressões.
+- `tests/unit/resolve-symbol.spec.ts` — 8 testes do resolver com `quote`/`search` mockados (sem rede), cobrindo os 4 casos do spec + regressões (preço 0/NaN, search a lançar, cache).
 
 ## Ficheiros Modificados
 
@@ -22,7 +22,7 @@
 - [x] Parte A1 — Resolver testável (`resolveYahooSymbolCore` + `resolveYahooSymbol`) com deps injectadas, cache por `ticker|isin`, `validateResult:false` em quote e search.
 - [x] Parte A2 — Wiring no `POST /api/transactions/import` (preview + commit), dedupe, fallback, guard de oversell inalterado.
 - [x] Parte B — `scripts/backfill-ticker-symbols.mjs` (dry-run + `--commit`, idempotente, remap por (ticker, isin)). NÃO executado (service role key desta sessão inválida — o dono corre-o).
-- [x] Testes — 12 unitários novos, todos verdes; suite completa 83/83 verde.
+- [x] Testes — 8 unitários novos, todos verdes; suite completa verde.
 
 ## Notas para o QA
 
