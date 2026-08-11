@@ -5,7 +5,9 @@ const YahooFinanceClass = require("yahoo-finance2").default as new (opts?: {
   suppressNotices?: string[];
 }) => {
   quote: (
-    symbol: string
+    symbol: string,
+    queryOptions?: Record<string, unknown>,
+    moduleOptions?: { validateResult?: boolean }
   ) => Promise<{
     regularMarketPrice?: number;
     currency?: string;
@@ -16,6 +18,13 @@ const YahooFinanceClass = require("yahoo-finance2").default as new (opts?: {
     symbol: string,
     options: { period1: Date | string; period2?: Date | string; interval?: string }
   ) => Promise<{ quotes: Array<{ date: Date; close: number | null }> }>;
+  search: (
+    query: string,
+    queryOptions?: { quotesCount?: number; newsCount?: number },
+    moduleOptions?: { validateResult?: boolean }
+  ) => Promise<{
+    quotes: Array<{ symbol?: string; exchange?: string; quoteType?: string }>;
+  }>;
 };
 
 const yahooFinance = new YahooFinanceClass({ suppressNotices: ["yahooSurvey"] });
@@ -188,6 +197,37 @@ export async function getQuote(ticker: string): Promise<QuoteResult | null> {
   } catch {
     return null;
   }
+}
+
+// --- Primitivas cruas para o resolver de símbolo (resolve-symbol.ts) --------
+// O resolver precisa de bater no Yahoo SEM o cache de quotes acima (que é por
+// ticker e assume símbolo já quotável) e com `validateResult:false` — sem ele
+// o yahoo-finance2 lança "did not validate with schema" em ETFs
+// (quoteType ETF != const EQUITY). Estas primitivas são server-only, iguais ao
+// resto do módulo.
+
+// Quote cru de um símbolo com validação de schema desligada. Devolve null se a
+// chamada falhar (símbolo inexistente, rede) — o resolver decide o fallback.
+export async function yahooQuoteRaw(
+  symbol: string
+): Promise<{ regularMarketPrice?: number } | null> {
+  try {
+    return await yahooFinance.quote(symbol, {}, { validateResult: false });
+  } catch {
+    return null;
+  }
+}
+
+// Search cru do Yahoo (resolve símbolo quotável a partir de um ISIN). Repassa
+// as opções ao pacote; `validateResult:false` é responsabilidade do chamador.
+export async function yahooSearch(
+  query: string,
+  queryOptions?: { quotesCount?: number; newsCount?: number },
+  moduleOptions?: { validateResult?: boolean }
+): Promise<{
+  quotes: Array<{ symbol?: string; exchange?: string; quoteType?: string }>;
+}> {
+  return yahooFinance.search(query, queryOptions, moduleOptions);
 }
 
 export async function getQuotes(
